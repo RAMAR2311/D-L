@@ -42,8 +42,8 @@ def vendedores():
         return redirect(url_for('admin_bp.vendedores'))
         
     # Se pasa la lista para poblar la tabla HTML de gestión de personal
-    # Mostramos todos los usuarios que no son admin para gestión centralizada
-    lista_vendedores = User.query.filter(User.rol != 'admin').order_by(User.nombre).all()
+    # Mostramos todos los usuarios que no son admin ni eliminados para gestión centralizada
+    lista_vendedores = User.query.filter(~User.rol.in_(['admin', 'eliminado'])).order_by(User.nombre).all()
     return render_template('admin/vendedores.html', vendedores=lista_vendedores)
 
 @admin_bp.route('/vendedores/<int:id>/eliminar', methods=['POST'])
@@ -56,7 +56,9 @@ def eliminar_vendedor(id):
         return redirect(url_for('admin_bp.vendedores'))
         
     try:
-        db.session.delete(usuario)
+        # En lugar de hacer un delete() duro que rompe las llaves foráneas (ventas, facturas), hacemos un soft delete
+        usuario.rol = 'eliminado'
+        usuario.email = f"eliminado_{usuario.id}_{usuario.email}"
         db.session.commit()
         flash(f"¡Usuario '{usuario.nombre}' eliminado exitosamente!", "success")
     except Exception as e:
