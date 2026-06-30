@@ -393,6 +393,17 @@ def abono_global(cliente_id):
         monto_abono = Decimal(0)
     metodo_pago = request.form.get('metodo_pago', 'efectivo')
     observacion_base = request.form.get('observacion', '')
+    
+    fecha_str = request.form.get('fecha') or request.form.get('fecha_abono')
+    fecha_dt = None
+    if fecha_str:
+        from datetime import datetime
+        try:
+            fecha_temp = datetime.strptime(fecha_str, '%Y-%m-%d')
+            ahora = obtener_hora_bogota()
+            fecha_dt = fecha_temp.replace(hour=ahora.hour, minute=ahora.minute, second=ahora.second)
+        except ValueError:
+            pass
 
     if monto_abono <= 0:
         flash('El monto del abono debe ser mayor a cero.', 'danger')
@@ -415,6 +426,8 @@ def abono_global(cliente_id):
                 metodo_pago=metodo_pago,
                 observacion=observacion_base or "Abono global a cuenta (Sin facturas pendientes)"
             )
+            if fecha_dt:
+                abono.fecha_abono = fecha_dt
             db.session.add(abono)
         else:
             # 2. Aplicar el pago en cascada
@@ -440,6 +453,8 @@ def abono_global(cliente_id):
                     metodo_pago=metodo_pago,
                     observacion=obs_cascada
                 )
+                if fecha_dt:
+                    nuevo_abono_item.fecha_abono = fecha_dt
                 db.session.add(nuevo_abono_item)
                 
                 monto_restante -= pago_aplicado
@@ -459,6 +474,8 @@ def abono_global(cliente_id):
                     metodo_pago=metodo_pago,
                     observacion=f"{observacion_base} (Excedente después de pagar facturas)" if observacion_base else "Excedente de pago global"
                 )
+                if fecha_dt:
+                    abono_excedente.fecha_abono = fecha_dt
                 db.session.add(abono_excedente)
 
         db.session.commit()
@@ -530,7 +547,7 @@ def editar_abono(abono_id):
 
     metodo_pago = request.form.get('metodo_pago', abono.metodo_pago)
     observacion = request.form.get('observacion', abono.observacion)
-    fecha_str = request.form.get('fecha_abono')
+    fecha_str = request.form.get('fecha_abono') or request.form.get('fecha')
 
     if monto_nuevo <= 0:
         flash('El monto del abono debe ser mayor a cero.', 'danger')
