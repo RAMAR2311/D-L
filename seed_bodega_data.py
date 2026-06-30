@@ -134,6 +134,7 @@ def seed_bodega():
 
             # Registrar un abono inicial
             abono = AbonoBodega(
+                cliente_id=cliente_test.id,
                 factura_id=factura.id,
                 usuario_id=bodega_user.id,
                 monto=Decimal('4000000.00'),
@@ -145,6 +146,42 @@ def seed_bodega():
 
             db.session.commit()
             print("[INFO] Factura de ejemplo FB-TEST-001 generada con abono parcial.")
+
+        # 5. Crear otra Factura de Bodega (Contado / Pagada)
+        cliente_test_2 = Cliente.query.filter_by(documento_o_nit="800.111.222-3").first()
+        if cliente_test_2 and not FacturaBodega.query.filter_by(numero_factura="FB-TEST-002").first():
+            factura2 = FacturaBodega(
+                cliente_id=cliente_test_2.id,
+                usuario_id=bodega_user.id,
+                numero_factura="FB-TEST-002",
+                archivo_ruta=None,
+                monto_total=Decimal('2850000.00'),
+                estado='Pagado',
+                modalidad='contado'
+            )
+            db.session.add(factura2)
+            db.session.flush()
+
+            p3 = Product.query.filter_by(sku="BOD-APP2").first()
+            if p3:
+                db.session.add(FacturaBodegaDetalle(
+                    factura_id=factura2.id,
+                    producto_id=p3.id,
+                    cantidad=3,
+                    precio_venta=Decimal('950000.00')
+                ))
+            
+            abono2 = AbonoBodega(
+                cliente_id=cliente_test_2.id,
+                factura_id=factura2.id,
+                usuario_id=bodega_user.id,
+                monto=Decimal('2850000.00'),
+                metodo_pago='nequi',
+                observacion='Pago completo de contado'
+            )
+            db.session.add(abono2)
+            db.session.commit()
+            print("[INFO] Factura de ejemplo FB-TEST-002 generada y pagada.")
 
 if __name__ == '__main__':
     seed_bodega()
