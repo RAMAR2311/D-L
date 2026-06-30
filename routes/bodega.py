@@ -20,12 +20,14 @@ def dashboard():
     if current_user.rol == 'vendedor_bodega':
         total_clientes = Cliente.query.filter_by(creado_por_id=current_user.id).count()
         facturas_recientes = FacturaBodega.query.filter_by(usuario_id=current_user.id).order_by(FacturaBodega.fecha_subida.desc()).limit(10).all()
+        abonos_recientes = AbonoBodega.query.filter_by(usuario_id=current_user.id).order_by(AbonoBodega.fecha_abono.desc()).limit(10).all()
     else:
         # Rol 'bodega' o 'admin' ve todo
         total_clientes = Cliente.query.count()
         facturas_recientes = FacturaBodega.query.order_by(FacturaBodega.fecha_subida.desc()).limit(10).all()
+        abonos_recientes = AbonoBodega.query.order_by(AbonoBodega.fecha_abono.desc()).limit(10).all()
     
-    return render_template('bodega/dashboard.html', clientes_count=total_clientes, facturas=facturas_recientes)
+    return render_template('bodega/dashboard.html', clientes_count=total_clientes, facturas=facturas_recientes, abonos=abonos_recientes)
 
 @bodega_bp.route('/clientes/nuevo', methods=['GET', 'POST'])
 @login_required

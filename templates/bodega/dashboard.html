@@ -29,16 +29,22 @@
 </div>
 
 <div class="row g-4 mb-4">
-    <!-- ... resto del contenido ... -->
-    <div class="col-md-6 col-lg-4">
-        <div class="card card-custom h-100 border-0 p-4 text-center shadow-sm">
-            <h5 class="text-muted fw-bold">{% if current_user.rol == 'vendedor_bodega' %}Mis Clientes{% else %}Total Clientes{% endif %}</h5>
-            <h1 class="display-4 fw-bolder text-brand-black" style="color: var(--brand-blue) !important;">{{ clientes_count }}</h1>
-            <a href="{{ url_for('bodega_bp.nuevo_cliente') }}" class="btn btn-blue rounded-pill mt-3 shadow-sm"><i class="fa-solid fa-plus me-1"></i> Nuevo Cliente</a>
+    <div class="col-12">
+        <div class="card card-custom border-0 p-4 text-center shadow-sm d-flex flex-column flex-md-row align-items-center justify-content-center gap-4">
+            <div class="text-md-end">
+                <h5 class="text-muted fw-bold mb-1">{% if current_user.rol == 'vendedor_bodega' %}Mis Clientes{% else %}Total Clientes en Bodega{% endif %}</h5>
+                <h1 class="display-4 fw-bolder text-brand-black mb-0" style="color: var(--brand-blue) !important;">{{ clientes_count }}</h1>
+            </div>
+            <div class="vr d-none d-md-block mx-2" style="opacity: 0.1; width: 2px;"></div>
+            <div class="text-md-start">
+                <a href="{{ url_for('bodega_bp.nuevo_cliente') }}" class="btn btn-blue btn-lg rounded-pill shadow-sm"><i class="fa-solid fa-plus me-1"></i> Nuevo Cliente</a>
+            </div>
         </div>
     </div>
-    
-    <div class="col-md-6 col-lg-8">
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
         <div class="card card-custom border-0 p-0 overflow-hidden h-100 shadow-sm">
             <h5 class="fw-bold p-4 bg-light mb-0 border-bottom"><i class="fa-solid fa-file-pdf text-brand-pink me-2"></i> Últimas Facturas</h5>
             <div class="table-responsive">
@@ -78,8 +84,43 @@
                     </tbody>
                 </table>
             </div>
-            <div class="p-3 text-end bg-light border-top">
+            <div class="p-3 text-end bg-light border-top mt-auto">
                 <a href="{{ url_for('bodega_bp.nueva_factura') }}" class="btn btn-pink rounded-pill shadow-sm"><i class="fa-solid fa-upload me-1"></i> Subir Documento</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card card-custom border-0 p-0 overflow-hidden h-100 shadow-sm">
+            <h5 class="fw-bold p-4 bg-light mb-0 border-bottom"><i class="fa-solid fa-money-bill-transfer text-success me-2"></i> Últimos Abonos</h5>
+            <div class="table-responsive">
+                <table class="table table-hover table-custom mb-0">
+                    <thead class="bg-light text-muted">
+                        <tr>
+                            <th class="ps-4">CLIENTE</th>
+                            <th>MONTO</th>
+                            <th>FECHA</th>
+                            <th class="text-center">MÉTODO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in abonos %}
+                        <tr>
+                            <td class="ps-4"><a href="{{ url_for('bodega_bp.cliente_detalle', id=a.cliente.id) }}" class="text-decoration-none text-brand-black fw-bold"><i class="fa-solid fa-user-circle text-muted me-1"></i> {{ a.cliente.nombre_o_razon_social }}</a></td>
+                            <td class="fw-bold text-success">${{ a.monto|cop }}</td>
+                            <td class="text-muted"><small>{{ a.fecha_abono.strftime('%d/%m/%Y') if a.fecha_abono else '-' }}</small></td>
+                            <td class="text-center text-capitalize">{{ a.metodo_pago }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">No se han registrado abonos recientemente.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-3 text-end bg-light border-top mt-auto">
+                <a href="{{ url_for('bodega_bp.modulo_abonos') }}" class="btn btn-blue rounded-pill shadow-sm"><i class="fa-solid fa-plus me-1"></i> Nuevo Abono Rápido</a>
             </div>
         </div>
     </div>
