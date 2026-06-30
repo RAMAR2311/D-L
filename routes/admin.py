@@ -46,6 +46,25 @@ def vendedores():
     lista_vendedores = User.query.filter(User.rol != 'admin').order_by(User.nombre).all()
     return render_template('admin/vendedores.html', vendedores=lista_vendedores)
 
+@admin_bp.route('/vendedores/<int:id>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def eliminar_vendedor(id):
+    usuario = User.query.get_or_404(id)
+    if usuario.rol == 'admin':
+        flash("No puedes eliminar al administrador.", "danger")
+        return redirect(url_for('admin_bp.vendedores'))
+        
+    try:
+        db.session.delete(usuario)
+        db.session.commit()
+        flash(f"¡Usuario '{usuario.nombre}' eliminado exitosamente!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash("Ocurrió un error al intentar eliminar el usuario.", "danger")
+        
+    return redirect(url_for('admin_bp.vendedores'))
+
 @admin_bp.route('/dashboard')
 @login_required
 @admin_required

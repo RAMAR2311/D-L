@@ -75,7 +75,8 @@
                             <th class="ps-4">NOMBRE DE EMPLEADO</th>
                             <th>EMAIL (CREDENCIAL DE ACCESO)</th>
                             <th>ROL / PERFIL</th>
-                            <th class="text-center pe-4">STATUS</th>
+                            <th class="text-center">STATUS</th>
+                            <th class="text-center pe-4">ACCIONES</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -94,13 +95,21 @@
                                     {{ vendedor.rol }}
                                 {% endif %}
                             </td>
-                            <td class="text-center pe-4">
+                            <td class="text-center">
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2 w-100">Activo</span>
+                            </td>
+                            <td class="text-center pe-4">
+                                <form action="{{ url_for('admin_bp.eliminar_vendedor', id=vendedor.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar a este trabajador? Esta acción no se puede deshacer.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle shadow-sm" title="Eliminar trabajador">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="4" class="text-center py-5 text-muted">
+                            <td colspan="5" class="text-center py-5 text-muted">
                                 <i class="fa-solid fa-users-slash fs-1 mb-3 opacity-25"></i>
                                 <p class="mb-0">Aún no has dado de alta a ningún Vendedor/Cajero.</p>
                             </td>
