@@ -108,6 +108,131 @@ def editar_cliente(id):
 
     return render_template('bodega/cliente_editar.html', cliente=cliente)
 
+@bodega_bp.route('/caja_rapida', methods=['GET', 'POST'])
+@login_required
+@any_bodega_required
+def caja_rapida():
+    if request.method == 'POST':
+        import json
+        from decimal import Decimal
+        from datetime import datetime
+        cliente_id = request.form.get('cliente_id')
+        cart_data_str = request.form.get('cart_data', '{}')
+        fecha_venta_str = request.form.get('fecha_venta')
+        metodo_pago = request.form.get('metodo_pago', 'efectivo')
+        monto_abono_str = request.form.get('monto_abono', '0').replace('.', '').replace(',', '')
+        
+        try:
+            cart = json.loads(cart_data_str)
+        except:
+            cart = {}
+            
+        if not cart:
+            flash('El carrito está vacío.', 'danger')
+            return redirect(url_for('bodega_bp.caja_rapida'))
+            
+        if not cliente_id:
+            flash('Debes seleccionar un cliente.', 'danger')
+            return redirect(url_for('bodega_bp.caja_rapida'))
+
+        ultima_factura = FacturaBodega.query.order_by(FacturaBodega.id.desc()).first()
+        siguiente_num = ultima_factura.id + 1 if ultima_factura else 1
+        numero_factura = f"POS-BOD-{siguiente_num:05d}"
+        
+        monto_total = Decimal(0)
+        for item_id, item_data in cart.items():
+            monto_total += Decimal(item_data['price']) * int(item_data['qty'])
+
+        try:
+            monto_abono = Decimal(monto_abono_str or 0)
+        except:
+            monto_abono = Decimal(0)
+
+        modalidad = 'credito' if metodo_pago == 'credito' else 'contado'
+        
+        if modalidad == 'contado':
+            monto_abono = monto_total
+            estado_factura = 'Pagado'
+        else:
+            if monto_abono >= monto_total:
+                estado_factura = 'Pagado'
+            elif monto_abono > 0:
+                estado_factura = 'Parcial'
+            else:
+                estado_factura = 'Pendiente'
+
+        fecha_obj = None
+        if fecha_venta_str:
+            try:
+                fecha_obj = datetime.strptime(fecha_venta_str, '%Y-%m-%d')
+            except ValueError:
+                pass
+
+        try:
+            nueva_fact = FacturaBodega(
+                cliente_id=cliente_id,
+                usuario_id=current_user.id,
+                numero_factura=numero_factura,
+                monto_total=monto_total,
+                modalidad=modalidad,
+                estado=estado_factura
+            )
+            
+            if fecha_obj:
+                ahora = obtener_hora_bogota()
+                nueva_fact.fecha_subida = fecha_obj.replace(hour=ahora.hour, minute=ahora.minute, second=ahora.second)
+                
+            db.session.add(nueva_fact)
+            db.session.flush()
+            
+            if monto_abono > 0:
+                abono = AbonoBodega(
+                    cliente_id=cliente_id,
+                    factura_id=nueva_fact.id,
+                    usuario_id=current_user.id,
+                    monto=monto_abono,
+                    metodo_pago=metodo_pago if metodo_pago != 'credito' else 'efectivo',
+                    observacion=f"Abono Caja Rápida - Fac #{numero_factura}"
+                )
+                if fecha_obj:
+                    abono.fecha_abono = nueva_fact.fecha_subida
+                db.session.add(abono)
+                
+            for item_id, item_data in cart.items():
+                producto = Product.query.get(item_id)
+                if producto:
+                    cantidad = int(item_data['qty'])
+                    precio_venta = Decimal(item_data['price'])
+                    
+                    if producto.cantidad_stock >= cantidad:
+                        producto.cantidad_stock -= cantidad
+                    else:
+                        flash(f'Stock insuficiente para el producto {producto.nombre}.', 'danger')
+                        db.session.rollback()
+                        return redirect(url_for('bodega_bp.caja_rapida'))
+                        
+                    detalle = FacturaBodegaDetalle(
+                        factura_id=nueva_fact.id,
+                        producto_id=producto.id,
+                        cantidad=cantidad,
+                        precio_venta=precio_venta
+                    )
+                    db.session.add(detalle)
+                    
+            db.session.commit()
+            flash(f'Venta rápida registrada con éxito. Factura: {numero_factura}', 'success')
+            return redirect(url_for('bodega_bp.dashboard'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Ocurrió un error al registrar la venta.', 'danger')
+            return redirect(url_for('bodega_bp.caja_rapida'))
+
+    productos = Product.query.filter_by(tipo_inventario='bodega').order_by(Product.nombre.asc()).all()
+    clientes = Cliente.query.order_by(Cliente.nombre_o_razon_social.asc()).all()
+    
+    return render_template('bodega/caja_rapida.html', productos=productos, clientes=clientes)
+
 @bodega_bp.route('/facturas/nueva', methods=['GET', 'POST'])
 @login_required
 @any_bodega_required

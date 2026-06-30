@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row h-100 g-4">
+    <!-- Panel Izquierdo: Catálogo de Productos -->
+    <div class="col-lg-8 d-flex flex-column h-100">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold text-brand-black m-0"><i class="fa-solid fa-store text-brand-pink me-2"></i> Caja Rápida Visual</h2>
+        </div>
+
+        <!-- Buscador de productos -->
+        <div class="mb-4">
+            <div class="input-group input-group-lg shadow-sm rounded-pill border">
+                <span class="input-group-text bg-white border-0 ps-4"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" id="productSearch" class="form-control border-0 bg-white shadow-none ps-2" placeholder="Buscar producto por nombre o SKU..." style="border-radius: 0 50px 50px 0;">
+            </div>
+        </div>
+
+        <!-- Grilla de productos -->
+        <div class="row g-3 overflow-auto pb-4" id="productsGrid" style="max-height: calc(100vh - 250px);">
+            {% for p in productos %}
+            <div class="col-6 col-md-4 col-xl-3 product-card-container" data-name="{{ p.nombre|lower }}" data-sku="{{ p.sku|lower }}">
+                <div class="card h-100 border-0 shadow-sm cursor-pointer product-card" onclick="addToCart({{ p.id }}, '{{ p.nombre|escape }}', {{ p.precio_sugerido }}, {{ p.cantidad_stock }})">
+                    <div class="ratio ratio-1x1 bg-light rounded-top d-flex align-items-center justify-content-center overflow-hidden">
+                        {% if p.imagen %}
+                            <img src="{{ url_for('static', filename='uploads/productos/' + p.imagen) }}" alt="{{ p.nombre }}" style="object-fit: cover; width: 100%; height: 100%;">
+                        {% else %}
+                            <span class="text-muted small text-center pt-4"><i class="fa-solid fa-image fa-2x mb-2 text-black-50"></i><br>Sin Imagen</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body p-3 text-center d-flex flex-column justify-content-between">
+                        <div>
+                            <h6 class="card-title fw-bold text-dark text-truncate mb-1" title="{{ p.nombre }}">{{ p.nombre }}</h6>
+                            <small class="text-muted d-block mb-2">{{ p.sku }}</small>
+                        </div>
+                        <div>
+                            <h5 class="fw-bolder mb-1" style="color: var(--brand-pink);">${{ p.precio_sugerido|cop }}</h5>
+                            <small class="text-muted"><i class="fa-solid fa-box text-secondary"></i> {{ p.cantidad_stock }} en stock</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12 text-center py-5">
+                <i class="fa-solid fa-box-open fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No hay productos en bodega.</h5>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Panel Derecho: Carrito -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100 bg-white d-flex flex-column">
+            <div class="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold m-0"><i class="fa-solid fa-cart-shopping text-brand-blue me-2"></i> Caja Rápida</h5>
+                <span class="badge bg-secondary rounded-pill" id="itemCount">0 items</span>
+            </div>
+            
+            <div class="card-body p-0 overflow-auto flex-grow-1" id="cartContainer" style="max-height: 40vh;">
+                <!-- Estado Vacío -->
+                <div id="emptyCart" class="text-center py-5 text-muted">
+                    <i class="fa-solid fa-basket-shopping fa-3x mb-3 text-black-50"></i>
+                    <h6>Tu carrito está vacío.</h6>
+                    <small>Selecciona productos del catálogo.</small>
+                </div>
+                <!-- Lista de items -->
+                <ul class="list-group list-group-flush" id="cartItems">
+                    <!-- Javascript inyectará items aquí -->
+                </ul>
+            </div>
+
+            <div class="card-footer bg-light border-top p-4">
+                <div class="d-flex justify-content-between mb-3">
+                    <span class="text-muted fw-bold">Total a Cobrar:</span>
+                    <h3 class="fw-bolder m-0 text-brand-black" id="cartTotal">$0</h3>
+                </div>
+
+                <form id="checkoutForm" method="POST" action="{{ url_for('bodega_bp.caja_rapida') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="cart_data" id="cartDataInput">
+                    <input type="hidden" name="total_amount" id="totalAmountInput">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">CLIENTE (OBLIGATORIO)</label>
+                        <select name="cliente_id" class="form-select border-0 shadow-sm" required>
+                            <option value="" disabled selected>-- Selecciona un Cliente --</option>
+                            {% for c in clientes %}
+                            <option value="{{ c.id }}">{{ c.nombre_o_razon_social }} - {{ c.documento_o_nit }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-muted">FECHA VENTA</label>
+                            <input type="date" name="fecha_venta" class="form-control border-0 shadow-sm" id="fechaVenta" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-muted">MÉTODO PAGO</label>
+                            <select name="metodo_pago" id="metodoPago" class="form-select border-0 shadow-sm" required onchange="toggleAbonoInput()">
+                                <option value="efectivo">💵 Efectivo</option>
+                                <option value="nequi">📱 Nequi</option>
+                                <option value="bancolombia">🏦 Bancolombia</option>
+                                <option value="daviplata">📱 Daviplata</option>
+                                <option value="transferencia">🏦 Transferencia</option>
+                                <option value="credito">⏳ A Crédito (Sin abono)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="abonoContainer">
+                        <label class="form-label fw-bold small text-muted">ABONO INICIAL</label>
+                        <div class="input-group shadow-sm border rounded">
+                            <span class="input-group-text bg-white border-0 fw-bold text-success">$</span>
+                            <input type="text" name="monto_abono" id="montoAbonoInput" class="form-control border-0" placeholder="0" oninput="formatInputCOP(this)">
+                            <button type="button" class="btn btn-light border-start text-muted" onclick="setFullAbono()" title="Abonar el Total">MAX</button>
+                        </div>
+                        <small class="text-muted" style="font-size:0.75rem;">Si dejas el abono vacío o en cero, la venta quedará "A Crédito". Si abonas el total, quedará "Pagada".</small>
+                    </div>
+
+                    <button type="button" class="btn btn-blue w-100 rounded-pill py-3 fw-bold fs-5 shadow-sm mt-2" onclick="processCheckout()">
+                        <i class="fa-solid fa-check-circle me-2"></i> Generar Factura
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .product-card { transition: transform 0.2s, box-shadow 0.2s; border: 2px solid transparent !important; }
+    .product-card:hover { transform: translateY(-5px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; border-color: var(--brand-pink) !important; }
+    .cursor-pointer { cursor: pointer; }
+    .cart-item-qty { width: 50px; text-align: center; border: 1px solid #dee2e6; border-radius: 4px; padding: 2px; }
+</style>
+
+<script>
+    let cart = {};
+    let currentTotal = 0;
+
+    // Inicializar fecha
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('fechaVenta').value = new Date().toISOString().split('T')[0];
+    });
+
+    // Toggle Abono input if 'credito' is explicitly selected
+    function toggleAbonoInput() {
+        const met = document.getElementById('metodoPago').value;
+        const cont = document.getElementById('abonoContainer');
+        const input = document.getElementById('montoAbonoInput');
+        if (met === 'credito') {
+            input.value = '';
+            cont.style.opacity = '0.5';
+            input.readOnly = true;
+        } else {
+            cont.style.opacity = '1';
+            input.readOnly = false;
+        }
+    }
+
+    // Buscador de productos
+    document.getElementById('productSearch').addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase();
+        const cards = document.querySelectorAll('.product-card-container');
+        cards.forEach(card => {
+            const name = card.getAttribute('data-name');
+            const sku = card.getAttribute('data-sku');
+            if (name.includes(query) || sku.includes(query)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+
+    function addToCart(id, name, price, maxStock) {
+        if (maxStock <= 0) {
+            alert('¡Producto sin stock en bodega!');
+            return;
+        }
+
+        if (cart[id]) {
+            if (cart[id].qty < maxStock) {
+                cart[id].qty++;
+            } else {
+                alert('No puedes exceder el stock disponible.');
+            }
+        } else {
+            cart[id] = { name, price, qty: 1, maxStock };
+        }
+        renderCart();
+    }
+
+    function updateCartQty(id, newQty) {
+        newQty = parseInt(newQty);
+        if (isNaN(newQty) || newQty <= 0) {
+            delete cart[id];
+        } else if (newQty > cart[id].maxStock) {
+            alert('No puedes exceder el stock disponible.');
+            cart[id].qty = cart[id].maxStock;
+        } else {
+            cart[id].qty = newQty;
+        }
+        renderCart();
+    }
+
+    function removeFromCart(id) {
+        delete cart[id];
+        renderCart();
+    }
+
+    function renderCart() {
+        const container = document.getElementById('cartItems');
+        const emptyState = document.getElementById('emptyCart');
+        const countBadge = document.getElementById('itemCount');
+        const totalDisplay = document.getElementById('cartTotal');
+
+        container.innerHTML = '';
+        currentTotal = 0;
+        let itemsCount = 0;
+
+        const keys = Object.keys(cart);
+        
+        if (keys.length === 0) {
+            emptyState.style.display = 'block';
+        } else {
+            emptyState.style.display = 'none';
+            keys.forEach(id => {
+                const item = cart[id];
+                const subtotal = item.price * item.qty;
+                currentTotal += subtotal;
+                itemsCount += item.qty;
+
+                container.innerHTML += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center p-3 border-bottom">
+                        <div class="w-100 pe-3">
+                            <h6 class="mb-1 text-truncate fw-bold" style="font-size: 0.9rem;">${item.name}</h6>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-sm btn-light border p-1" onclick="updateCartQty(${id}, ${item.qty - 1})"><i class="fa-solid fa-minus"></i></button>
+                                    <input type="number" class="cart-item-qty bg-light fw-bold" value="${item.qty}" min="1" max="${item.maxStock}" onchange="updateCartQty(${id}, this.value)">
+                                    <button class="btn btn-sm btn-light border p-1" onclick="updateCartQty(${id}, ${item.qty + 1})"><i class="fa-solid fa-plus"></i></button>
+                                </div>
+                                <span class="fw-bold text-success">$${formatCOP(subtotal)}</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger border-0 rounded-circle" onclick="removeFromCart(${id})"><i class="fa-solid fa-trash"></i></button>
+                    </li>
+                `;
+            });
+        }
+
+        countBadge.innerText = `${itemsCount} items`;
+        totalDisplay.innerText = `$${formatCOP(currentTotal)}`;
+        
+        document.getElementById('totalAmountInput').value = currentTotal;
+    }
+
+    function setFullAbono() {
+        if(currentTotal > 0) {
+            document.getElementById('montoAbonoInput').value = formatCOP(currentTotal);
+            document.getElementById('metodoPago').value = 'efectivo'; // Default if setting full
+            toggleAbonoInput();
+        }
+    }
+
+    function processCheckout() {
+        if (Object.keys(cart).length === 0) {
+            alert('El carrito está vacío. Selecciona productos primero.');
+            return;
+        }
+
+        const form = document.getElementById('checkoutForm');
+        if (!form.cliente_id.value) {
+            alert('Debes seleccionar un cliente para generar la factura.');
+            return;
+        }
+
+        // Convertir cart a JSON para el hidden input
+        document.getElementById('cartDataInput').value = JSON.stringify(cart);
+        
+        form.submit();
+    }
+</script>
+{% endblock %}
