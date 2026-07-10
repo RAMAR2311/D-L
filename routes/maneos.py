@@ -28,23 +28,61 @@ def prestar():
 
     # Buscar el producto o variante por SKU
     producto = Product.query.filter_by(sku=sku_busqueda).first()
+    variant_id = request.form.get('variant_id')
     variante = None
-
-    if not producto:
-        # Intentar buscar por SKU de variante si tienes ese campo (aunque en este modelo no está explícito en la DB con un campo sku_variante usado activamente, pero revisaremos si tiene uno)
-        # Por ahora, asumimos que se busca primero el producto principal. Si el usuario escanea, debe ser exacto.
-        pass
 
     if not producto:
         flash(f"No se encontró ningún producto con el SKU: {sku_busqueda}", "warning")
         return redirect(url_for('maneos_bp.index'))
 
-    # Si el producto tiene variantes, deberíamos obligar a seleccionar cuál.
-    # Por simplicidad, si la búsqueda del SKU mapea al producto general, tomamos ese.
-    # Pero vamos a validar el stock.
-    if producto.cantidad_stock < cantidad:
-        flash(f"Stock insuficiente. Solo hay {producto.cantidad_stock} unidades disponibles.", "danger")
-        return redirect(url_for('maneos_bp.index'))
+    if producto.variantes:
+        if not variant_id:
+            flash(f"El producto '{producto.nombre}' tiene subcategorías. Debes especificar cuál vas a prestar.", "warning")
+            return redirect(url_for('maneos_bp.index'))
+            
+        variante = ProductVariant.query.get(variant_id)
+        if not variante or variante.product_id != producto.id:
+            flash("Variante inválida.", "danger")
+            return redirect(url_for('maneos_bp.index'))
+            
+        if variante.cantidad_stock < cantidad:
+            flash(f"Stock insuficiente. Solo hay {variante.cantidad_stock} unidades disponibles de esta subcategoría.", "danger")
+            return redirect(url_for('maneos_bp.index'))
+            
+        # Descontar Inventario Variante
+        stock_anterior = variante.cantidad_stock
+        variante.cantidad_stock -= cantidad
+        producto.cantidad_stock -= cantidad # Reflejar en base
+        
+        # Registrar Ajuste
+        from models import StockAdjustment
+        ajuste = StockAdjustment(
+            product_id=producto.id,
+            admin_id=current_user.id,
+            tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} (Subcat: {variante.nombre_variante})",
+            stock_anterior=stock_anterior,
+            stock_nuevo=variante.cantidad_stock
+        )
+        db.session.add(ajuste)
+    else:
+        if producto.cantidad_stock < cantidad:
+            flash(f"Stock insuficiente. Solo hay {producto.cantidad_stock} unidades disponibles.", "danger")
+            return redirect(url_for('maneos_bp.index'))
+            
+        # Descontar Inventario Base
+        stock_anterior = producto.cantidad_stock
+        producto.cantidad_stock -= cantidad
+        
+        # Registrar Ajuste
+        from models import StockAdjustment
+        ajuste = StockAdjustment(
+            product_id=producto.id,
+            admin_id=current_user.id,
+            tipo_movimiento=f"Préstamo (Maneo) a {local_vecino}",
+            stock_anterior=stock_anterior,
+            stock_nuevo=producto.cantidad_stock
+        )
+        db.session.add(ajuste)
 
     # 1. Crear el Maneo
     nuevo_maneo = Maneo(
@@ -55,20 +93,6 @@ def prestar():
         estado='PENDIENTE'
     )
     db.session.add(nuevo_maneo)
-
-    # 2. Descontar Inventario
-    stock_anterior = producto.cantidad_stock
-    producto.cantidad_stock -= cantidad
-
-    # 3. Registrar Ajuste de Stock
-    ajuste = StockAdjustment(
-        product_id=producto.id,
-        admin_id=current_user.id,
-        tipo_movimiento=f"Préstamo (Maneo) a {local_vecino}",
-        stock_anterior=stock_anterior,
-        stock_nuevo=producto.cantidad_stock
-    )
-    db.session.add(ajuste)
 
     try:
         db.session.commit()
@@ -89,7 +113,8 @@ def facturar(id):
         return redirect(url_for('maneos_bp.index'))
 
     # Opciones de facturación (puede venir del form)
-    precio_unidad = float(request.form.get('precio_unidad', maneo.producto.precio_sugerido))
+    sugerido = maneo.variante.precio_sugerido if maneo.variant_id and maneo.variante else maneo.producto.precio_sugerido
+    precio_unidad = float(request.form.get('precio_unidad', sugerido))
     metodo_pago = request.form.get('metodo_pago', 'efectivo')
     
     total_venta = precio_unidad * maneo.cantidad
@@ -149,18 +174,35 @@ def devolver(id):
 
     # 2. Devolver stock
     producto = maneo.producto
-    stock_anterior = producto.cantidad_stock
-    producto.cantidad_stock += maneo.cantidad
-
-    # 3. Registrar Ajuste de Stock
-    ajuste = StockAdjustment(
-        product_id=producto.id,
-        admin_id=current_user.id,
-        tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino}",
-        stock_anterior=stock_anterior,
-        stock_nuevo=producto.cantidad_stock
-    )
-    db.session.add(ajuste)
+    from models import StockAdjustment
+    
+    if maneo.variant_id:
+        variante = ProductVariant.query.with_for_update().get(maneo.variant_id)
+        if variante:
+            stock_anterior = variante.cantidad_stock
+            variante.cantidad_stock += maneo.cantidad
+            producto.cantidad_stock += maneo.cantidad # Reflejar en base
+            
+            ajuste = StockAdjustment(
+                product_id=producto.id,
+                admin_id=current_user.id,
+                tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} (Subcat: {variante.nombre_variante})",
+                stock_anterior=stock_anterior,
+                stock_nuevo=variante.cantidad_stock
+            )
+            db.session.add(ajuste)
+    else:
+        stock_anterior = producto.cantidad_stock
+        producto.cantidad_stock += maneo.cantidad
+    
+        ajuste = StockAdjustment(
+            product_id=producto.id,
+            admin_id=current_user.id,
+            tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino}",
+            stock_anterior=stock_anterior,
+            stock_nuevo=producto.cantidad_stock
+        )
+        db.session.add(ajuste)
 
     try:
         db.session.commit()

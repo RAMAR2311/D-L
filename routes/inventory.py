@@ -30,6 +30,7 @@ def index():
 
     valor_costo = 0.0
     valor_sugerido = 0.0
+    total_unidades_fisicas = 0
     for p in todos:
         if p.variantes:
             for v in p.variantes:
@@ -38,12 +39,14 @@ def index():
                 stock = v.cantidad_stock or 0
                 valor_costo += costo * stock
                 valor_sugerido += sugerido * stock
+                total_unidades_fisicas += stock
         else:
             costo = float(p.precio_costo or 0)
             sugerido = float(p.precio_sugerido or 0)
             stock = p.cantidad_stock or 0
             valor_costo += costo * stock
             valor_sugerido += sugerido * stock
+            total_unidades_fisicas += stock
 
     return render_template(
         'inventory/index.html',
@@ -52,6 +55,7 @@ def index():
         total_productos=total_productos,
         valor_costo=valor_costo,
         valor_sugerido=valor_sugerido,
+        total_unidades_fisicas=total_unidades_fisicas
     )
 
 @inventory_bp.route('/nuevo', methods=['GET', 'POST'])
@@ -324,7 +328,20 @@ def agregar_variante(id):
     )
     try:
         db.session.add(nueva_variante)
-        # Opcionalmente descontar o trackear en Kardex? La instrucción solo dice: "crea la ruta para añadir la subcategoría"
+        
+        # Forzar el stock base a 0 para que el sistema calcule el valor usando solo las variantes
+        producto.cantidad_stock = 0
+        
+        if cantidad_stock > 0:
+            ajuste = StockAdjustment(
+                product_id=producto.id,
+                admin_id=current_user.id,
+                tipo_movimiento=f'Creación de Subcategoría: {nombre_variante}',
+                stock_anterior=0,
+                stock_nuevo=cantidad_stock
+            )
+            db.session.add(ajuste)
+            
         db.session.commit()
         flash(f'Variante "{nombre_variante}" agregada con éxito.', 'success')
     except Exception as e:
@@ -340,7 +357,15 @@ def editar_variante(id):
     variante = ProductVariant.query.get_or_404(id)
     
     variante.nombre_variante = request.form.get('nombre_variante')
-    variante.cantidad_stock = int(request.form.get('cantidad_stock', variante.cantidad_stock))
+    stock_anterior = variante.cantidad_stock
+    
+    cantidad_stock_req = request.form.get('cantidad_stock')
+    cantidad_sumar = request.form.get('cantidad_sumar')
+    
+    if cantidad_sumar and int(cantidad_sumar) != 0:
+        variante.cantidad_stock += int(cantidad_sumar)
+    elif cantidad_stock_req is not None:
+        variante.cantidad_stock = int(cantidad_stock_req)
     
     precio_costo_req = request.form.get('precio_costo')
     precio_minimo_req = request.form.get('precio_minimo')
@@ -351,11 +376,86 @@ def editar_variante(id):
     if precio_sugerido_req: variante.precio_sugerido = float(precio_sugerido_req)
     
     try:
+        if stock_anterior != variante.cantidad_stock:
+            ajuste = StockAdjustment(
+                product_id=variante.product_id,
+                admin_id=current_user.id,
+                tipo_movimiento=f'Edición de stock Subcategoría: {variante.nombre_variante}',
+                stock_anterior=stock_anterior,
+                stock_nuevo=variante.cantidad_stock
+            )
+            db.session.add(ajuste)
+
         db.session.commit()
         flash('Variante editada con éxito.', 'success')
     except Exception as e:
         db.session.rollback()
         flash('Error al editar la variante.', 'danger')
+        
+    return redirect(url_for('inventory_bp.index'))
+
+@inventory_bp.route('/variantes_masivo/<int:producto_id>', methods=['POST'])
+@login_required
+@admin_or_bodega_required
+def editar_variantes_masivo(producto_id):
+    v_ids = request.form.getlist('v_id[]')
+    nombres = request.form.getlist('nombre_variante[]')
+    sumas = request.form.getlist('cantidad_sumar[]')
+    costos = request.form.getlist('precio_costo[]')
+    minimos = request.form.getlist('precio_minimo[]')
+    sugs = request.form.getlist('precio_sugerido[]')
+    
+    cambios_realizados = 0
+
+    for i, vid_str in enumerate(v_ids):
+        try:
+            vid = int(vid_str)
+            variante = ProductVariant.query.get(vid)
+            if not variante or variante.product_id != producto_id:
+                continue
+                
+            # Actualizar nombres si cambiaron
+            if nombres[i].strip() and variante.nombre_variante != nombres[i].strip():
+                variante.nombre_variante = nombres[i].strip()
+                cambios_realizados += 1
+            
+            # Sumar stock
+            stock_anterior = variante.cantidad_stock
+            if sumas[i] and int(sumas[i]) != 0:
+                variante.cantidad_stock += int(sumas[i])
+                ajuste = StockAdjustment(
+                    product_id=variante.product_id,
+                    admin_id=current_user.id,
+                    tipo_movimiento=f'Edición masiva de stock Subcategoría: {variante.nombre_variante}',
+                    stock_anterior=stock_anterior,
+                    stock_nuevo=variante.cantidad_stock
+                )
+                db.session.add(ajuste)
+                cambios_realizados += 1
+                
+            # Precios
+            if costos[i] and float(costos[i]) != variante.precio_costo:
+                variante.precio_costo = float(costos[i])
+                cambios_realizados += 1
+            if minimos[i] and float(minimos[i]) != variante.precio_minimo:
+                variante.precio_minimo = float(minimos[i])
+                cambios_realizados += 1
+            if sugs[i] and float(sugs[i]) != variante.precio_sugerido:
+                variante.precio_sugerido = float(sugs[i])
+                cambios_realizados += 1
+
+        except Exception as e:
+            continue
+            
+    if cambios_realizados > 0:
+        try:
+            db.session.commit()
+            flash('Subcategorías actualizadas masivamente con éxito.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Error al guardar los cambios masivos.', 'danger')
+    else:
+        flash('No se detectaron cambios en las subcategorías.', 'info')
         
     return redirect(url_for('inventory_bp.index'))
 
@@ -373,7 +473,21 @@ def eliminar_variante(id):
         
     try:
         nombre = variante.nombre_variante
+        product_id = variante.product_id
+        stock_anterior = variante.cantidad_stock
+        
         db.session.delete(variante)
+        
+        if stock_anterior > 0:
+            ajuste = StockAdjustment(
+                product_id=product_id,
+                admin_id=current_user.id,
+                tipo_movimiento=f'Eliminación de Subcategoría: {nombre}',
+                stock_anterior=stock_anterior,
+                stock_nuevo=0
+            )
+            db.session.add(ajuste)
+            
         db.session.commit()
         flash(f'La subcategoría "{nombre}" fue borrada exitosamente.', 'success')
     except Exception as e:

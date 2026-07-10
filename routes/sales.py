@@ -112,14 +112,38 @@ def procesar_venta():
                         raise ValueError(f"La variante con ID {variant_id} no existe.")
                     if cantidad_vendida > variante.cantidad_stock:
                         raise ValueError(f"Stock insuficiente para la variante '{variante.nombre_variante}' de '{producto.nombre}'. Solicitado: {cantidad_vendida}, Disponible: {variante.cantidad_stock}.")
+                    
+                    stock_anterior = variante.cantidad_stock
                     variante.cantidad_stock -= cantidad_vendida
                     producto.cantidad_stock -= cantidad_vendida # Sincronizar producto base
                     precio_limite_autorizado = variante.precio_costo if current_user.rol == 'admin' else variante.precio_minimo
+                    
+                    from models import StockAdjustment
+                    ajuste = StockAdjustment(
+                        product_id=producto.id,
+                        admin_id=current_user.id,
+                        tipo_movimiento=f"Venta Tienda (Subcat: {variante.nombre_variante})",
+                        stock_anterior=stock_anterior,
+                        stock_nuevo=variante.cantidad_stock
+                    )
+                    db.session.add(ajuste)
                 else:
                     if cantidad_vendida > producto.cantidad_stock:
                         raise ValueError(f"Stock insuficiente para el producto '{producto.nombre}'. Solicitado: {cantidad_vendida}, Disponible: {producto.cantidad_stock}.")
+                    
+                    stock_anterior = producto.cantidad_stock
                     producto.cantidad_stock -= cantidad_vendida
                     precio_limite_autorizado = producto.precio_costo if current_user.rol == 'admin' else producto.precio_minimo
+                    
+                    from models import StockAdjustment
+                    ajuste = StockAdjustment(
+                        product_id=producto.id,
+                        admin_id=current_user.id,
+                        tipo_movimiento="Venta Tienda",
+                        stock_anterior=stock_anterior,
+                        stock_nuevo=producto.cantidad_stock
+                    )
+                    db.session.add(ajuste)
 
                 if precio_venta_final < precio_limite_autorizado:
                     raise ValueError(f"No autorizado: El precio ({precio_venta_final}) del producto '{producto.nombre}' está por debajo del límite permitido ({precio_limite_autorizado}).")
@@ -132,6 +156,10 @@ def procesar_venta():
                     precio_venta_final=precio_venta_final
                 )
                 db.session.add(detalle)
+                db.session.flush() # Importante para tener el id de la venta si se quisiera, pero ya lo tenemos en nueva_venta.id
+                
+                # Para añadir el ID de la venta al tipo de movimiento ahora que la venta tiene ID asignado:
+                ajuste.tipo_movimiento = f"{ajuste.tipo_movimiento} #{nueva_venta.id}"
                 
                 monto_total += (precio_venta_final * cantidad_vendida)
 
@@ -362,18 +390,40 @@ def eliminar_venta(sale_id):
     
     try:
         # Revertir Stock
+        from models import StockAdjustment
         for detalle in venta.detalles:
             if detalle.variant_id:
                 variante = ProductVariant.query.with_for_update().get(detalle.variant_id)
                 if variante:
+                    stock_anterior = variante.cantidad_stock
                     variante.cantidad_stock += detalle.cantidad_vendida
+                    
+                    ajuste = StockAdjustment(
+                        product_id=detalle.product_id,
+                        admin_id=current_user.id,
+                        tipo_movimiento=f"Anulación Venta #{venta.id} (Subcat: {variante.nombre_variante})",
+                        stock_anterior=stock_anterior,
+                        stock_nuevo=variante.cantidad_stock
+                    )
+                    db.session.add(ajuste)
+                    
                 producto = Product.query.with_for_update().get(detalle.product_id)
                 if producto:
                     producto.cantidad_stock += detalle.cantidad_vendida
-            else:
+            elif detalle.product_id:
                 producto = Product.query.with_for_update().get(detalle.product_id)
                 if producto:
+                    stock_anterior = producto.cantidad_stock
                     producto.cantidad_stock += detalle.cantidad_vendida
+                    
+                    ajuste = StockAdjustment(
+                        product_id=producto.id,
+                        admin_id=current_user.id,
+                        tipo_movimiento=f"Anulación Venta #{venta.id}",
+                        stock_anterior=stock_anterior,
+                        stock_nuevo=producto.cantidad_stock
+                    )
+                    db.session.add(ajuste)
                     
         # Eliminar Venta y Detalles (Cascada)
         db.session.delete(venta)
@@ -406,3 +456,12 @@ def catalogo():
         productos = Product.query.filter(Product.tipo_inventario.in_(['tienda', 'celulares'])).limit(50).all()
         
     return render_template('sales/catalogo.html', productos=productos, q=query_str)
+
+@sales_bp.route('/caja_visual', methods=['GET'])
+@login_required
+def caja_visual():
+    from models import obtener_hora_bogota
+    hoy_bogota = obtener_hora_bogota()
+    productos = Product.query.filter(Product.tipo_inventario.in_(['tienda', 'celulares'])).order_by(Product.nombre.asc()).all()
+    return render_template('sales/caja_visual.html', productos=productos, hoy=hoy_bogota.strftime('%Y-%m-%d'))
+

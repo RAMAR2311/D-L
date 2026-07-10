@@ -89,10 +89,15 @@
                                                     <div class="alert alert-warning border-0 rounded-3 small">
                                                         Al facturar, este producto se registrará como una venta oficial y entrará al Arqueo de Caja.
                                                     </div>
-                                                    <p class="mb-3"><strong>Producto:</strong> {{ maneo.producto.nombre }} (x{{ maneo.cantidad }})</p>
+                                                    <p class="mb-3"><strong>Producto:</strong> {{ maneo.producto.nombre }} 
+                                                        {% if maneo.variante %}
+                                                            <br><small class="text-muted">Subcat: {{ maneo.variante.nombre_variante }}</small>
+                                                        {% endif %}
+                                                        (x{{ maneo.cantidad }})
+                                                    </p>
                                                     <div class="mb-3">
                                                         <label class="form-label fw-bold small text-muted">Precio Unitario de Venta ($)</label>
-                                                        <input type="number" step="0.01" name="precio_unidad" class="form-control" value="{{ maneo.producto.precio_sugerido }}" required>
+                                                        <input type="number" step="0.01" name="precio_unidad" class="form-control" value="{{ maneo.variante.precio_sugerido if maneo.variante else maneo.producto.precio_sugerido }}" required>
                                                         <small class="text-muted d-block mt-1">Precio Mínimo permitido: ${{ "{:,.0f}".format(maneo.producto.precio_minimo) }}</small>
                                                     </div>
                                                     <div class="mb-3">
@@ -148,7 +153,12 @@
                         <tr>
                             <td class="ps-4 text-muted small">{{ maneo.fecha_resolucion.strftime('%Y-%m-%d %H:%M') if maneo.fecha_resolucion else '-' }}</td>
                             <td class="fw-bold text-brand-black">{{ maneo.local_vecino }}</td>
-                            <td class="text-muted">{{ maneo.producto.nombre }}</td>
+                            <td class="text-muted">
+                                {{ maneo.producto.nombre }}
+                                {% if maneo.variante %}
+                                    <div class="small text-muted fw-bold">Subcat: {{ maneo.variante.nombre_variante }}</div>
+                                {% endif %}
+                            </td>
                             <td class="text-center fw-bold">{{ maneo.cantidad }}</td>
                             <td class="text-center pe-4">
                                 {% if maneo.estado == 'FACTURADO' %}
@@ -187,7 +197,15 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold text-muted small">SKU del Producto *</label>
-                        <input type="text" name="sku_busqueda" class="form-control" placeholder="Escanea o digita el SKU" required>
+                        <div class="input-group">
+                            <input type="text" name="sku_busqueda" id="maneoSkuInput" class="form-control" placeholder="Escanea o digita el SKU" required>
+                            <button type="button" class="btn btn-outline-secondary" id="btnCheckSku"><i class="fa-solid fa-search"></i> Buscar</button>
+                        </div>
+                        <small class="text-muted d-block mt-1" id="maneoSkuStatus"></small>
+                    </div>
+                    <div class="mb-3 d-none" id="variantesManeoContainer">
+                        <label class="form-label fw-bold text-muted small text-brand-pink">Seleccione la Subcategoría *</label>
+                        <select name="variant_id" id="variantesManeoSelect" class="form-select border-brand-pink"></select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold text-muted small">Cantidad a prestar *</label>
@@ -216,6 +234,68 @@
             this.classList.remove('text-muted');
             this.classList.add('text-brand-black');
         });
+    });
+
+    // Lógica para buscar el producto por SKU y mostrar variantes si existen
+    const btnCheckSku = document.getElementById('btnCheckSku');
+    const maneoSkuInput = document.getElementById('maneoSkuInput');
+    const maneoSkuStatus = document.getElementById('maneoSkuStatus');
+    const variantesManeoContainer = document.getElementById('variantesManeoContainer');
+    const variantesManeoSelect = document.getElementById('variantesManeoSelect');
+
+    function checkSku() {
+        const sku = maneoSkuInput.value.trim();
+        if(!sku) return;
+        
+        maneoSkuStatus.textContent = "Buscando...";
+        maneoSkuStatus.className = "text-info d-block mt-1";
+        
+        fetch(`/sales/api/producto/${encodeURIComponent(sku)}`)
+            .then(res => {
+                if(!res.ok) throw new Error("Producto no encontrado");
+                return res.json();
+            })
+            .then(data => {
+                maneoSkuStatus.textContent = "✓ Producto: " + data.nombre;
+                maneoSkuStatus.className = "text-success d-block mt-1 fw-bold";
+                
+                if(data.variantes && data.variantes.length > 0) {
+                    variantesManeoSelect.innerHTML = '';
+                    data.variantes.forEach(v => {
+                        const opt = document.createElement('option');
+                        opt.value = v.id;
+                        opt.textContent = `${v.nombre} (Stock: ${v.stock})`;
+                        // Prevenir selección si no hay stock
+                        if(v.stock <= 0) {
+                            opt.disabled = true;
+                            opt.textContent += " - Agotado";
+                        }
+                        variantesManeoSelect.appendChild(opt);
+                    });
+                    variantesManeoContainer.classList.remove('d-none');
+                    variantesManeoSelect.required = true;
+                } else {
+                    variantesManeoContainer.classList.add('d-none');
+                    variantesManeoSelect.innerHTML = '';
+                    variantesManeoSelect.required = false;
+                }
+            })
+            .catch(err => {
+                maneoSkuStatus.textContent = "❌ " + err.message;
+                maneoSkuStatus.className = "text-danger d-block mt-1 fw-bold";
+                variantesManeoContainer.classList.add('d-none');
+                variantesManeoSelect.required = false;
+            });
+    }
+
+    btnCheckSku.addEventListener('click', checkSku);
+    
+    // Auto-buscar al presionar Enter en el input de SKU (preveniendo envío prematuro de form)
+    maneoSkuInput.addEventListener('keydown', function(e) {
+        if(e.key === 'Enter') {
+            e.preventDefault();
+            checkSku();
+        }
     });
 </script>
 {% endblock %}

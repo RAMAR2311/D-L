@@ -11,24 +11,30 @@
         </div>
 
         <div class="card card-custom border-0 shadow-sm p-4">
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 
                 <h5 class="fw-bold mb-3 border-bottom pb-2">Información General del Modelo</h5>
                 
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label class="form-label fw-bold">Marca</label>
                         <input type="text" name="marca" class="form-control" value="{{ celular.marca if celular else '' }}" placeholder="Ej: Apple" required>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label class="form-label fw-bold">Modelo</label>
                         <input type="text" name="modelo_celular" class="form-control" value="{{ celular.modelo_celular if celular else '' }}" placeholder="Ej: iPhone 13 Pro" required>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label class="form-label fw-bold">Color Principal (Opcional)</label>
-                        <!-- Se asume que el color se guardará en observacion del producto base, o se puede no pedir -->
                         <input type="text" name="color" class="form-control" placeholder="Ej: Negro" value="{{ request.args.get('color', '') }}">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label fw-bold">Foto (Opcional)</label>
+                        <input type="file" name="imagen" class="form-control" accept="image/*">
+                        {% if celular and celular.imagen %}
+                            <small class="text-success"><i class="fa-solid fa-check"></i> Foto actual guardada</small>
+                        {% endif %}
                     </div>
                 </div>
 

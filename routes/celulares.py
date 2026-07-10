@@ -1,9 +1,11 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required, current_user
 from models import db, Product, Sale, SaleDetail, SalePayment, ProductVariant
 from decorators import admin_required
 from datetime import datetime
 import pytz
+import os
+from werkzeug.utils import secure_filename
 
 celulares_bp = Blueprint('celulares_bp', __name__)
 
@@ -32,6 +34,18 @@ def nuevo_celular():
         
         nombre_completo = f"Celular {marca} {modelo_celular} {color}".strip()
         sku_base = f"CEL-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        imagen_filename = None
+        if 'imagen' in request.files:
+            file = request.files['imagen']
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                upload_folder = current_app.config['UPLOAD_FOLDER']
+                if not os.path.exists(upload_folder):
+                    os.makedirs(upload_folder)
+                file.save(os.path.join(upload_folder, filename))
+                imagen_filename = filename
         
         # El producto base actúa como agrupadory contenedor
         nuevo = Product(
@@ -44,7 +58,8 @@ def nuevo_celular():
             precio_sugerido=float(precio_sugerido_str) if precio_sugerido_str else 0.0,
             marca=marca,
             modelo_celular=modelo_celular,
-            observacion=f"Color: {color}" if color else ""
+            observacion=f"Color: {color}" if color else "",
+            imagen=imagen_filename
         )
         
         try:
@@ -84,6 +99,17 @@ def editar_celular(id):
         celular.precio_costo = float(precio_costo_str) if precio_costo_str else 0.0
         celular.precio_minimo = float(precio_minimo_str) if precio_minimo_str else 0.0
         celular.precio_sugerido = float(precio_sugerido_str) if precio_sugerido_str else 0.0
+        
+        if 'imagen' in request.files:
+            file = request.files['imagen']
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                upload_folder = current_app.config['UPLOAD_FOLDER']
+                if not os.path.exists(upload_folder):
+                    os.makedirs(upload_folder)
+                file.save(os.path.join(upload_folder, filename))
+                celular.imagen = filename
             
         try:
             db.session.commit()

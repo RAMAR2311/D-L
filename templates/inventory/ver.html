@@ -31,8 +31,12 @@
 
                 <div class="d-flex justify-content-between px-4 py-3 bg-light rounded mb-3">
                     <span class="text-muted">Stock Actual</span>
-                    <span class="fw-bold fs-5 {% if producto.cantidad_stock <= 3 %}text-danger{% else %}text-success{% endif %}">
-                        {{ producto.cantidad_stock }} uds
+                    {% set total_stock = producto.cantidad_stock %}
+                    {% if producto.variantes %}
+                        {% set total_stock = producto.variantes | sum(attribute='cantidad_stock') %}
+                    {% endif %}
+                    <span class="fw-bold fs-5 {% if total_stock <= 3 %}text-danger{% else %}text-success{% endif %}">
+                        {{ total_stock }} unidades
                     </span>
                 </div>
                 <div class="d-flex justify-content-between px-4 py-3 bg-light rounded mb-3">
@@ -46,7 +50,7 @@
                     <div class="d-flex flex-wrap gap-2 mb-4">
                         {% for v in producto.variantes %}
                             <span class="badge bg-white text-dark border shadow-sm px-3 py-2 rounded-pill">
-                                <strong>{{ v.nombre_variante }}</strong>: {{ v.cantidad_stock }} uds
+                                <strong>{{ v.nombre_variante }}</strong>: {{ v.cantidad_stock }} unidades
                             </span>
                         {% endfor %}
                     </div>
