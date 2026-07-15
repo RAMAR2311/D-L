@@ -83,16 +83,16 @@ def nuevo():
         v_sugs = request.form.getlist('v_sug[]')
 
         # Si hay variantes, el stock base del producto maestro se ignora o se pone en 0
-        stock_base = 0 if v_nombres else int(request.form.get('cantidad_stock', 0))
+        stock_base = 0 if v_nombres else int(request.form.get('cantidad_stock') or 0)
 
         nuevo_prod = Product(
             sku=request.form.get('sku').strip(),
             nombre=request.form.get('nombre').strip(),
             tipo_inventario=tipo,
             cantidad_stock=stock_base,
-            precio_costo=float(request.form.get('precio_costo', 0.0)),
-            precio_minimo=float(request.form.get('precio_minimo', 0.0)),
-            precio_sugerido=float(request.form.get('precio_sugerido', 0.0)),
+            precio_costo=float(request.form.get('precio_costo') or 0.0),
+            precio_minimo=float(request.form.get('precio_minimo') or 0.0),
+            precio_sugerido=float(request.form.get('precio_sugerido') or 0.0),
             imagen=imagen_filename,
             observacion=request.form.get('observacion')
         )
@@ -159,9 +159,9 @@ def editar_producto(id):
         # Datos básicos
         producto.sku = request.form.get('sku').strip()
         producto.nombre = request.form.get('nombre').strip()
-        producto.precio_costo = float(request.form.get('precio_costo', 0.0))
-        producto.precio_minimo = float(request.form.get('precio_minimo', 0.0))
-        producto.precio_sugerido = float(request.form.get('precio_sugerido', 0.0))
+        producto.precio_costo = float(request.form.get('precio_costo') or 0.0)
+        producto.precio_minimo = float(request.form.get('precio_minimo') or 0.0)
+        producto.precio_sugerido = float(request.form.get('precio_sugerido') or 0.0)
         producto.observacion = request.form.get('observacion')
         
         # Sincronización de Variantes
@@ -182,7 +182,7 @@ def editar_producto(id):
         # 2. Actualizar o crear
         if not v_nombres:
             # Si no hay variantes, el stock es el base
-            producto.cantidad_stock = int(request.form.get('cantidad_stock', 0))
+            producto.cantidad_stock = int(request.form.get('cantidad_stock') or 0)
         else:
             # Si hay variantes, el stock base es 0
             producto.cantidad_stock = 0
