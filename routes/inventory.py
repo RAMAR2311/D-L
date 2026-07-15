@@ -149,12 +149,19 @@ def editar_producto(id):
         stock_total_anterior = producto.total_stock
         
         # Actualizar Imagen si se sube una nueva
+        print("DEBUG: Processing POST request for /editar/" + str(id))
         if 'imagen' in request.files:
             file = request.files['imagen']
+            print("DEBUG: 'imagen' found in request.files. filename:", file.filename)
             if file and file.filename != '':
                 filename = secure_filename(file.filename)
+                print("DEBUG: secure_filename is:", filename)
                 file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
+                print("DEBUG: file saved successfully to:", os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
                 producto.imagen = filename
+        else:
+            print("DEBUG: 'imagen' NOT found in request.files")
+                
                 
         # Datos básicos
         producto.sku = request.form.get('sku').strip()
@@ -218,7 +225,9 @@ def editar_producto(id):
                     db.session.add(nueva_v)
 
         try:
+            print("DEBUG: Attempting db.session.commit()")
             db.session.commit()
+            print("DEBUG: db.session.commit() successful")
             
             # Registrar ajuste de stock si el TOTAL cambió
             stock_total_nuevo = producto.total_stock
@@ -236,6 +245,7 @@ def editar_producto(id):
             flash('Producto Maestro actualizado correctamente.', 'success')
             return redirect(url_for('inventory_bp.index'))
         except Exception as e:
+            print("DEBUG: Exception during commit! Exception:", str(e))
             db.session.rollback()
             flash(f'Error en la base de datos: {str(e)}', 'danger')
 

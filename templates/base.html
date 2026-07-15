@@ -165,35 +165,70 @@
                 {% if current_user.rol == 'admin' %}
                     <!-- Enlaces Únicos para el Administrador de la Tienda -->
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/dashboard"><i class="fa-solid fa-chart-pie text-muted me-2" style="width:20px; text-align:center;"></i> Dashboard</a>
+                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/dashboard"><i class="fa-solid fa-chart-pie text-primary me-2" style="width:20px; text-align:center;"></i> Dashboard</a>
+                    </li>
+                    <!-- Módulo Inventario -->
+                    <li class="nav-item">
+                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseInventario" role="button" aria-expanded="false" aria-controls="collapseInventario">
+                            <span><i class="fa-solid fa-box text-success me-2" style="width:20px; text-align:center;"></i> Módulo Inventario</span>
+                            <i class="fa-solid fa-chevron-down small text-muted"></i>
+                        </a>
+                        <div class="collapse" id="collapseInventario">
+                            <ul class="nav flex-column ms-3 mt-1 mb-2 gap-1 border-start ps-2">
+                                <li class="nav-item">
+                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="/inventory"><i class="fa-solid fa-box-open text-success me-2" style="width:20px; text-align:center;"></i> Inventario Tienda</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="/sales/catalogo"><i class="fa-solid fa-book-open text-brand-pink me-2" style="width:20px; text-align:center;"></i> Catálogo Físico</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+                    <!-- Módulo Celulares Independiente (Agrupado) -->
+                    <li class="nav-item">
+                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseCelulares" role="button" aria-expanded="false" aria-controls="collapseCelulares">
+                            <span><i class="fa-solid fa-mobile-screen-button text-brand-blue me-2" style="width:20px; text-align:center;"></i> Módulo Celulares</span>
+                            <i class="fa-solid fa-chevron-down small text-muted"></i>
+                        </a>
+                        <div class="collapse" id="collapseCelulares">
+                            <ul class="nav flex-column ms-3 mt-1 mb-2 gap-1 border-start ps-2">
+                                <li class="nav-item">
+                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="{{ url_for('celulares_bp.inventario') }}"><i class="fa-solid fa-mobile-screen-button text-brand-blue me-2" style="width:20px; text-align:center;"></i> Inventario Celulares</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="{{ url_for('celulares_bp.historial_ventas') }}"><i class="fa-solid fa-clock-rotate-left text-brand-pink me-2" style="width:20px; text-align:center;"></i> Historial Celulares</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="{{ url_for('celulares_bp.clientes') }}"><i class="fa-solid fa-users text-success me-2" style="width:20px; text-align:center;"></i> Clientes Celulares</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+                    <!-- Módulo Caja -->
+                    <li class="nav-item">
+                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseCaja" role="button" aria-expanded="false" aria-controls="collapseCaja">
+                            <span><i class="fa-solid fa-cash-register text-warning me-2" style="width:20px; text-align:center;"></i> Módulo Caja</span>
+                            <i class="fa-solid fa-chevron-down small text-muted"></i>
+                        </a>
+                        <div class="collapse" id="collapseCaja">
+                            <ul class="nav flex-column ms-3 mt-1 mb-2 gap-1 border-start ps-2">
+                                <li class="nav-item">
+                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="/sales/nueva"><i class="fa-solid fa-cash-register text-warning me-2" style="width:20px; text-align:center;"></i> Caja Terminal</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="/sales/caja_visual"><i class="fa-solid fa-store text-brand-blue me-2" style="width:20px; text-align:center;"></i> Caja Rápida Visual</a>
+                                </li>
+                            </ul>
+                        </div>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/inventory"><i class="fa-solid fa-box text-muted me-2" style="width:20px; text-align:center;"></i> Inventario Tienda</a>
-                    </li>
-                    <!-- Módulo Celulares Independiente -->
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('celulares_bp.inventario') }}"><i class="fa-solid fa-mobile-screen-button text-brand-blue me-2" style="width:20px; text-align:center;"></i> Inventario Celulares</a>
+                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/vendedores"><i class="fa-solid fa-users text-info me-2" style="width:20px; text-align:center;"></i> Personal</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('celulares_bp.historial_ventas') }}"><i class="fa-solid fa-clock-rotate-left text-brand-pink me-2" style="width:20px; text-align:center;"></i> Historial Celulares</a>
+                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/gastos"><i class="fa-solid fa-money-bill-transfer text-danger me-2" style="width:20px; text-align:center;"></i> Gastos</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('celulares_bp.clientes') }}"><i class="fa-solid fa-users text-success me-2" style="width:20px; text-align:center;"></i> Clientes Celulares</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/nueva"><i class="fa-solid fa-cash-register text-muted me-2" style="width:20px; text-align:center;"></i> Caja Terminal</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/caja_visual"><i class="fa-solid fa-store text-brand-blue me-2" style="width:20px; text-align:center;"></i> Caja Rápida Visual</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/vendedores"><i class="fa-solid fa-users text-muted me-2" style="width:20px; text-align:center;"></i> Personal</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/gastos"><i class="fa-solid fa-money-bill-transfer me-2" style="color: var(--brand-blue); width:20px; text-align:center;"></i> Gastos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-bold border-bottom" href="/sales/catalogo"><i class="fa-solid fa-book-open text-brand-pink me-2" style="width:20px; text-align:center;"></i> Catálogo Físico</a>
+                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/maneos"><i class="fa-solid fa-handshake text-primary me-2" style="width:20px; text-align:center;"></i> Maneos</a>
                     </li>
                     <li class="nav-item mt-2">
                         <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-bold bg-light border" href="/arqueo/nuevo"><i class="fa-solid fa-calculator text-brand-blue me-2" style="width:20px; text-align:center;"></i> Arqueo de Caja</a>
