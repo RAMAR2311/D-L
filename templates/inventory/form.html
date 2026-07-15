@@ -72,7 +72,7 @@
                     <div id="baseInfoSection" class="row g-4 {% if producto and producto.variantes %}d-none{% endif %}">
                         <div class="col-md-3 mt-4">
                             <label class="form-label fw-bold text-brand-black text-truncate">Existencias (Base)</label>
-                            <input type="number" class="form-control bg-light border-0" name="cantidad_stock" min="0" value="{{ producto.cantidad_stock if producto else '0' }}">
+                            <input type="number" class="form-control bg-light border-0" name="cantidad_stock" value="{{ producto.cantidad_stock if producto else '0' }}">
                         </div>
                         <div class="col-md-3 mt-4">
                             <label class="form-label fw-bold text-brand-black text-truncate">Costo Compra (Base)</label>
@@ -134,7 +134,7 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label small fw-bold">Stock</label>
-                <input type="number" name="v_stock[]" class="form-control form-control-sm" placeholder="0" required min="0">
+                <input type="number" name="v_stock[]" class="form-control form-control-sm" placeholder="0" required>
             </div>
             <div class="col-md-2">
                 <label class="form-label small fw-bold">Costo</label>
