@@ -39,7 +39,7 @@
                     </div>
                     <div class="col-lg-3 col-md-6">
                         <label class="form-label fw-bold">Fecha de Factura <span class="text-danger">*</span></label>
-                        <input type="date" name="fecha_factura" class="form-control bg-light border-0 shadow-sm" required>
+                        <input type="date" name="fecha_factura" class="form-control bg-light border-0 shadow-sm" id="fechaFactura" required {% if current_user.rol == 'vendedor_bodega' %}readonly style="pointer-events: none; background-color: #e9ecef !important;" tabindex="-1" onkeydown="return false;" onclick="return false;"{% endif %}>
                     </div>
                     <div class="col-lg-3 col-md-6">
                         <label class="form-label fw-bold">Modalidad <span class="text-danger">*</span></label>
@@ -139,7 +139,12 @@
 <script>
     let carrito = {};
 
-
+    document.addEventListener('DOMContentLoaded', () => {
+        const fechaInput = document.getElementById('fechaFactura');
+        if (fechaInput && !fechaInput.value) {
+            fechaInput.value = new Date().toISOString().split('T')[0];
+        }
+    });
     // Escucha el evento Enter en la pistola o teclado
     document.getElementById('skuBuscador').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
@@ -182,13 +187,14 @@
             variant_id = defaultVar.id;
             row_stock = defaultVar.stock;
             row_precio = defaultVar.precio_sugerido || data.precio_sugerido;
+            row_precio_minimo = defaultVar.precio_minimo || data.precio_minimo;
             
             variantHtml = `
             <select class="form-select form-select-sm mt-1 text-secondary bg-light border-0 shadow-sm" name="variant_id[]" onchange="actualizarVariante(this, '${data.id}')">
             `;
             data.variantes.forEach(v => {
                 let disableStr = v.stock <= 0 ? "(Sin stock)" : `(Stock: ${v.stock})`;
-                variantHtml += `<option value="${v.id}" data-precio="${v.precio_sugerido || data.precio_sugerido}" data-stock="${v.stock}">${v.nombre} ${disableStr}</option>`;
+                variantHtml += `<option value="${v.id}" data-precio="${v.precio_sugerido || data.precio_sugerido}" data-preciominimo="${v.precio_minimo || data.precio_minimo}" data-stock="${v.stock}">${v.nombre} ${disableStr}</option>`;
             });
             variantHtml += `</select>`;
         } else {
@@ -219,7 +225,9 @@
                 nombre: data.nombre, 
                 cantidad: 1, 
                 max_stock: row_stock, 
-                precio: row_precio 
+                precio: row_precio,
+                precio_minimo: typeof row_precio_minimo !== 'undefined' ? row_precio_minimo : data.precio_minimo,
+                precio_sugerido: row_precio
             };
             
             const emptyRow = document.getElementById('emptyRow');
@@ -262,6 +270,7 @@
         const new_variant_id = opt.value;
         const new_stock = parseInt(opt.dataset.stock);
         const new_precio = parseFloat(opt.dataset.precio);
+        const new_precio_min = parseFloat(opt.dataset.preciominimo);
         
         const uniqueKeyNew = idProducto + "_" + new_variant_id;
         
@@ -283,6 +292,8 @@
             carrito[uniqueKeyNew].variant_id = new_variant_id;
             carrito[uniqueKeyNew].max_stock = new_stock;
             carrito[uniqueKeyNew].precio = new_precio;
+            carrito[uniqueKeyNew].precio_minimo = new_precio_min;
+            carrito[uniqueKeyNew].precio_sugerido = new_precio;
             
             if (carrito[uniqueKeyNew].cantidad > new_stock) {
                 carrito[uniqueKeyNew].cantidad = new_stock;
@@ -340,7 +351,18 @@
         let val = parseFloat(raw);
         if (isNaN(val) || val < 0) val = 0.00;
         
-        // document.getElementById('input_precio_' + key).value = formatCOP(val); // handled by formatInputCOP
+        const p_min = carrito[key].precio_minimo;
+        const p_max = carrito[key].precio_sugerido;
+        if (val < p_min) {
+            alert('El precio no puede ser menor al precio mínimo establecido ($' + formatCOP(p_min) + ')');
+            val = p_min;
+            document.getElementById('input_precio_' + key).value = formatCOP(val);
+        } else if (val > p_max) {
+            alert('El precio no puede ser mayor al precio sugerido ($' + formatCOP(p_max) + ')');
+            val = p_max;
+            document.getElementById('input_precio_' + key).value = formatCOP(val);
+        }
+        
         carrito[key].precio = val;
         
         actualizarFilaUI(key);

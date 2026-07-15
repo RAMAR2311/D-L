@@ -24,12 +24,12 @@
             {% if p.variantes %}
                 {% set total_stock = p.variantes | sum(attribute='cantidad_stock') %}
                 {% for v in p.variantes %}
-                    {% set _ = vars_data.append({"id": v.id, "nombre": v.nombre_variante, "stock": v.cantidad_stock, "precio_sugerido": v.precio_sugerido or p.precio_sugerido or 0}) %}
+                    {% set _ = vars_data.append({"id": v.id, "nombre": v.nombre_variante, "stock": v.cantidad_stock, "precio_sugerido": v.precio_sugerido or p.precio_sugerido or 0, "precio_minimo": v.precio_minimo or p.precio_minimo or 0}) %}
                 {% endfor %}
             {% endif %}
             <div class="col-6 col-md-4 col-xl-3 product-card-container" data-name="{{ p.nombre|lower }}" data-sku="{{ p.sku|lower }}">
                 <div class="card h-100 border-0 shadow-sm cursor-pointer product-card" 
-                     data-product='{{ {"id": p.id, "nombre": p.nombre, "sku": p.sku, "precio_sugerido": p.precio_sugerido or 0, "cantidad_stock": total_stock, "tipo_inventario": p.tipo_inventario}|tojson|safe }}'
+                     data-product='{{ {"id": p.id, "nombre": p.nombre, "sku": p.sku, "precio_sugerido": p.precio_sugerido or 0, "precio_minimo": p.precio_minimo or 0, "cantidad_stock": total_stock, "tipo_inventario": p.tipo_inventario}|tojson|safe }}'
                      data-variants='{{ vars_data|tojson|safe }}'
                      onclick="handleProductClick(this)">
                     <div class="ratio ratio-1x1 bg-light rounded-top d-flex align-items-center justify-content-center overflow-hidden">
@@ -109,7 +109,7 @@
                     <div class="row g-2 mb-3">
                         <div class="col-6">
                             <label class="form-label fw-bold small text-muted">FECHA VENTA</label>
-                            <input type="date" name="fecha_venta" class="form-control border-0 shadow-sm" id="fechaVenta" required>
+                            <input type="date" name="fecha_venta" class="form-control border-0 shadow-sm" id="fechaVenta" required {% if current_user.rol == 'vendedor_bodega' %}readonly style="pointer-events: none; background-color: #e9ecef;" tabindex="-1" onkeydown="return false;" onclick="return false;"{% endif %}>
                         </div>
                         <div class="col-6">
                             <label class="form-label fw-bold small text-muted">MÉTODO PAGO</label>
@@ -246,18 +246,18 @@
                 alert("¡Producto sin stock en bodega!");
                 return;
             }
-            addToCart(pData.id, null, pData.nombre, pData.sku, pData.precio_sugerido, pData.cantidad_stock);
+            addToCart(pData.id, null, pData.nombre, pData.sku, pData.precio_sugerido, pData.cantidad_stock, null, pData.precio_minimo);
         }
     }
 
     window.addVariantToCart = function(variantId) {
         const vData = activeVariantsData.find(v => v.id === variantId);
         if (!vData) return;
-        addToCart(activeProductData.id, vData.id, activeProductData.nombre, activeProductData.sku, vData.precio_sugerido, vData.stock, vData.nombre);
+        addToCart(activeProductData.id, vData.id, activeProductData.nombre, activeProductData.sku, vData.precio_sugerido, vData.stock, vData.nombre, vData.precio_minimo || activeProductData.precio_minimo);
         bootstrap.Modal.getInstance(document.getElementById('modalVariantes')).hide();
     };
 
-    function addToCart(productId, variantId, nombre, sku, precio, maxStock, variantName = null) {
+    function addToCart(productId, variantId, nombre, sku, precio, maxStock, variantName = null, precioMinimo = 0) {
         let existingIndex = carrito.findIndex(i => i.product_id === productId && i.variant_id === variantId);
         
         if (existingIndex > -1) {
@@ -279,6 +279,7 @@
                 sku: sku,
                 precio_final: precio,
                 precio_sugerido: precio,
+                precio_minimo: precioMinimo,
                 cantidad: 1,
                 max_stock: maxStock,
                 es_obsequio: false
@@ -301,6 +302,21 @@
     function updateCartItemPrice(index, newPrice) {
         let val = parseFloat(newPrice);
         if (isNaN(val) || val < 0) val = 0;
+        
+        let item = carrito[index];
+        if (!item.es_obsequio) {
+            const p_min = item.precio_minimo || 0;
+            const p_max = item.precio_sugerido || 0;
+            
+            if (val < p_min) {
+                alert('El precio no puede ser menor al precio mínimo establecido ($' + formatCOP(p_min) + ')');
+                val = p_min;
+            } else if (val > p_max) {
+                alert('El precio no puede ser mayor al precio sugerido ($' + formatCOP(p_max) + ')');
+                val = p_max;
+            }
+        }
+        
         carrito[index].precio_final = val;
         renderCart();
     }
