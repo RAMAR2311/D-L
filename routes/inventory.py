@@ -141,8 +141,8 @@ def nuevo():
 def editar_producto(id):
     # get_or_404 protege la ruta en caso de que se envíe un ID inexistente en la URL
     producto = Product.query.get_or_404(id)
-    tipo = 'bodega' if current_user.rol == 'bodega' else 'tienda'
-    if producto.tipo_inventario != tipo:
+    tipo = 'bodega' if current_user.rol in ['bodega', 'vendedor_bodega'] else 'tienda'
+    if current_user.rol != 'admin' and producto.tipo_inventario != tipo:
         abort(403)
     
     if request.method == 'POST':
