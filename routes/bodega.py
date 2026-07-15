@@ -124,8 +124,10 @@ def caja_rapida():
         
         try:
             cart = json.loads(cart_data_str)
+            if isinstance(cart, dict): # Fallback just in case
+                cart = list(cart.values())
         except:
-            cart = {}
+            cart = []
             
         if not cart:
             flash('El carrito está vacío.', 'danger')
@@ -135,13 +137,17 @@ def caja_rapida():
             flash('Debes seleccionar un cliente.', 'danger')
             return redirect(url_for('bodega_bp.caja_rapida'))
 
-        ultima_factura = FacturaBodega.query.order_by(FacturaBodega.id.desc()).first()
-        siguiente_num = ultima_factura.id + 1 if ultima_factura else 1
-        numero_factura = f"POS-BOD-{siguiente_num:05d}"
-        
+        numero_factura_manual = request.form.get('numero_factura_manual')
+        if numero_factura_manual and numero_factura_manual.strip():
+            numero_factura = numero_factura_manual.strip().upper()
+        else:
+            ultima_factura = FacturaBodega.query.order_by(FacturaBodega.id.desc()).first()
+            siguiente_num = ultima_factura.id + 1 if ultima_factura else 1
+            numero_factura = f"POS-BOD-{siguiente_num:05d}"
+            
         monto_total = Decimal(0)
-        for item_id, item_data in cart.items():
-            monto_total += Decimal(item_data['price']) * int(item_data['qty'])
+        for item in cart:
+            monto_total += Decimal(item.get('precio_final', 0)) * int(item.get('cantidad', 1))
 
         try:
             monto_abono = Decimal(monto_abono_str or 0)
@@ -198,22 +204,63 @@ def caja_rapida():
                     abono.fecha_abono = nueva_fact.fecha_subida
                 db.session.add(abono)
                 
-            for item_id, item_data in cart.items():
-                producto = Product.query.get(item_id)
+            for item in cart:
+                producto = Product.query.get(item['product_id'])
+                variant_id = item.get('variant_id')
                 if producto:
-                    cantidad = int(item_data['qty'])
-                    precio_venta = Decimal(item_data['price'])
+                    cantidad = int(item['cantidad'])
+                    precio_venta = Decimal(item['precio_final'])
+                    es_obsequio = item.get('es_obsequio', False)
                     
-                    if producto.cantidad_stock >= cantidad:
-                        producto.cantidad_stock -= cantidad
+                    if es_obsequio:
+                        precio_venta = Decimal(0)
+                        
+                    variante = None
+                    if variant_id:
+                        from models import ProductVariant
+                        variante = ProductVariant.query.get(variant_id)
+                        
+                    if variante:
+                        if variante.cantidad_stock >= cantidad:
+                            stock_ant = variante.cantidad_stock
+                            variante.cantidad_stock -= cantidad
+                            # Also reflect total stock change in product if needed
+                            producto.cantidad_stock = sum([v.cantidad_stock for v in producto.variantes])
+                            
+                            ajuste = StockAdjustment(
+                                product_id=producto.id,
+                                admin_id=current_user.id,
+                                tipo_movimiento=f"Venta Bodega Rápida #{numero_factura} (Subcat: {variante.nombre_variante})",
+                                stock_anterior=stock_ant,
+                                stock_nuevo=variante.cantidad_stock
+                            )
+                            db.session.add(ajuste)
+                        else:
+                            flash(f'Stock insuficiente para la variante {variante.nombre_variante}.', 'danger')
+                            db.session.rollback()
+                            return redirect(url_for('bodega_bp.caja_rapida'))
                     else:
-                        flash(f'Stock insuficiente para el producto {producto.nombre}.', 'danger')
-                        db.session.rollback()
-                        return redirect(url_for('bodega_bp.caja_rapida'))
+                        if producto.cantidad_stock >= cantidad:
+                            stock_ant = producto.cantidad_stock
+                            producto.cantidad_stock -= cantidad
+                            
+                            ajuste = StockAdjustment(
+                                product_id=producto.id,
+                                admin_id=current_user.id,
+                                tipo_movimiento=f"Venta Bodega Rápida #{numero_factura}",
+                                stock_anterior=stock_ant,
+                                stock_nuevo=producto.cantidad_stock
+                            )
+                            db.session.add(ajuste)
+                        else:
+                            flash(f'Stock insuficiente para el producto {producto.nombre}.', 'danger')
+                            db.session.rollback()
+                            return redirect(url_for('bodega_bp.caja_rapida'))
                         
                     detalle = FacturaBodegaDetalle(
                         factura_id=nueva_fact.id,
                         producto_id=producto.id,
+                        variant_id=variant_id,
                         cantidad=cantidad,
                         precio_venta=precio_venta
                     )

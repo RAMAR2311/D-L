@@ -166,7 +166,13 @@
                         {% endif %}
                     {% endif %}
                 </td>
-                <td class="col-sub">${{ (detalle.precio_venta_final * detalle.cantidad_vendida)|cop }}</td>
+                <td class="col-sub">
+                    {% if detalle.precio_venta_final == 0 %}
+                        OBSEQUIO
+                    {% else %}
+                        ${{ (detalle.precio_venta_final * detalle.cantidad_vendida)|cop }}
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

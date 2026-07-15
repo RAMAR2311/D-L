@@ -213,8 +213,10 @@
                 nombre: nombreMostrar,
                 sku: sku,
                 precio_final: precio,
+                precio_sugerido: precio,
                 cantidad: 1,
-                max_stock: maxStock
+                max_stock: maxStock,
+                es_obsequio: false
             });
         }
         renderCart();
@@ -228,6 +230,26 @@
             val = carrito[index].max_stock;
         }
         carrito[index].cantidad = val;
+        renderCart();
+    }
+
+    function updateCartItemPrice(index, newPrice) {
+        let val = parseFloat(newPrice);
+        if (isNaN(val) || val < 0) val = 0;
+        carrito[index].precio_final = val;
+        renderCart();
+    }
+
+    function toggleObsequio(index) {
+        let item = carrito[index];
+        if (item.es_obsequio) {
+            item.es_obsequio = false;
+            // Restore suggested price
+            item.precio_final = item.precio_sugerido || 0;
+        } else {
+            item.es_obsequio = true;
+            item.precio_final = 0;
+        }
         renderCart();
     }
 
@@ -262,17 +284,34 @@
 
             const li = document.createElement('li');
             li.className = 'list-group-item px-3 py-3';
+            let precioInputState = item.es_obsequio ? 'disabled' : '';
+            let isObsequioClass = item.es_obsequio ? 'text-success' : 'text-muted';
+            
             li.innerHTML = `
                 <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="fw-bold text-dark text-truncate" style="max-width: 70%;">${item.nombre} <small class="text-muted d-block fw-normal" style="font-size: 0.75rem;">${item.sku}</small></div>
-                    <button class="btn btn-link text-danger p-0 border-0" onclick="removeCartItem(${index})"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="input-group input-group-sm" style="width: 100px;">
-                        <span class="input-group-text bg-light text-muted border-0">Cant</span>
-                        <input type="number" class="form-control text-center fw-bold border-0 bg-light" value="${item.cantidad}" onchange="updateCartItem(${index}, this.value)">
+                    <div class="fw-bold text-dark text-truncate" style="max-width: 70%;">
+                        ${item.nombre}
+                        <small class="text-muted d-block fw-normal" style="font-size: 0.75rem;">${item.sku}</small>
+                        ${item.es_obsequio ? '<span class="badge bg-success bg-opacity-10 text-success mt-1"><i class="fa-solid fa-gift me-1"></i>Obsequio</span>' : ''}
                     </div>
-                    <div class="fw-bolder text-brand-black">${formatoCOP(subtotal)}</div>
+                    <div>
+                        <button class="btn btn-link ${isObsequioClass} p-0 border-0 me-3" title="Marcar como Obsequio" onclick="toggleObsequio(${index})">
+                            <i class="fa-solid fa-gift fs-5"></i>
+                        </button>
+                        <button class="btn btn-link text-danger p-0 border-0" onclick="removeCartItem(${index})">
+                            <i class="fa-solid fa-xmark fs-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <div class="input-group input-group-sm flex-grow-1 me-2" style="max-width: 110px;">
+                        <span class="input-group-text bg-light text-muted border-0 px-2">Cant</span>
+                        <input type="number" class="form-control text-center fw-bold border-0 bg-light px-1" value="${item.cantidad}" onchange="updateCartItem(${index}, this.value)">
+                    </div>
+                    <div class="input-group input-group-sm flex-grow-1" style="max-width: 140px;">
+                        <span class="input-group-text bg-light text-muted border-0 px-2">$</span>
+                        <input type="number" class="form-control text-end fw-bold border-0 bg-light px-2 text-brand-black" value="${Math.round(item.precio_final)}" onchange="updateCartItemPrice(${index}, this.value)" ${precioInputState}>
+                    </div>
                 </div>
             `;
             tbody.appendChild(li);
@@ -302,7 +341,8 @@
                 product_id: item.product_id,
                 variant_id: item.variant_id,
                 cantidad: item.cantidad,
-                precio_final: item.precio_final
+                precio_final: item.precio_final,
+                es_obsequio: item.es_obsequio
             })),
             pagos: [{
                 metodo_pago: metodoPago,

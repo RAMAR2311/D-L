@@ -553,7 +553,8 @@
                     precio_minimo: initial_minimo,
                     cantidad_stock: producto.cantidad_stock,
                     variantes: producto.variantes,
-                    variant_id: initial_variant_id
+                    variant_id: initial_variant_id,
+                    es_obsequio: false
                 });
             }
 
@@ -616,7 +617,7 @@
             const nuevoPrecio = parseFloat(valor);
             
             // Regla de Negocio: Control de precio según Autoridad
-            if (nuevoPrecio < item.precio_limite) {
+            if (!item.es_obsequio && nuevoPrecio < item.precio_limite) {
                 alert(`¡OPERACIÓN BLOQUEADA! El precio pactado ($${nuevoPrecio}) es INFERIOR al Mínimo Autorizado para tu nivel de usuario ($${item.precio_limite}). No se puede vender a este precio para evitar pérdidas.`);
                 renderizarCarrito(); // Re-renderizar ignorando el valor digitado
                 return;
@@ -629,6 +630,19 @@
 
     function eliminarItem(index) {
         carrito.splice(index, 1);
+        renderizarCarrito();
+    }
+
+    function toggleObsequio(index) {
+        let item = carrito[index];
+        if (item.es_obsequio) {
+            item.es_obsequio = false;
+            // Restaurar precio sugerido
+            item.precio_final = item.precio_sugerido || 0;
+        } else {
+            item.es_obsequio = true;
+            item.precio_final = 0;
+        }
         renderizarCarrito();
     }
 
@@ -683,10 +697,14 @@
             } else {
                 skuLabel = `<small class="text-muted">${item.sku}</small>`;
             }
+            let isObsequioClass = item.es_obsequio ? 'text-success' : 'text-muted';
+            let precioInputState = item.es_obsequio ? 'disabled' : '';
+
             tr.innerHTML = `
                 <td>
                     <div class="fw-bold text-brand-black">${item.nombre}</div>
                     ${skuLabel}
+                    ${item.es_obsequio ? '<span class="badge bg-success bg-opacity-10 text-success ms-2"><i class="fa-solid fa-gift me-1"></i>Obsequio</span>' : ''}
                     ${variantHtml}
                 </td>
                 <td width="130">
@@ -696,13 +714,13 @@
                     ${item.es_manual ? `
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-light border-end-0">$</span>
-                        <input type="number" step="1" class="form-control text-end border-start-0 pe-2" value="${Math.round(item.precio_final)}" onchange="actualizarItem(${index}, 'precio_final', this.value)">
+                        <input type="number" step="1" class="form-control text-end border-start-0 pe-2" value="${Math.round(item.precio_final)}" onchange="actualizarItem(${index}, 'precio_final', this.value)" ${precioInputState}>
                     </div>
                     ` : `
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-light border-end-0">$</span>
-                        <input type="number" step="1" class="form-control text-end border-start-0 pe-2" value="${Math.round(item.precio_final)}" onchange="actualizarItem(${index}, 'precio_final', this.value)">
-                        <button class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <input type="number" step="1" class="form-control text-end border-start-0 pe-2" value="${Math.round(item.precio_final)}" onchange="actualizarItem(${index}, 'precio_final', this.value)" ${precioInputState}>
+                        <button class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false" ${precioInputState}>
                             <span class="visually-hidden">Opciones</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow border-0">
@@ -728,7 +746,10 @@
                 <td class="text-end fw-bold text-brand-black" width="120">
                     ${formatoCOP(subtotal)}
                 </td>
-                <td class="text-center" width="70">
+                <td class="text-center" width="90">
+                    <button class="btn btn-sm ${isObsequioClass} me-1" title="Marcar como Obsequio" onclick="toggleObsequio(${index})">
+                        <i class="fa-solid fa-gift"></i>
+                    </button>
                     <button class="btn btn-sm text-danger" onclick="eliminarItem(${index})"><i class="fa-solid fa-trash"></i></button>
                 </td>
             `;
@@ -828,7 +849,8 @@
                     product_id: item.id,
                     variant_id: item.variant_id,
                     cantidad: item.cantidad,
-                    precio_final: item.precio_final
+                    precio_final: item.precio_final,
+                    es_obsequio: item.es_obsequio
                 };
                 if (item.es_manual) {
                     base.es_manual = true;

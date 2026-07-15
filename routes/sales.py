@@ -67,6 +67,7 @@ def procesar_venta():
             cantidad_vendida = int(item.get('cantidad', 0))
             precio_venta_final = Decimal(str(item.get('precio_final', '0.00')))
             es_manual = item.get('es_manual', False)
+            es_obsequio = item.get('es_obsequio', False)
 
             if cantidad_vendida <= 0:
                 raise ValueError("La cantidad vendida debe ser mayor a 0.")
@@ -145,7 +146,7 @@ def procesar_venta():
                     )
                     db.session.add(ajuste)
 
-                if precio_venta_final < precio_limite_autorizado:
+                if not es_obsequio and precio_venta_final < precio_limite_autorizado:
                     raise ValueError(f"No autorizado: El precio ({precio_venta_final}) del producto '{producto.nombre}' está por debajo del límite permitido ({precio_limite_autorizado}).")
 
                 detalle = SaleDetail(
