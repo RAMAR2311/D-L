@@ -747,9 +747,11 @@
                     ${formatoCOP(subtotal)}
                 </td>
                 <td class="text-center" width="90">
+                    {% if current_user.rol == 'admin' %}
                     <button class="btn btn-sm ${isObsequioClass} me-1" title="Marcar como Obsequio" onclick="toggleObsequio(${index})">
                         <i class="fa-solid fa-gift"></i>
                     </button>
+                    {% endif %}
                     <button class="btn btn-sm text-danger" onclick="eliminarItem(${index})"><i class="fa-solid fa-trash"></i></button>
                 </td>
             `;

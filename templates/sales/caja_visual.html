@@ -338,9 +338,11 @@
                         ${item.es_obsequio ? '<span class="badge bg-success bg-opacity-10 text-success mt-1"><i class="fa-solid fa-gift me-1"></i>Obsequio</span>' : ''}
                     </div>
                     <div>
+                        {% if current_user.rol == 'admin' %}
                         <button class="btn btn-link ${isObsequioClass} p-0 border-0 me-3" title="Marcar como Obsequio" onclick="toggleObsequio(${index})">
                             <i class="fa-solid fa-gift fs-5"></i>
                         </button>
+                        {% endif %}
                         <button class="btn btn-link text-danger p-0 border-0" onclick="removeCartItem(${index})">
                             <i class="fa-solid fa-xmark fs-5"></i>
                         </button>
