@@ -50,11 +50,32 @@ def procesar_venta():
             except ValueError:
                 pass # Fallback silencioso a la hora actual si el formato falla
 
+        # Validar tipo de venta (Celulares vs General) y evitar mezcla
+        tipo_venta_detectado = None
+        for item in items:
+            es_manual = item.get('es_manual', False)
+            if es_manual:
+                tipo_item = 'general'
+            else:
+                prod_id = item.get('product_id')
+                producto_check = Product.query.get(prod_id)
+                if not producto_check:
+                    return jsonify({'error': f"El producto con ID {prod_id} no existe."}), 400
+                tipo_item = 'celulares' if producto_check.tipo_inventario == 'celulares' else 'general'
+            
+            if tipo_venta_detectado is None:
+                tipo_venta_detectado = tipo_item
+            elif tipo_venta_detectado != tipo_item:
+                return jsonify({'error': 'No se pueden mezclar celulares con accesorios en la misma venta. Por favor, realice transacciones separadas para no descuadrar los arqueos.'}), 400
+        
+        tipo_venta_detectado = tipo_venta_detectado or 'general'
+
         nueva_venta = Sale(
             vendedor_id=current_user.id,
             monto_total=Decimal('0.00'),
             metodo_pago=metodo_pago_principal,
-            fecha_venta=fecha_venta_obj
+            fecha_venta=fecha_venta_obj,
+            tipo_venta=tipo_venta_detectado
         )
         db.session.add(nueva_venta)
         db.session.flush()

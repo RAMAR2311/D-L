@@ -56,6 +56,9 @@ class Product(db.Model):
     ajustes_stock = db.relationship('StockAdjustment', backref='producto_rel', lazy=True)
     variantes = db.relationship('ProductVariant', backref='producto', lazy=True, cascade="all, delete-orphan")
 
+    def __init__(self, **kwargs):
+        super(Product, self).__init__(**kwargs)
+
     @property
     def total_stock(self):
         if self.variantes:
@@ -114,6 +117,9 @@ class ProductVariant(db.Model):
     precio_minimo = db.Column(db.Numeric(10, 2), nullable=True)
     precio_sugerido = db.Column(db.Numeric(10, 2), nullable=True)
 
+    def __init__(self, **kwargs):
+        super(ProductVariant, self).__init__(**kwargs)
+
 class Sale(db.Model):
     __tablename__ = 'sales'
     
@@ -122,10 +128,14 @@ class Sale(db.Model):
     fecha_venta = db.Column(db.DateTime, default=obtener_hora_bogota)
     monto_total = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     metodo_pago = db.Column(db.String(50), nullable=False, default='efectivo')
+    tipo_venta = db.Column(db.String(50), nullable=False, server_default='general') # 'general' o 'celulares'
     
     detalles = db.relationship('SaleDetail', backref='venta', lazy=True, cascade="all, delete-orphan")
     pagos = db.relationship('SalePayment', backref='venta', lazy=True, cascade="all, delete-orphan")
     cliente = db.relationship('SaleClient', backref='venta', lazy=True, cascade="all, delete-orphan", uselist=False)
+
+    def __init__(self, **kwargs):
+        super(Sale, self).__init__(**kwargs)
 
     @property
     def metodo_pago_display(self):
@@ -150,6 +160,9 @@ class SalePayment(db.Model):
     metodo_pago = db.Column(db.String(50), nullable=False)  # efectivo, nequi, bancolombia, daviplata
     monto = db.Column(db.Numeric(10, 2), nullable=False)
 
+    def __init__(self, **kwargs):
+        super(SalePayment, self).__init__(**kwargs)
+
 class SaleClient(db.Model):
     """Modelo para almacenar los datos del cliente, especialmente requerido en ventas de celulares."""
     __tablename__ = 'sale_clients'
@@ -161,6 +174,9 @@ class SaleClient(db.Model):
     telefono = db.Column(db.String(50), nullable=False)
     
     # Relación configurada desde Sale
+
+    def __init__(self, **kwargs):
+        super(SaleClient, self).__init__(**kwargs)
 
 class SaleDetail(db.Model):
     __tablename__ = 'sale_details'
@@ -177,6 +193,9 @@ class SaleDetail(db.Model):
 
     variante = db.relationship('ProductVariant', backref='ventas_rel', lazy=True)
 
+    def __init__(self, **kwargs):
+        super(SaleDetail, self).__init__(**kwargs)
+
 class StockAdjustment(db.Model):
     __tablename__ = 'stock_adjustments'
     
@@ -188,12 +207,16 @@ class StockAdjustment(db.Model):
     stock_nuevo = db.Column(db.Integer, nullable=False)
     fecha_ajuste = db.Column(db.DateTime, default=obtener_hora_bogota)
 
+    def __init__(self, **kwargs):
+        super(StockAdjustment, self).__init__(**kwargs)
+
 class ArqueoCaja(db.Model):
     __tablename__ = 'arqueo_caja'
     
     id = db.Column(db.Integer, primary_key=True)
     vendedor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     fecha_arqueo = db.Column(db.Date, nullable=False)
+    tipo_arqueo = db.Column(db.String(50), nullable=False, server_default='general') # 'general' o 'celulares'
     base_inicial = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     gastos_del_dia = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     observaciones_gastos = db.Column(db.String(255), nullable=True)
@@ -202,6 +225,9 @@ class ArqueoCaja(db.Model):
     total_unidades_ch = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     total_celulares = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     fecha_creacion = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    def __init__(self, **kwargs):
+        super(ArqueoCaja, self).__init__(**kwargs)
 
 class Maneo(db.Model):
     __tablename__ = 'maneos'
@@ -218,6 +244,9 @@ class Maneo(db.Model):
     producto = db.relationship('Product', backref='maneos', lazy=True)
     variante = db.relationship('ProductVariant', backref='maneos_rel', lazy=True)
 
+    def __init__(self, **kwargs):
+        super(Maneo, self).__init__(**kwargs)
+
 class Expense(db.Model):
     __tablename__ = 'expenses'
     
@@ -231,6 +260,9 @@ class Expense(db.Model):
     fecha_gasto = db.Column(db.DateTime, default=obtener_hora_bogota)
 
     usuario = db.relationship('User', backref='gastos', lazy=True)
+
+    def __init__(self, **kwargs):
+        super(Expense, self).__init__(**kwargs)
 
 class Cliente(db.Model):
     __tablename__ = 'clientes'
@@ -246,6 +278,9 @@ class Cliente(db.Model):
 
     facturas = db.relationship('FacturaBodega', backref='cliente', lazy=True)
     abonos = db.relationship('AbonoBodega', backref='cliente', lazy=True)
+
+    def __init__(self, **kwargs):
+        super(Cliente, self).__init__(**kwargs)
 
     @property
     def total_contado(self):
@@ -286,6 +321,9 @@ class FacturaBodega(db.Model):
     abonos = db.relationship('AbonoBodega', backref='factura', lazy=True, cascade="all, delete-orphan")
     detalles = db.relationship('FacturaBodegaDetalle', backref='factura', lazy=True, cascade="all, delete-orphan")
 
+    def __init__(self, **kwargs):
+        super(FacturaBodega, self).__init__(**kwargs)
+
     @property
     def saldo_pendiente(self):
         # Esta propiedad se vuelve menos relevante con abonos globales, 
@@ -307,6 +345,9 @@ class FacturaBodegaDetalle(db.Model):
     producto = db.relationship('Product', backref='detalles_factura_bodega', lazy=True)
     variante = db.relationship('ProductVariant', backref='detalles_factura_bodega_rel', lazy=True)
 
+    def __init__(self, **kwargs):
+        super(FacturaBodegaDetalle, self).__init__(**kwargs)
+
 class AbonoBodega(db.Model):
     __tablename__ = 'abonos_bodega'
 
@@ -320,3 +361,6 @@ class AbonoBodega(db.Model):
     fecha_abono = db.Column(db.DateTime, default=obtener_hora_bogota)
 
     usuario = db.relationship('User', backref='abonos_registrados', lazy=True)
+
+    def __init__(self, **kwargs):
+        super(AbonoBodega, self).__init__(**kwargs)

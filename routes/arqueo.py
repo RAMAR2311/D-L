@@ -120,7 +120,10 @@ def nuevo():
         fecha_str = fecha_seleccionada.strftime('%Y-%m-%d')
 
     # Calcular ventas del día usando el sistema híbrido (SalePayment + legacy)
-    ventas_del_dia = Sale.query.filter(db.func.date(Sale.fecha_venta) == fecha_seleccionada).all()
+    ventas_del_dia = Sale.query.filter(
+        db.func.date(Sale.fecha_venta) == fecha_seleccionada,
+        Sale.tipo_venta == 'general'
+    ).all()
     total_efectivo, total_transferencia = calcular_totales_dia(ventas_del_dia)
 
     # Calcular gastos automáticos del día
@@ -138,11 +141,11 @@ def nuevo():
     gastos_externos = float(sum(g.monto for g in gastos_externos_registros))
 
     # Verificar si ya existe un arqueo GLOBAL para esa fecha (unificado para todos los usuarios)
-    arqueo_existente = ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada).first()
+    arqueo_existente = ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, tipo_arqueo='general').first()
 
     if request.method == 'POST':
         # Doble verificación en el backend para evitar duplicados por concurrencia
-        if ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada).first():
+        if ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, tipo_arqueo='general').first():
             flash('Ya existe un arqueo cerrado para esta fecha. No se puede duplicar.', 'warning')
             return redirect(url_for('arqueo_bp.reporte', fecha_inicio=fecha_str, fecha_fin=fecha_str))
 
@@ -166,7 +169,8 @@ def nuevo():
             total_efectivo_sistema=total_efectivo,
             total_transferencia_sistema=total_transferencia,
             total_unidades_ch=procesar_unidades_ch(ventas_del_dia)[1],
-            total_celulares=procesar_celulares(ventas_del_dia)
+            total_celulares=Decimal('0.00'), # Ya no aplica al general
+            tipo_arqueo='general'
         )
 
         try:
@@ -187,7 +191,7 @@ def nuevo():
         gastos_automaticos=gastos_automaticos,
         gastos_externos=gastos_externos,
         total_general_ch=procesar_unidades_ch(ventas_del_dia)[1],
-        total_celulares=procesar_celulares(ventas_del_dia)
+        total_celulares=Decimal('0.00')
     )
 
 @arqueo_bp.route('/reporte', methods=['GET'])
@@ -212,7 +216,11 @@ def reporte():
         fecha_fin_str = hoy.strftime('%Y-%m-%d')
 
     # Arqueo unificado: todos los usuarios ven los mismos arqueos (ya no se filtra por vendedor)
-    query = ArqueoCaja.query.filter(ArqueoCaja.fecha_arqueo >= fecha_inicio, ArqueoCaja.fecha_arqueo <= fecha_fin)
+    query = ArqueoCaja.query.filter(
+        ArqueoCaja.fecha_arqueo >= fecha_inicio,
+        ArqueoCaja.fecha_arqueo <= fecha_fin,
+        ArqueoCaja.tipo_arqueo == 'general'
+    )
 
     arqueos = query.order_by(ArqueoCaja.fecha_arqueo.desc()).all()
 
@@ -254,7 +262,8 @@ def reporte():
     # Obtener todas las ventas del periodo para el detalle en la "tirilla" (unificado)
     ventas_query = Sale.query.filter(
         db.func.date(Sale.fecha_venta) >= fecha_inicio,
-        db.func.date(Sale.fecha_venta) <= fecha_fin
+        db.func.date(Sale.fecha_venta) <= fecha_fin,
+        Sale.tipo_venta == 'general'
     )
     
     ventas_periodo = ventas_query.order_by(Sale.fecha_venta.asc()).all()

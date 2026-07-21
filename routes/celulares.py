@@ -6,6 +6,8 @@ from datetime import datetime
 import pytz
 import os
 from werkzeug.utils import secure_filename
+from decimal import Decimal
+from models import db, Product, Sale, SaleDetail, SalePayment, ProductVariant, ArqueoCaja
 
 celulares_bp = Blueprint('celulares_bp', __name__)
 
@@ -300,7 +302,8 @@ def venta():
             vendedor_id=current_user.id,
             monto_total=precio_venta_final,
             # metode_pago is legacy, we can put the primary one or 'mixto'
-            metodo_pago=metodos_pago[0] if len(metodos_pago) == 1 else 'mixto'
+            metodo_pago=metodos_pago[0] if len(metodos_pago) == 1 else 'mixto',
+            tipo_venta='celulares'
         )
         db.session.add(nueva_venta)
         db.session.flush()
@@ -369,3 +372,124 @@ def historial_ventas():
             })
             
     return render_template('celulares/historial_ventas.html', historial=datos_historial)
+
+@celulares_bp.route('/arqueo/nuevo', methods=['GET', 'POST'])
+@login_required
+def arqueo_nuevo():
+    # Obtener fecha de la URL o usar hoy
+    fecha_str = request.args.get('fecha', obtener_hora_bogota().strftime('%Y-%m-%d'))
+    try:
+        fecha_seleccionada = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+    except ValueError:
+        fecha_seleccionada = obtener_hora_bogota().date()
+        fecha_str = fecha_seleccionada.strftime('%Y-%m-%d')
+
+    # Ventas de celulares del día
+    ventas_del_dia = Sale.query.filter(
+        db.func.date(Sale.fecha_venta) == fecha_seleccionada,
+        Sale.tipo_venta == 'celulares'
+    ).all()
+    
+    total_efectivo = Decimal('0')
+    total_transferencia = Decimal('0')
+    for v in ventas_del_dia:
+        if v.pagos:
+            for pago in v.pagos:
+                if pago.metodo_pago == 'efectivo':
+                    total_efectivo += pago.monto
+                else:
+                    total_transferencia += pago.monto
+        else:
+            if v.metodo_pago == 'efectivo':
+                total_efectivo += v.monto_total
+            elif v.metodo_pago in ['transferencia', 'nequi', 'bancolombia', 'daviplata']:
+                total_transferencia += v.monto_total
+
+    # Verificar si ya existe un arqueo de CELULARES para esa fecha
+    arqueo_existente = ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, tipo_arqueo='celulares').first()
+
+    if request.method == 'POST':
+        if arqueo_existente:
+            flash('Ya existe un arqueo de celulares para esta fecha.', 'warning')
+            return redirect(url_for('celulares_bp.arqueo_reporte', fecha_inicio=fecha_str, fecha_fin=fecha_str))
+
+        nuevo_arqueo = ArqueoCaja(
+            vendedor_id=current_user.id,
+            fecha_arqueo=fecha_seleccionada,
+            tipo_arqueo='celulares',
+            base_inicial=Decimal('0.00'), # Sin base inicial para celulares
+            gastos_del_dia=Decimal('0.00'), # Los gastos van a la general
+            total_efectivo_sistema=total_efectivo,
+            total_transferencia_sistema=total_transferencia,
+            total_unidades_ch=Decimal('0.00'),
+            total_celulares=Decimal('0.00')
+        )
+
+        try:
+            db.session.add(nuevo_arqueo)
+            db.session.commit()
+            flash('Arqueo de celulares guardado exitosamente.', 'success')
+            return redirect(url_for('celulares_bp.arqueo_reporte', fecha_inicio=fecha_str, fecha_fin=fecha_str))
+        except Exception as e:
+            db.session.rollback()
+            flash('Ocurrió un error al guardar el arqueo.', 'danger')
+
+    return render_template(
+        'celulares/arqueo/form.html',
+        fecha=fecha_str,
+        total_efectivo=total_efectivo,
+        total_transferencia=total_transferencia,
+        arqueo_existente=arqueo_existente
+    )
+
+@celulares_bp.route('/arqueo/reporte', methods=['GET'])
+@login_required
+def arqueo_reporte():
+    fecha_inicio_str = request.args.get('fecha_inicio', obtener_hora_bogota().strftime('%Y-%m-%d'))
+    fecha_fin_str = request.args.get('fecha_fin', obtener_hora_bogota().strftime('%Y-%m-%d'))
+
+    try:
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+    except ValueError:
+        fecha_inicio = obtener_hora_bogota().date()
+        fecha_fin = obtener_hora_bogota().date()
+
+    if current_user.rol != 'admin':
+        hoy = obtener_hora_bogota().date()
+        fecha_inicio = hoy
+        fecha_fin = hoy
+        fecha_inicio_str = hoy.strftime('%Y-%m-%d')
+        fecha_fin_str = hoy.strftime('%Y-%m-%d')
+
+    arqueos = ArqueoCaja.query.filter(
+        ArqueoCaja.fecha_arqueo >= fecha_inicio,
+        ArqueoCaja.fecha_arqueo <= fecha_fin,
+        ArqueoCaja.tipo_arqueo == 'celulares'
+    ).order_by(ArqueoCaja.fecha_arqueo.desc()).all()
+
+    resumen = {
+        'total_efectivo': sum(a.total_efectivo_sistema for a in arqueos),
+        'total_transferencia': sum(a.total_transferencia_sistema for a in arqueos)
+    }
+    resumen['total_recaudado_neto'] = resumen['total_efectivo'] + resumen['total_transferencia']
+    
+    # Ventas de celulares en el periodo
+    ventas_periodo = Sale.query.filter(
+        db.func.date(Sale.fecha_venta) >= fecha_inicio,
+        db.func.date(Sale.fecha_venta) <= fecha_fin,
+        Sale.tipo_venta == 'celulares'
+    ).order_by(Sale.fecha_venta.asc()).all()
+
+    fecha_generacion = obtener_hora_bogota().strftime('%Y-%m-%d %H:%M')
+
+    return render_template(
+        'celulares/arqueo/reporte.html',
+        arqueos=arqueos,
+        resumen=resumen,
+        fecha_inicio=fecha_inicio_str,
+        fecha_fin=fecha_fin_str,
+        fecha_generacion=fecha_generacion,
+        ventas_periodo=ventas_periodo
+    )
+
