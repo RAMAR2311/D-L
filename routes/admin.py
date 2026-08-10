@@ -445,9 +445,9 @@ def balance_financiero():
 
     local_nombres = {
         'central': 'Central (Consolidado General)',
-        '1': 'Local 1',
-        '2': 'Local 2',
-        '3': 'Local 3'
+        '1': 'D&L 1',
+        '2': 'D&L 2',
+        '3': 'D&L 3'
     }
     nombre_sede = local_nombres.get(active_local, 'Central (Consolidado General)')
 

@@ -654,9 +654,9 @@ def descargar_plantilla():
     df = pd.DataFrame(columns=['sku', 'nombre', 'subcategoria', 'local', 'cantidad_stock', 'precio_costo', 'precio_minimo', 'precio_sugerido', 'observacion'])
     
     # Filas de ejemplo para guiar al usuario
-    df.loc[0] = ['SKU-EJEMPLO-01', 'Audífonos Bluetooth Inalámbricos', '', 'Local 1', 50, 10000, 14000, 20000, 'Ingreso a Local 1']
-    df.loc[1] = ['SKU-EJEMPLO-02', 'Cargador Original Carga Rápida', 'Color Negro', 'Local 2', 100, 5000, 7500, 12000, 'Ingreso a Local 2']
-    df.loc[2] = ['SKU-EJEMPLO-02', 'Cargador Original Carga Rápida', 'Color Blanco', 'Local 3', 30, 5000, 7500, 12000, 'Ingreso a Local 3']
+    df.loc[0] = ['SKU-EJEMPLO-01', 'Audífonos Bluetooth Inalámbricos', '', 'D&L 1', 50, 10000, 14000, 20000, 'Ingreso a D&L 1']
+    df.loc[1] = ['SKU-EJEMPLO-02', 'Cargador Original Carga Rápida', 'Color Negro', 'D&L 2', 100, 5000, 7500, 12000, 'Ingreso a D&L 2']
+    df.loc[2] = ['SKU-EJEMPLO-02', 'Cargador Original Carga Rápida', 'Color Blanco', 'D&L 3', 30, 5000, 7500, 12000, 'Ingreso a D&L 3']
     
     output = BytesIO()
     df.to_excel(output, index=False, engine='openpyxl')

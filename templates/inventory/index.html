@@ -5,13 +5,13 @@
     <div>
         <h2 class="fw-bold text-brand-black m-0">
             {% if active_local == '1' %}
-                <i class="fa-solid fa-store text-primary me-2"></i>Inventario Local 1
+                <i class="fa-solid fa-store text-primary me-2"></i>Inventario D&L 1
             {% elif active_local == '2' %}
-                <i class="fa-solid fa-store text-info me-2"></i>Inventario Local 2
+                <i class="fa-solid fa-store text-info me-2"></i>Inventario D&L 2
             {% elif active_local == '3' %}
-                <i class="fa-solid fa-store text-purple me-2"></i>Inventario Local 3
+                <i class="fa-solid fa-store text-purple me-2"></i>Inventario D&L 3
             {% else %}
-                <i class="fa-solid fa-boxes-stacked text-brand-pink me-2"></i>Inventario Central (Todos los Locales)
+                <i class="fa-solid fa-boxes-stacked text-brand-pink me-2"></i>Inventario D&L CENTRAL
             {% endif %}
         </h2>
         <small class="text-muted">Filtra y gestiona las existencias según la sede o vista global</small>
@@ -33,13 +33,13 @@
             <i class="fa-solid fa-cubes me-2"></i>1. Inventario Central (Consolidado)
         </a>
         <a href="{{ url_for('inventory_bp.index', local='1') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '1' %}active bg-primary text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-shop me-2"></i>2. Inventario Local 1
+            <i class="fa-solid fa-shop me-2"></i>2. Inventario D&L 1
         </a>
         <a href="{{ url_for('inventory_bp.index', local='2') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '2' %}active bg-info text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-shop me-2"></i>3. Inventario Local 2
+            <i class="fa-solid fa-shop me-2"></i>3. Inventario D&L 2
         </a>
         <a href="{{ url_for('inventory_bp.index', local='3') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '3' %}active bg-success text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-shop me-2"></i>4. Inventario Local 3
+            <i class="fa-solid fa-shop me-2"></i>4. Inventario D&L 3
         </a>
     </div>
 </div>
@@ -367,7 +367,7 @@
                     <div class="text-start mb-2">
                         <label class="form-label fw-bold">2. Subir archivo rellenado</label>
                         <input type="file" name="archivo" accept=".xlsx, .csv" class="form-control bg-light border-0 shadow-sm" required>
-                        <small class="text-muted d-block mt-2"><i class="fa-solid fa-circle-info text-info me-1"></i>Puedes incluir una columna <strong>local</strong> con valores (<code>Local 1</code>, <code>Local 2</code> o <code>Local 3</code>) para asignar las existencias a cada sede. Si el SKU ya existe, su cantidad será <strong>SUMADA</strong> al inventario de dicha sede.</small>
+                        <small class="text-muted d-block mt-2"><i class="fa-solid fa-circle-info text-info me-1"></i>Puedes incluir una columna <strong>local</strong> con valores (<code>D&L 1</code>, <code>D&L 2</code> o <code>D&L 3</code>) para asignar las existencias a cada sede. Si el SKU ya existe, su cantidad será <strong>SUMADA</strong> al inventario de dicha sede.</small>
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light rounded-bottom">

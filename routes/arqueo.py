@@ -47,9 +47,9 @@ def nuevo():
         active_local = str(local_id_num)
 
     local_nombres = {
-        '1': 'Local 1',
-        '2': 'Local 2',
-        '3': 'Local 3'
+        '1': 'D&L 1',
+        '2': 'D&L 2',
+        '3': 'D&L 3'
     }
     nombre_sede = local_nombres.get(active_local, f'Local {active_local}')
 
@@ -134,12 +134,12 @@ def reporte():
         active_local = str(current_user.local_asignado or '1')
 
     local_nombres = {
-        'central': 'Central (Todos los Locales)',
-        '1': 'Local 1',
-        '2': 'Local 2',
-        '3': 'Local 3'
+        'central': 'D&L CENTRAL',
+        '1': 'D&L 1',
+        '2': 'D&L 2',
+        '3': 'D&L 3'
     }
-    nombre_sede = local_nombres.get(active_local, 'Central (Todos los Locales)')
+    nombre_sede = local_nombres.get(active_local, 'D&L CENTRAL')
 
     fecha_inicio_str = request.args.get('fecha_inicio', obtener_hora_bogota().strftime('%Y-%m-%d'))
     fecha_fin_str = request.args.get('fecha_fin', obtener_hora_bogota().strftime('%Y-%m-%d'))

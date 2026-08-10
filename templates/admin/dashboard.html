@@ -29,9 +29,9 @@
                   <label class="form-label fw-bold text-brand-black small"><i class="fa-solid fa-store text-primary me-1"></i>Sede / Local del Balance</label>
                   <select name="local" class="form-select bg-light border-0 py-2 shadow-sm fw-bold">
                       <option value="central" {% if active_local == 'central' %}selected{% endif %}>🏢 Central (Consolidado General)</option>
-                      <option value="1" {% if active_local == '1' %}selected{% endif %}>🏪 Local 1</option>
-                      <option value="2" {% if active_local == '2' %}selected{% endif %}>🏪 Local 2</option>
-                      <option value="3" {% if active_local == '3' %}selected{% endif %}>🏪 Local 3</option>
+                      <option value="1" {% if active_local == '1' %}selected{% endif %}>🏪 D&L 1</option>
+                      <option value="2" {% if active_local == '2' %}selected{% endif %}>🏪 D&L 2</option>
+                      <option value="3" {% if active_local == '3' %}selected{% endif %}>🏪 D&L 3</option>
                   </select>
               </div>
 
@@ -60,13 +60,13 @@
             <i class="fa-solid fa-cubes me-2"></i>1. Vista General (Central)
         </a>
         <a href="{{ url_for('admin_bp.dashboard', local='1') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '1' %}active bg-primary text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-shop me-2"></i>2. Local 1
+            <i class="fa-solid fa-shop me-2"></i>2. D&L 1
         </a>
         <a href="{{ url_for('admin_bp.dashboard', local='2') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '2' %}active bg-info text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-shop me-2"></i>3. Local 2
+            <i class="fa-solid fa-shop me-2"></i>3. D&L 2
         </a>
         <a href="{{ url_for('admin_bp.dashboard', local='3') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '3' %}active bg-success text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-shop me-2"></i>4. Local 3
+            <i class="fa-solid fa-shop me-2"></i>4. D&L 3
         </a>
     </div>
 </div>

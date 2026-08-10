@@ -15,9 +15,9 @@
             <form id="fechaForm" action="{{ url_for('arqueo_bp.nuevo') }}" method="GET" class="d-flex align-items-center gap-2">
                 {% if is_admin %}
                 <select id="localSelect" name="local" class="form-select form-select-sm fw-bold border-primary shadow-sm" onchange="this.form.submit()">
-                    <option value="1" {% if active_local == '1' %}selected{% endif %}>Local 1</option>
-                    <option value="2" {% if active_local == '2' %}selected{% endif %}>Local 2</option>
-                    <option value="3" {% if active_local == '3' %}selected{% endif %}>Local 3</option>
+                    <option value="1" {% if active_local == '1' %}selected{% endif %}>D&L 1</option>
+                    <option value="2" {% if active_local == '2' %}selected{% endif %}>D&L 2</option>
+                    <option value="3" {% if active_local == '3' %}selected{% endif %}>D&L 3</option>
                 </select>
                 {% else %}
                 <input type="hidden" name="local" value="{{ active_local }}">

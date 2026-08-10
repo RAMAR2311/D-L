@@ -27,13 +27,13 @@
                 <i class="fa-solid fa-cubes me-2"></i>Central (Todos los Asesores)
             </a>
             <a href="{{ url_for('asesores_bp.index', local='1') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '1' %}active bg-primary text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-                <i class="fa-solid fa-shop me-2"></i>Local 1
+                <i class="fa-solid fa-shop me-2"></i>D&L 1
             </a>
             <a href="{{ url_for('asesores_bp.index', local='2') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '2' %}active bg-info text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-                <i class="fa-solid fa-shop me-2"></i>Local 2
+                <i class="fa-solid fa-shop me-2"></i>D&L 2
             </a>
             <a href="{{ url_for('asesores_bp.index', local='3') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '3' %}active bg-success text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-                <i class="fa-solid fa-shop me-2"></i>Local 3
+                <i class="fa-solid fa-shop me-2"></i>D&L 3
             </a>
         </div>
     </div>
@@ -58,9 +58,9 @@
                     <div class="mb-4">
                         <label for="local_id" class="form-label fw-semibold text-muted small">Asignar a Sede / Local <span class="text-danger">*</span></label>
                         <select id="local_id" name="local_id" class="form-select form-select-lg bg-light border-0 fs-6 fw-bold">
-                            <option value="1" {% if active_local == '1' %}selected{% endif %}>Local 1</option>
-                            <option value="2" {% if active_local == '2' %}selected{% endif %}>Local 2</option>
-                            <option value="3" {% if active_local == '3' %}selected{% endif %}>Local 3</option>
+                            <option value="1" {% if active_local == '1' %}selected{% endif %}>D&L 1</option>
+                            <option value="2" {% if active_local == '2' %}selected{% endif %}>D&L 2</option>
+                            <option value="3" {% if active_local == '3' %}selected{% endif %}>D&L 3</option>
                         </select>
                     </div>
 
@@ -162,9 +162,9 @@
                                                   <div class="mb-3">
                                                       <label class="form-label fw-bold small text-brand-black">Sede / Local Asignado</label>
                                                       <select name="local_id" class="form-select bg-light border-0 fw-bold">
-                                                          <option value="1" {% if a.local_id == 1 %}selected{% endif %}>Local 1</option>
-                                                          <option value="2" {% if a.local_id == 2 %}selected{% endif %}>Local 2</option>
-                                                          <option value="3" {% if a.local_id == 3 %}selected{% endif %}>Local 3</option>
+                                                          <option value="1" {% if a.local_id == 1 %}selected{% endif %}>D&L 1</option>
+                                                          <option value="2" {% if a.local_id == 2 %}selected{% endif %}>D&L 2</option>
+                                                          <option value="3" {% if a.local_id == 3 %}selected{% endif %}>D&L 3</option>
                                                       </select>
                                                   </div>
 
