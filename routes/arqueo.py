@@ -248,3 +248,20 @@ def reporte():
         is_admin=is_admin,
         nombre_sede=nombre_sede
     )
+
+@arqueo_bp.route('/eliminar/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def eliminar(id):
+    arqueo = ArqueoCaja.query.get_or_404(id)
+    fecha_str = arqueo.fecha_arqueo.strftime('%Y-%m-%d')
+    local_id_str = str(arqueo.local_id)
+    try:
+        db.session.delete(arqueo)
+        db.session.commit()
+        flash('Cierre de caja anulado exitosamente. La caja ha sido reabierta para edición.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Ocurrió un error al anular el cierre de caja.', 'danger')
+        
+    return redirect(url_for('arqueo_bp.nuevo', fecha=fecha_str, local=local_id_str))

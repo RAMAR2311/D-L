@@ -45,9 +45,19 @@
                 Los campos de escritura han sido inhabilitados por seguridad.
             </p>
         </div>
-        <a href="{{ url_for('arqueo_bp.reporte', fecha_inicio=fecha, fecha_fin=fecha, local=active_local) }}" class="btn btn-warning rounded-pill px-4 fw-bold shadow-sm text-dark">
-            <i class="fa-solid fa-print me-1"></i> Imprimir Reporte de Cierre
-        </a>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <a href="{{ url_for('arqueo_bp.reporte', fecha_inicio=fecha, fecha_fin=fecha, local=active_local) }}" class="btn btn-warning rounded-pill px-4 fw-bold shadow-sm text-dark">
+                <i class="fa-solid fa-print me-1"></i> Imprimir Reporte
+            </a>
+            {% if current_user.rol == 'admin' %}
+            <form action="{{ url_for('arqueo_bp.eliminar', id=arqueo_existente.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de anular el cierre de caja de esta fecha? Se reabrirá la caja para realizar ajustes.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-danger rounded-pill px-4 fw-bold shadow-sm">
+                    <i class="fa-solid fa-lock-open me-1"></i> Anular Cierre / Reabrir Caja
+                </button>
+            </form>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 

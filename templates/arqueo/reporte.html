@@ -120,6 +120,7 @@
                             <th width="13%" class="text-success">Ventas Efectivo</th>
                             <th width="13%" class="text-info">Bancos</th>
                             <th width="10%" class="text-danger">Gastos</th>
+                            <th width="8%" class="text-center">Acción</th>
                         </tr>
                     </thead>
                     <tbody style="font-size: 0.9rem;">
@@ -139,10 +140,22 @@
                             <td class="text-end {% if arqueo.gastos_del_dia > 0 %}text-danger{% else %}text-muted{% endif %} fw-bold">
                                 ${{ (arqueo.gastos_del_dia)|cop }}
                             </td>
+                            <td class="text-center">
+                                {% if is_admin or current_user.rol == 'admin' %}
+                                <form action="{{ url_for('arqueo_bp.eliminar', id=arqueo.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de anular el cierre de caja del {{ arqueo.fecha_arqueo }}? Se reabrirá para edición.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger p-1 py-0 border-0 fw-bold" title="Anular Cierre">
+                                        <i class="fa-solid fa-lock-open me-1"></i>Anular
+                                    </button>
+                                </form>
+                                {% else %}
+                                    <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="8" class="text-center text-muted p-4">No hay arqueos registrados en estas fechas.</td>
+                            <td colspan="9" class="text-center text-muted p-4">No hay arqueos registrados en estas fechas.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
