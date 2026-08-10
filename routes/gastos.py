@@ -90,11 +90,7 @@ def index():
 
     if not is_admin or active_local != 'central':
         local_num = int(active_local)
-        from sqlalchemy import or_
-        from models import User
-        query = query.outerjoin(User, Expense.usuario_id == User.id).filter(
-            or_(Expense.local_id == local_num, User.local_asignado == local_num)
-        )
+        query = query.filter(Expense.local_id == local_num)
         
     gastos_mes = query.order_by(Expense.fecha_gasto.desc()).all()
 

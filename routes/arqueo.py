@@ -70,10 +70,10 @@ def nuevo():
     total_efectivo, total_transferencia = calcular_totales_dia(ventas_del_dia)
 
     # Calcular gastos automáticos del día exclusivamente para el local seleccionado
-    gastos_diarios_registros = Expense.query.outerjoin(User, Expense.usuario_id == User.id).filter(
+    gastos_diarios_registros = Expense.query.filter(
         db.func.date(Expense.fecha_gasto) == fecha_seleccionada,
         Expense.tipo_gasto == 'Gasto Diario',
-        or_(Expense.local_id == local_id_num, User.local_asignado == local_id_num)
+        Expense.local_id == local_id_num
     ).all()
     gastos_automaticos = sum((Decimal(str(g.monto)) for g in gastos_diarios_registros), Decimal('0.00'))
 
@@ -164,9 +164,7 @@ def reporte():
     )
     if active_local != 'central':
         local_num = int(active_local)
-        query = query.outerjoin(User, ArqueoCaja.vendedor_id == User.id).filter(
-            or_(ArqueoCaja.local_id == local_num, User.local_asignado == local_num)
-        )
+        query = query.filter(ArqueoCaja.local_id == local_num)
 
     arqueos = query.order_by(ArqueoCaja.fecha_arqueo.desc()).all()
 
@@ -188,9 +186,7 @@ def reporte():
     )
     if active_local != 'central':
         local_num = int(active_local)
-        gastos_efectivo_query = gastos_efectivo_query.outerjoin(User, Expense.usuario_id == User.id).filter(
-            or_(Expense.local_id == local_num, User.local_asignado == local_num)
-        )
+        gastos_efectivo_query = gastos_efectivo_query.filter(Expense.local_id == local_num)
     resumen['total_gastos_efectivo'] = sum(g.monto for g in gastos_efectivo_query.all())
     resumen['efectivo_esperado'] = (resumen['total_base'] + resumen['total_efectivo']) - resumen['total_gastos_efectivo']
 
@@ -209,9 +205,7 @@ def reporte():
     )
     if active_local != 'central':
         local_num = int(active_local)
-        gastos_query_periodo = gastos_query_periodo.outerjoin(User, Expense.usuario_id == User.id).filter(
-            or_(Expense.local_id == local_num, User.local_asignado == int(active_local))
-        )
+        gastos_query_periodo = gastos_query_periodo.filter(Expense.local_id == local_num)
     gastos_periodo = gastos_query_periodo.order_by(Expense.fecha_gasto.asc()).all()
 
     fecha_generacion = obtener_hora_bogota().strftime('%Y-%m-%d %H:%M')
