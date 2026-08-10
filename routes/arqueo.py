@@ -13,25 +13,40 @@ def obtener_hora_bogota():
     return datetime.now(pytz.timezone('America/Bogota')).replace(tzinfo=None)
 
 def calcular_totales_dia(ventas_del_dia):
-    """Calcula los totales de efectivo y transferencias del día.
-    Usa SalePayment si está disponible, de lo contrario usa metodo_pago legacy."""
-    total_efectivo = Decimal('0.00')
-    total_transferencia = Decimal('0.00')
+    """Calcula los totales de efectivo, transferencias y desglose digital del día."""
+    desglose = {
+        'efectivo': Decimal('0.00'),
+        'nequi': Decimal('0.00'),
+        'bancolombia': Decimal('0.00'),
+        'daviplata': Decimal('0.00'),
+        'bold': Decimal('0.00'),
+        'addi': Decimal('0.00'),
+        'transferencia': Decimal('0.00'),
+        'total_digital': Decimal('0.00')
+    }
     
     for v in ventas_del_dia:
         if v.pagos:  # Ventas nuevas con tabla sale_payments
             for pago in v.pagos:
-                if pago.metodo_pago == 'efectivo':
-                    total_efectivo += pago.monto
-                else:  # nequi, bancolombia, daviplata, transferencia
-                    total_transferencia += pago.monto
+                metodo = (pago.metodo_pago or 'efectivo').lower()
+                monto = Decimal(str(pago.monto))
+                if metodo in desglose:
+                    desglose[metodo] += monto
+                else:
+                    desglose['transferencia'] += monto
+                if metodo != 'efectivo':
+                    desglose['total_digital'] += monto
         else:  # Retrocompatibilidad con ventas antiguas
-            if v.metodo_pago == 'efectivo':
-                total_efectivo += v.monto_total
-            elif v.metodo_pago in ['transferencia', 'nequi', 'bancolombia', 'daviplata']:
-                total_transferencia += v.monto_total
+            metodo = (v.metodo_pago or 'efectivo').lower()
+            monto = Decimal(str(v.monto_total))
+            if metodo in desglose:
+                desglose[metodo] += monto
+            else:
+                desglose['transferencia'] += monto
+            if metodo != 'efectivo':
+                desglose['total_digital'] += monto
     
-    return total_efectivo, total_transferencia
+    return desglose['efectivo'], desglose['total_digital'], desglose
 
 @arqueo_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
@@ -67,7 +82,7 @@ def nuevo():
         Sale.local_id == local_id_num
     ).order_by(Sale.fecha_venta.desc()).all()
 
-    total_efectivo, total_transferencia = calcular_totales_dia(ventas_del_dia)
+    total_efectivo, total_transferencia, desglose_digital = calcular_totales_dia(ventas_del_dia)
 
     # Calcular gastos automáticos del día exclusivamente para el local seleccionado
     gastos_diarios_registros = Expense.query.filter(
@@ -126,6 +141,7 @@ def nuevo():
         gastos_automaticos=gastos_automaticos,
         abonos_puntos_registros=abonos_puntos_registros,
         total_abonos_puntos=total_abonos_puntos,
+        desglose_digital=desglose_digital,
         active_local=active_local,
         is_admin=is_admin,
         nombre_sede=nombre_sede

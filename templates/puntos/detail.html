@@ -139,6 +139,15 @@
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Sede / Caja que realiza el desembolso *</label>
+                        <select name="local_id" class="form-select bg-light border-0 fw-semibold">
+                            <option value="1" {% if current_user.local_asignado == 1 %}selected{% endif %}>🏪 D&L 1</option>
+                            <option value="2" {% if current_user.local_asignado == 2 %}selected{% endif %}>🏪 D&L 2</option>
+                            <option value="3" {% if current_user.local_asignado == 3 %}selected{% endif %}>🏪 D&L 3</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label fw-bold small text-muted">Descripción / Nota</label>
                         <input type="text" name="descripcion" class="form-control bg-light border-0" placeholder="Ej: Pago parcial por fundas prestadas">
                     </div>

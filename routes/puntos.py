@@ -110,6 +110,10 @@ def abonar(id):
 
     metodo_pago = request.form.get('metodo_pago', 'efectivo')
     descripcion = request.form.get('descripcion', '').strip()
+    try:
+        local_id_abono = int(request.form.get('local_id', 1))
+    except (ValueError, TypeError):
+        local_id_abono = getattr(current_user, 'local_asignado', 1) or 1
 
     if monto <= 0:
         flash('El monto del abono debe ser mayor a 0.', 'danger')
@@ -127,7 +131,7 @@ def abonar(id):
         )
         db.session.add(transaccion_abono)
 
-        # 2. Registrar el desembolso como Gasto Diario para cuadrar caja
+        # 2. Registrar el desembolso como Gasto Diario para cuadrar caja en el local seleccionado
         nuevo_gasto = Expense(
             usuario_id=current_user.id,
             tipo_gasto='Gasto Diario',
@@ -135,7 +139,7 @@ def abonar(id):
             descripcion=f"Abono a Punto {punto.nombre}" + (f" ({descripcion})" if descripcion else ""),
             monto=monto,
             metodo_pago=metodo_pago,
-            local_id=current_user.local_asignado or 1,
+            local_id=local_id_abono,
             fecha_gasto=obtener_hora_bogota()
         )
         db.session.add(nuevo_gasto)
