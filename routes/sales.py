@@ -592,10 +592,7 @@ def caja_visual():
     else:
         active_local = str(getattr(current_user, 'local_asignado', 1) or '1')
 
-    local_id_num = int(active_local) if active_local in ['1', '2', '3'] else 1
-    asesores = Asesor.query.filter_by(estado='Activo', local_id=local_id_num).order_by(Asesor.nombre.asc()).all()
-    if not asesores:
-        asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
+    asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
 
     productos = Product.query.filter(Product.tipo_inventario == 'tienda').order_by(Product.nombre.asc()).all()
     puntos = Punto.query.order_by(Punto.nombre.asc()).all()

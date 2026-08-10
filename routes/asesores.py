@@ -32,7 +32,7 @@ def index():
 
     query = Asesor.query
     if active_local != 'central':
-        query = query.filter_by(local_id=int(active_local))
+        query = query.filter(or_(Asesor.local_id == int(active_local), Asesor.local_id == 0))
 
     asesores = query.order_by(Asesor.fecha_registro.desc()).all()
 
@@ -49,9 +49,9 @@ def index():
 def crear():
     nombre = request.form.get('nombre', '').strip()
     try:
-        local_id = int(request.form.get('local_id', '1'))
+        local_id = int(request.form.get('local_id', '0'))
     except ValueError:
-        local_id = 1
+        local_id = 0
 
     if not nombre:
         flash('El nombre completo del asesor es obligatorio.', 'danger')
@@ -82,7 +82,7 @@ def editar(id):
     nombre = request.form.get('nombre', '').strip()
     estado = request.form.get('estado', 'Activo')
     try:
-        local_id = int(request.form.get('local_id', '1'))
+        local_id = int(request.form.get('local_id', '0'))
     except ValueError:
         local_id = asesor.local_id
 
@@ -169,7 +169,7 @@ def ventas_asesor():
 
     query_asesores = Asesor.query.order_by(Asesor.nombre.asc())
     if active_local != 'central':
-        query_asesores = query_asesores.filter_by(local_id=int(active_local))
+        query_asesores = query_asesores.filter(or_(Asesor.local_id == int(active_local), Asesor.local_id == 0))
     todos_asesores = query_asesores.all()
 
     query_ventas = Sale.query.filter(
@@ -179,7 +179,7 @@ def ventas_asesor():
 
     if active_local != 'central':
         local_num = int(active_local)
-        query_ventas = query_ventas.join(User, Sale.vendedor_id == User.id).filter(User.local_asignado == local_num)
+        query_ventas = query_ventas.filter(Sale.local_id == local_num)
 
     asesor_seleccionado = None
     if asesor_id_str != 'todas':
