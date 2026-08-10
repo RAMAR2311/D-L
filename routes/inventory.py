@@ -2,7 +2,7 @@ import os
 from werkzeug.utils import secure_filename
 from flask import current_app, Blueprint, render_template, request, redirect, url_for, flash, abort, send_file, jsonify
 from flask_login import login_required, current_user
-from models import db, Product, StockAdjustment, ProductVariant
+from models import db, Product, StockAdjustment, ProductVariant, LocalConfig
 from decorators import admin_required, admin_or_bodega_required
 import pandas as pd
 from io import BytesIO
@@ -14,6 +14,10 @@ inventory_bp = Blueprint('inventory_bp', __name__)
 @admin_or_bodega_required
 def index():
     tipo = 'bodega' if current_user.rol == 'bodega' else 'tienda'
+    active_local = request.args.get('local', 'central').lower()
+    if active_local not in ['central', '1', '2', '3']:
+        active_local = 'central'
+
     page = request.args.get('page', 1, type=int)
     per_page = 20
 
@@ -23,8 +27,16 @@ def index():
     )
     productos = paginacion.items
 
+    # Configuración de descuento por local
+    configs = LocalConfig.query.all()
+    local_configs_map = {cfg.local_id: cfg.descontar_inventario for cfg in configs}
+    # Valores por defecto por si falta alguna fila
+    for lid in [1, 2, 3]:
+        if lid not in local_configs_map:
+            local_configs_map[lid] = False
+
     # --- KPIs de Inventario ---
-    # Se calcula sobre TODO el inventario (no solo la página actual)
+    # Se calcula sobre TODO el inventario (no solo la página actual) filtrado por local
     todos = Product.query.filter_by(tipo_inventario=tipo).all()
     total_productos = len(todos)
 
@@ -36,14 +48,14 @@ def index():
             for v in p.variantes:
                 costo = float(v.precio_costo or p.precio_costo or 0)
                 sugerido = float(v.precio_sugerido or p.precio_sugerido or 0)
-                stock = v.cantidad_stock or 0
+                stock = v.get_stock_local(active_local)
                 valor_costo += costo * stock
                 valor_sugerido += sugerido * stock
                 total_unidades_fisicas += stock
         else:
             costo = float(p.precio_costo or 0)
             sugerido = float(p.precio_sugerido or 0)
-            stock = p.cantidad_stock or 0
+            stock = p.get_stock_local(active_local)
             valor_costo += costo * stock
             valor_sugerido += sugerido * stock
             total_unidades_fisicas += stock
@@ -55,8 +67,69 @@ def index():
         total_productos=total_productos,
         valor_costo=valor_costo,
         valor_sugerido=valor_sugerido,
-        total_unidades_fisicas=total_unidades_fisicas
+        total_unidades_fisicas=total_unidades_fisicas,
+        active_local=active_local,
+        local_configs=local_configs_map
     )
+
+@inventory_bp.route('/toggle-config-local', methods=['POST'])
+@login_required
+@admin_or_bodega_required
+def toggle_config_local():
+    data = request.get_json() or {}
+    try:
+        local_id = int(data.get('local_id') or 1)
+    except (ValueError, TypeError):
+        local_id = 1
+    
+    descontar = bool(data.get('descontar_inventario'))
+    
+    cfg = LocalConfig.query.filter_by(local_id=local_id).first()
+    if not cfg:
+        cfg = LocalConfig(local_id=local_id, descontar_inventario=descontar)
+        db.session.add(cfg)
+    else:
+        cfg.descontar_inventario = descontar
+        
+    db.session.commit()
+    return jsonify({
+        'success': True, 
+        'local_id': local_id, 
+        'descontar_inventario': cfg.descontar_inventario,
+        'message': f"Modo {'Descuento Real de Inventario' if cfg.descontar_inventario else 'Facturación Libre (Sin stock)'} activado para Local {local_id}."
+    })
+
+@inventory_bp.route('/toggle-product-stock', methods=['POST'])
+@login_required
+@admin_or_bodega_required
+def toggle_product_stock():
+    data = request.get_json() or {}
+    product_id = data.get('product_id')
+    variant_id = data.get('variant_id')
+    descontar = bool(data.get('descontar_inventario'))
+
+    if variant_id:
+        var = ProductVariant.query.get(variant_id)
+        if not var:
+            return jsonify({'success': False, 'error': 'Variante no encontrada'}), 404
+        var.descontar_inventario = descontar
+    elif product_id:
+        prod = Product.query.get(product_id)
+        if not prod:
+            return jsonify({'success': False, 'error': 'Producto no encontrado'}), 404
+        prod.descontar_inventario = descontar
+        if prod.variantes:
+            for v in prod.variantes:
+                v.descontar_inventario = descontar
+    else:
+        return jsonify({'success': False, 'error': 'Falta product_id o variant_id'}), 400
+
+    db.session.commit()
+    return jsonify({
+        'success': True, 
+        'descontar_inventario': descontar,
+        'message': f"Modo {'Descuento Real de Stock' if descontar else 'Facturación Libre (Sin stock)'} guardado."
+    })
 
 @inventory_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
@@ -78,25 +151,44 @@ def nuevo():
 
         # La instanciación agrupa todos los parámetros del nuevo producto
         tipo = 'bodega' if current_user.rol == 'bodega' else 'tienda'
+        descontar_val = bool(request.form.get('descontar_inventario'))
         
-        # Recibir variantes
+        # Recibir variantes y sus stocks por local
         v_nombres = request.form.getlist('v_nombre[]')
-        v_stocks = request.form.getlist('v_stock[]')
+        v_stocks_1 = request.form.getlist('v_stock_1[]')
+        v_stocks_2 = request.form.getlist('v_stock_2[]')
+        v_stocks_3 = request.form.getlist('v_stock_3[]')
+        v_stocks_legacy = request.form.getlist('v_stock[]')
+
         v_costos = request.form.getlist('v_costo[]')
         v_mins = request.form.getlist('v_min[]')
         v_sugs = request.form.getlist('v_sug[]')
 
-        # Si hay variantes, el stock base del producto maestro se ignora o se pone en 0
-        stock_base = 0 if v_nombres else int(request.form.get('cantidad_stock') or 0)
+        # Stocks por local del producto base si no hay variantes
+        s1 = int(request.form.get('stock_local_1') or 0)
+        s2 = int(request.form.get('stock_local_2') or 0)
+        s3 = int(request.form.get('stock_local_3') or 0)
+        
+        if 'cantidad_stock' in request.form and not (s1 or s2 or s3):
+            s1 = int(request.form.get('cantidad_stock') or 0)
+
+        if v_nombres:
+            s1, s2, s3 = 0, 0, 0
+
+        stock_base_total = s1 + s2 + s3
 
         nuevo_prod = Product(
             sku=request.form.get('sku').strip(),
             nombre=request.form.get('nombre').strip(),
             tipo_inventario=tipo,
-            cantidad_stock=stock_base,
+            stock_local_1=s1,
+            stock_local_2=s2,
+            stock_local_3=s3,
+            cantidad_stock=stock_base_total,
             precio_costo=float(request.form.get('precio_costo') or 0.0),
             precio_minimo=float(request.form.get('precio_minimo') or 0.0),
             precio_sugerido=float(request.form.get('precio_sugerido') or 0.0),
+            descontar_inventario=descontar_val,
             imagen=imagen_filename,
             observacion=request.form.get('observacion')
         )
@@ -108,13 +200,25 @@ def nuevo():
             # Crear variantes si existen
             for i in range(len(v_nombres)):
                 if not v_nombres[i]: continue
+                vs1 = int(v_stocks_1[i] or 0) if i < len(v_stocks_1) and v_stocks_1[i] != '' else 0
+                vs2 = int(v_stocks_2[i] or 0) if i < len(v_stocks_2) and v_stocks_2[i] != '' else 0
+                vs3 = int(v_stocks_3[i] or 0) if i < len(v_stocks_3) and v_stocks_3[i] != '' else 0
+                if not (vs1 or vs2 or vs3) and i < len(v_stocks_legacy) and v_stocks_legacy[i]:
+                    vs1 = int(v_stocks_legacy[i] or 0)
+
+                v_stock_tot = vs1 + vs2 + vs3
+
                 nueva_v = ProductVariant(
                     product_id=nuevo_prod.id,
                     nombre_variante=v_nombres[i],
-                    cantidad_stock=int(v_stocks[i] or 0),
+                    stock_local_1=vs1,
+                    stock_local_2=vs2,
+                    stock_local_3=vs3,
+                    cantidad_stock=v_stock_tot,
                     precio_costo=float(v_costos[i]) if v_costos[i] else nuevo_prod.precio_costo,
                     precio_minimo=float(v_mins[i]) if v_mins[i] else nuevo_prod.precio_minimo,
-                    precio_sugerido=float(v_sugs[i]) if v_sugs[i] else nuevo_prod.precio_sugerido
+                    precio_sugerido=float(v_sugs[i]) if v_sugs[i] else nuevo_prod.precio_sugerido,
+                    descontar_inventario=descontar_val
                 )
                 db.session.add(nueva_v)
 
@@ -178,12 +282,17 @@ def editar_producto(id):
         producto.precio_costo = float(request.form.get('precio_costo') or 0.0)
         producto.precio_minimo = float(request.form.get('precio_minimo') or 0.0)
         producto.precio_sugerido = float(request.form.get('precio_sugerido') or 0.0)
+        producto.descontar_inventario = bool(request.form.get('descontar_inventario'))
         producto.observacion = request.form.get('observacion')
         
         # Sincronización de Variantes
         v_ids = request.form.getlist('variant_id[]')
         v_nombres = request.form.getlist('v_nombre[]')
-        v_stocks = request.form.getlist('v_stock[]')
+        v_stocks_1 = request.form.getlist('v_stock_1[]')
+        v_stocks_2 = request.form.getlist('v_stock_2[]')
+        v_stocks_3 = request.form.getlist('v_stock_3[]')
+        v_stocks_legacy = request.form.getlist('v_stock[]')
+
         v_costos = request.form.getlist('v_costo[]')
         v_mins = request.form.getlist('v_min[]')
         v_sugs = request.form.getlist('v_sug[]')
@@ -197,17 +306,33 @@ def editar_producto(id):
         
         # 2. Actualizar o crear
         if not v_nombres:
-            # Si no hay variantes, el stock es el base
-            producto.cantidad_stock = int(request.form.get('cantidad_stock') or 0)
+            # Si no hay variantes, el stock se distribuye por local
+            s1 = int(request.form.get('stock_local_1') or 0)
+            s2 = int(request.form.get('stock_local_2') or 0)
+            s3 = int(request.form.get('stock_local_3') or 0)
+            if 'cantidad_stock' in request.form and not (s1 or s2 or s3):
+                s1 = int(request.form.get('cantidad_stock') or 0)
+            producto.stock_local_1 = s1
+            producto.stock_local_2 = s2
+            producto.stock_local_3 = s3
+            producto.cantidad_stock = s1 + s2 + s3
         else:
             # Si hay variantes, el stock base es 0
+            producto.stock_local_1 = 0
+            producto.stock_local_2 = 0
+            producto.stock_local_3 = 0
             producto.cantidad_stock = 0
             for i in range(len(v_nombres)):
                 nombre_v = v_nombres[i]
                 if not nombre_v: continue
                 
                 vid = v_ids[i] if i < len(v_ids) else None
-                stock_v = int(v_stocks[i] or 0)
+                vs1 = int(v_stocks_1[i] or 0) if i < len(v_stocks_1) and v_stocks_1[i] != '' else 0
+                vs2 = int(v_stocks_2[i] or 0) if i < len(v_stocks_2) and v_stocks_2[i] != '' else 0
+                vs3 = int(v_stocks_3[i] or 0) if i < len(v_stocks_3) and v_stocks_3[i] != '' else 0
+                if not (vs1 or vs2 or vs3) and i < len(v_stocks_legacy) and v_stocks_legacy[i]:
+                    vs1 = int(v_stocks_legacy[i] or 0)
+
                 costo_v = float(v_costos[i]) if v_costos[i] else producto.precio_costo
                 min_v = float(v_mins[i]) if v_mins[i] else producto.precio_minimo
                 sug_v = float(v_sugs[i]) if v_sugs[i] else producto.precio_sugerido
@@ -217,7 +342,10 @@ def editar_producto(id):
                     v_obj = ProductVariant.query.get(int(vid))
                     if v_obj:
                         v_obj.nombre_variante = nombre_v
-                        v_obj.cantidad_stock = stock_v
+                        v_obj.stock_local_1 = vs1
+                        v_obj.stock_local_2 = vs2
+                        v_obj.stock_local_3 = vs3
+                        v_obj.cantidad_stock = vs1 + vs2 + vs3
                         v_obj.precio_costo = costo_v
                         v_obj.precio_minimo = min_v
                         v_obj.precio_sugerido = sug_v
@@ -226,7 +354,10 @@ def editar_producto(id):
                     nueva_v = ProductVariant(
                         product_id=producto.id,
                         nombre_variante=nombre_v,
-                        cantidad_stock=stock_v,
+                        stock_local_1=vs1,
+                        stock_local_2=vs2,
+                        stock_local_3=vs3,
+                        cantidad_stock=vs1 + vs2 + vs3,
                         precio_costo=costo_v,
                         precio_minimo=min_v,
                         precio_sugerido=sug_v
@@ -519,13 +650,13 @@ def eliminar_variante(id):
 @login_required
 @admin_or_bodega_required
 def descargar_plantilla():
-    # Crear un DataFrame de estructura requerida
-    df = pd.DataFrame(columns=['sku', 'nombre', 'subcategoria', 'cantidad_stock', 'precio_costo', 'precio_minimo', 'precio_sugerido', 'observacion'])
+    # Crear un DataFrame de estructura requerida incluyendo la columna 'local'
+    df = pd.DataFrame(columns=['sku', 'nombre', 'subcategoria', 'local', 'cantidad_stock', 'precio_costo', 'precio_minimo', 'precio_sugerido', 'observacion'])
     
     # Filas de ejemplo para guiar al usuario
-    df.loc[0] = ['SKU-EJEMPLO-01', 'Audífonos Bluetooth Inalambricos', '', 50, 10000, 14000, 20000, 'Producto sencillo sin variantes']
-    df.loc[1] = ['SKU-EJEMPLO-02', 'Cargador Original Carga Rápida', 'Color Negro', 100, 5000, 7500, 12000, 'Ejemplo de Variante/Subcategoría']
-    df.loc[2] = ['SKU-EJEMPLO-02', 'Cargador Original Carga Rápida', 'Color Blanco', 30, 5000, 7500, 12000, 'Se agrupará al mismo SKU']
+    df.loc[0] = ['SKU-EJEMPLO-01', 'Audífonos Bluetooth Inalámbricos', '', 'Local 1', 50, 10000, 14000, 20000, 'Ingreso a Local 1']
+    df.loc[1] = ['SKU-EJEMPLO-02', 'Cargador Original Carga Rápida', 'Color Negro', 'Local 2', 100, 5000, 7500, 12000, 'Ingreso a Local 2']
+    df.loc[2] = ['SKU-EJEMPLO-02', 'Cargador Original Carga Rápida', 'Color Blanco', 'Local 3', 30, 5000, 7500, 12000, 'Ingreso a Local 3']
     
     output = BytesIO()
     df.to_excel(output, index=False, engine='openpyxl')
@@ -564,11 +695,14 @@ def importar_inventario():
         
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
-            flash(f"El archivo rechazado. Faltan las siguientes columnas: {', '.join(missing)}", 'danger')
+            flash(f"El archivo fue rechazado. Faltan las siguientes columnas requeridas: {', '.join(missing)}", 'danger')
             return redirect(url_for('inventory_bp.index'))
             
         if 'subcategoria' not in df.columns:
             df['subcategoria'] = ''
+
+        if 'local' not in df.columns and 'sede' not in df.columns:
+            df['local'] = '1'
             
         tipo = 'bodega' if current_user.rol == 'bodega' else 'tienda'
         creados = 0
@@ -588,6 +722,16 @@ def importar_inventario():
             
             subcat_val = str(row['subcategoria']).strip() if 'subcategoria' in row and pd.notna(row['subcategoria']) else ''
             if subcat_val.lower() == 'nan': subcat_val = ''
+
+            # Extraer Local (Sede 1, 2 o 3)
+            local_col = 'local' if 'local' in row else 'sede'
+            local_val = str(row[local_col]).strip().lower() if local_col in row and pd.notna(row[local_col]) else '1'
+            if '2' in local_val:
+                target_local = 2
+            elif '3' in local_val:
+                target_local = 3
+            else:
+                target_local = 1
             
             obs_val = str(row['observacion']).strip() if pd.notna(row['observacion']) else ''
             if obs_val.lower() == 'nan':
@@ -600,9 +744,16 @@ def importar_inventario():
                 if subcat_val:
                     variante = ProductVariant.query.filter_by(product_id=prod.id, nombre_variante=subcat_val).first()
                     if variante:
-                        # Actualizar variante existente
-                        stock_anterior = variante.cantidad_stock
-                        variante.cantidad_stock += cant
+                        # Actualizar variante existente en el local objetivo
+                        stock_anterior = variante.total_stock
+                        if target_local == 1:
+                            variante.stock_local_1 += cant
+                        elif target_local == 2:
+                            variante.stock_local_2 += cant
+                        elif target_local == 3:
+                            variante.stock_local_3 += cant
+                        
+                        variante.cantidad_stock = variante.total_stock
                         variante.precio_costo = costo
                         variante.precio_minimo = minimo
                         variante.precio_sugerido = sugerido
@@ -611,28 +762,34 @@ def importar_inventario():
                             ajuste = StockAdjustment(
                                 product_id=prod.id,
                                 admin_id=current_user.id,
-                                tipo_movimiento=f'Ingreso Masivo Subcategoría {subcat_val}',
+                                tipo_movimiento=f'Ingreso Masivo Subcategoría {subcat_val} (Local {target_local})',
                                 stock_anterior=stock_anterior,
-                                stock_nuevo=variante.cantidad_stock
+                                stock_nuevo=variante.total_stock
                             )
                             db.session.add(ajuste)
                         actualizados += 1
                     else:
                         # Crear nueva variante dentro del producto existente
+                        vs1 = cant if target_local == 1 else 0
+                        vs2 = cant if target_local == 2 else 0
+                        vs3 = cant if target_local == 3 else 0
                         nueva_variante = ProductVariant(
                             product_id=prod.id,
                             nombre_variante=subcat_val,
+                            stock_local_1=vs1,
+                            stock_local_2=vs2,
+                            stock_local_3=vs3,
                             cantidad_stock=cant,
                             precio_costo=costo,
                             precio_minimo=minimo,
                             precio_sugerido=sugerido
                         )
                         db.session.add(nueva_variante)
-                        # También sumar al historial para el Kardex
+                        
                         ajuste = StockAdjustment(
                             product_id=prod.id,
                             admin_id=current_user.id,
-                            tipo_movimiento=f'Creación Excel Subcategoría {subcat_val}',
+                            tipo_movimiento=f'Creación Excel Subcategoría {subcat_val} (Local {target_local})',
                             stock_anterior=0,
                             stock_nuevo=cant
                         )
@@ -640,8 +797,15 @@ def importar_inventario():
                         creados += 1
                 else:
                     # Sin variante, actualizar producto base
-                    stock_anterior = prod.cantidad_stock
-                    prod.cantidad_stock += cant
+                    stock_anterior = prod.total_stock
+                    if target_local == 1:
+                        prod.stock_local_1 += cant
+                    elif target_local == 2:
+                        prod.stock_local_2 += cant
+                    elif target_local == 3:
+                        prod.stock_local_3 += cant
+
+                    prod.cantidad_stock = prod.total_stock
                     prod.precio_costo = costo
                     prod.precio_minimo = minimo
                     prod.precio_sugerido = sugerido
@@ -652,19 +816,26 @@ def importar_inventario():
                         ajuste = StockAdjustment(
                             product_id=prod.id,
                             admin_id=current_user.id,
-                            tipo_movimiento='Suma por Ingreso Masivo (Excel)',
+                            tipo_movimiento=f'Suma por Ingreso Masivo Excel (Local {target_local})',
                             stock_anterior=stock_anterior,
-                            stock_nuevo=prod.cantidad_stock
+                            stock_nuevo=prod.total_stock
                         )
                         db.session.add(ajuste)
                     actualizados += 1
             else:
                 # CREAR NUEVO PRODUCTO MAESTRO
+                ps1 = (cant if not subcat_val else 0) if target_local == 1 else 0
+                ps2 = (cant if not subcat_val else 0) if target_local == 2 else 0
+                ps3 = (cant if not subcat_val else 0) if target_local == 3 else 0
+
                 nuevo_prod = Product(
                     sku=sku_raw,
                     nombre=nombre_val,
                     tipo_inventario=tipo,
-                    cantidad_stock=cant if not subcat_val else 0, # Si provee subcat, todo el stock se va a la subcat
+                    stock_local_1=ps1,
+                    stock_local_2=ps2,
+                    stock_local_3=ps3,
+                    cantidad_stock=cant if not subcat_val else 0,
                     precio_costo=costo,
                     precio_minimo=minimo,
                     precio_sugerido=sugerido,
@@ -674,10 +845,15 @@ def importar_inventario():
                 db.session.flush() # Generar ID autoincremental
                 
                 if subcat_val:
-                    # Insertar variante atada al nuevo producto
+                    vs1 = cant if target_local == 1 else 0
+                    vs2 = cant if target_local == 2 else 0
+                    vs3 = cant if target_local == 3 else 0
                     nueva_variante = ProductVariant(
                         product_id=nuevo_prod.id,
                         nombre_variante=subcat_val,
+                        stock_local_1=vs1,
+                        stock_local_2=vs2,
+                        stock_local_3=vs3,
                         cantidad_stock=cant,
                         precio_costo=costo,
                         precio_minimo=minimo,
@@ -688,7 +864,7 @@ def importar_inventario():
                     ajuste = StockAdjustment(
                         product_id=nuevo_prod.id,
                         admin_id=current_user.id,
-                        tipo_movimiento=f'Cr. Inicial Excel + Subcat {subcat_val}',
+                        tipo_movimiento=f'Cr. Inicial Excel + Subcat {subcat_val} (Local {target_local})',
                         stock_anterior=0,
                         stock_nuevo=cant
                     )
@@ -697,9 +873,9 @@ def importar_inventario():
                     ajuste = StockAdjustment(
                         product_id=nuevo_prod.id,
                         admin_id=current_user.id,
-                        tipo_movimiento='Creación Inicial (Excel)',
+                        tipo_movimiento=f'Creación Inicial Excel (Local {target_local})',
                         stock_anterior=0,
-                        stock_nuevo=nuevo_prod.cantidad_stock
+                        stock_nuevo=nuevo_prod.total_stock
                     )
                     db.session.add(ajuste)
                 creados += 1
@@ -718,6 +894,7 @@ def importar_inventario():
 @admin_or_bodega_required
 def api_search():
     query = request.args.get('q', '').strip()
+    active_local = request.args.get('local', 'central').lower()
     tipo = 'bodega' if current_user.rol == 'bodega' else 'tienda'
     
     if len(query) < 2:
@@ -737,7 +914,11 @@ def api_search():
             'id': p.id,
             'sku': p.sku,
             'nombre': p.nombre,
-            'stock': p.total_stock,
+            'stock': p.get_stock_local(active_local),
+            'stock_l1': p.get_stock_local('1'),
+            'stock_l2': p.get_stock_local('2'),
+            'stock_l3': p.get_stock_local('3'),
+            'stock_central': p.total_stock,
             'url': url_for('inventory_bp.ver_producto', id=p.id)
         })
     

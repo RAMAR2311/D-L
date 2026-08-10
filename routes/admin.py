@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, abort, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from models import db, Product, ProductVariant, Sale, User, Maneo, SaleDetail, SalePayment, StockAdjustment, Expense, obtener_hora_bogota
+from models import db, Product, ProductVariant, Sale, User, Maneo, SaleDetail, SalePayment, StockAdjustment, Expense, ArqueoCaja, obtener_hora_bogota
 from sqlalchemy.sql import func
 from werkzeug.security import generate_password_hash
 from decorators import admin_required
@@ -18,6 +18,10 @@ def vendedores():
         telefono = request.form.get('telefono')
         password = request.form.get('password')
         rol = request.form.get('rol', 'vendedor')
+        try:
+            local_asignado = int(request.form.get('local_asignado') or 1)
+        except (ValueError, TypeError):
+            local_asignado = 1
         
         # Se previene registrar vendedores con un mismo email para preservar la unicidad de las credenciales de acceso
         if User.query.filter_by(email=email).first():
@@ -30,11 +34,12 @@ def vendedores():
                     email=email.strip(),
                     telefono=telefono.strip() if telefono else None,
                     password_hash=generate_password_hash(password),
-                    rol=rol
+                    rol=rol,
+                    local_asignado=local_asignado
                 )
                 db.session.add(nuevo_usuario)
                 db.session.commit()
-                flash(f"¡Usuario '{nombre}' registrado con rol '{rol}' exitosamente!", "success")
+                flash(f"¡Usuario '{nombre}' registrado con rol '{rol}' asignado a Local {local_asignado} exitosamente!", "success")
             except Exception as e:
                 db.session.rollback()
                 flash('Ocurrió un error en la base de datos al intentar registrar al usuario.', 'danger')
@@ -42,9 +47,44 @@ def vendedores():
         return redirect(url_for('admin_bp.vendedores'))
         
     # Se pasa la lista para poblar la tabla HTML de gestión de personal
-    # Mostramos todos los usuarios que no son admin ni eliminados para gestión centralizada
-    lista_vendedores = User.query.filter(~User.rol.in_(['admin', 'eliminado'])).order_by(User.nombre).all()
+    lista_vendedores = User.query.filter(User.rol != 'eliminado').order_by(User.nombre).all()
     return render_template('admin/vendedores.html', vendedores=lista_vendedores)
+
+@admin_bp.route('/vendedores/<int:id>/editar', methods=['POST'])
+@login_required
+@admin_required
+def editar_vendedor(id):
+    usuario = User.query.get_or_404(id)
+    if usuario.rol == 'admin':
+        flash("No se puede editar al administrador principal desde aquí.", "danger")
+        return redirect(url_for('admin_bp.vendedores'))
+
+    nombre = request.form.get('nombre')
+    email = request.form.get('email')
+    telefono = request.form.get('telefono')
+    password = request.form.get('password')
+    rol = request.form.get('rol', 'vendedor')
+    try:
+        local_asignado = int(request.form.get('local_asignado') or 1)
+    except (ValueError, TypeError):
+        local_asignado = 1
+
+    try:
+        usuario.nombre = nombre.strip() if nombre else usuario.nombre
+        usuario.email = email.strip() if email else usuario.email
+        usuario.telefono = telefono.strip() if telefono else None
+        usuario.rol = rol
+        usuario.local_asignado = local_asignado
+        if password and password.strip():
+            usuario.password_hash = generate_password_hash(password.strip())
+            
+        db.session.commit()
+        flash(f"¡Usuario '{usuario.nombre}' actualizado correctamente (Asignado a Local {local_asignado})!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash("Ocurrió un error al actualizar los datos del usuario.", "danger")
+
+    return redirect(url_for('admin_bp.vendedores'))
 
 @admin_bp.route('/vendedores/<int:id>/eliminar', methods=['POST'])
 @login_required
@@ -71,27 +111,73 @@ def eliminar_vendedor(id):
 @login_required
 @admin_required
 def dashboard():
-    # Se obtienen métricas clave para que el administrador tenga un resumen rápido de las operaciones del negocio
-    total_productos = Product.query.count()
-    productos_bajo_stock = Product.query.filter(Product.cantidad_stock <= 10).count()
-    maneos_activos = Maneo.query.filter_by(estado='PENDIENTE').count()
-    
-    # Se filtran las ventas de la quincena actual (del 1 al 15 o del 16 al fin de mes)
+    active_local = request.args.get('local', 'central').lower()
+    if active_local not in ['central', '1', '2', '3']:
+        active_local = 'central'
+
     hoy = obtener_hora_bogota()
     if hoy.day <= 15:
         inicio_quincena = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else:
         inicio_quincena = hoy.replace(day=16, hour=0, minute=0, second=0, microsecond=0)
-    
-    total_ventas = db.session.query(func.sum(Sale.monto_total)).filter(Sale.fecha_venta >= inicio_quincena).scalar() or 0.0
-    conteo_ventas = Sale.query.filter(Sale.fecha_venta >= inicio_quincena).count()
 
-    return render_template('admin/dashboard.html', 
-                           total_productos=total_productos,
-                           productos_bajo_stock=productos_bajo_stock,
-                           total_ventas=total_ventas,
-                           conteo_ventas=conteo_ventas,
-                           maneos_activos=maneos_activos)
+    # 1. Métrica Caja POS (Ventas por Local o General)
+    query_sales = Sale.query.filter(Sale.fecha_venta >= inicio_quincena)
+    if active_local != 'central':
+        local_num = int(active_local)
+        query_sales = query_sales.join(User, Sale.vendedor_id == User.id).filter(User.local_asignado == local_num)
+    
+    ventas_list = query_sales.all()
+    total_ventas = sum(v.monto_total for v in ventas_list) if ventas_list else 0.0
+    conteo_ventas = len(ventas_list)
+
+    # 2. Métrica Gastos por Local o General
+    query_expenses = Expense.query.filter(Expense.fecha_gasto >= inicio_quincena)
+    if active_local != 'central':
+        local_num = int(active_local)
+        query_expenses = query_expenses.join(User, Expense.usuario_id == User.id).filter(User.local_asignado == local_num)
+
+    gastos_list = query_expenses.all()
+    total_gastos = sum(g.monto for g in gastos_list) if gastos_list else 0.0
+    conteo_gastos = len(gastos_list)
+
+    # 3. Métrica Proveedores y Cuentas por Pagar
+    from models import Provider, ProviderInvoice, ProviderPayment
+    total_proveedores = Provider.query.count()
+    invoices_all = ProviderInvoice.query.all()
+    payments_all = ProviderPayment.query.all()
+    total_facturado_prov = sum((i.monto_total for i in invoices_all), Decimal('0.00'))
+    total_abonos_prov = sum((p.monto_abonado for p in payments_all), Decimal('0.00'))
+    deuda_proveedores = total_facturado_prov - total_abonos_prov
+
+    # 4. Métrica Arqueo de Caja por Local o General
+    query_arqueos = ArqueoCaja.query
+    if active_local != 'central':
+        query_arqueos = query_arqueos.join(User, ArqueoCaja.vendedor_id == User.id).filter(User.local_asignado == int(active_local))
+    total_arqueos = query_arqueos.count()
+    ultimo_arqueo = query_arqueos.order_by(ArqueoCaja.fecha_creacion.desc()).first()
+
+    # Métricas Informativas de Inventario
+    todos_prods = Product.query.filter_by(tipo_inventario='tienda').all()
+    total_productos = len(todos_prods)
+    productos_bajo_stock = sum(1 for p in todos_prods if p.get_stock_local(active_local) <= 3)
+    maneos_activos = Maneo.query.filter_by(estado='PENDIENTE').count()
+
+    return render_template(
+        'admin/dashboard.html',
+        active_local=active_local,
+        total_ventas=total_ventas,
+        conteo_ventas=conteo_ventas,
+        total_gastos=total_gastos,
+        conteo_gastos=conteo_gastos,
+        total_proveedores=total_proveedores,
+        deuda_proveedores=deuda_proveedores,
+        total_arqueos=total_arqueos,
+        ultimo_arqueo=ultimo_arqueo,
+        total_productos=total_productos,
+        productos_bajo_stock=productos_bajo_stock,
+        maneos_activos=maneos_activos
+    )
 
 @admin_bp.route('/maneos')
 @login_required
@@ -110,6 +196,11 @@ def maneos_prestar():
     cantidad = int(request.form.get('cantidad', 0))
     local_vecino = request.form.get('local_vecino')
     variant_id_str = request.form.get('variant_id')
+    valor_unidad_str = request.form.get('valor_unidad', '0')
+    try:
+        valor_unidad = float(valor_unidad_str.replace(',', '').strip()) if valor_unidad_str else 0
+    except (ValueError, AttributeError):
+        valor_unidad = 0
 
     if not sku:
         flash('Asegúrate de escanear o ingresar un SKU válido.', 'danger')
@@ -150,6 +241,7 @@ def maneos_prestar():
             variant_id=variante.id if variante else None,
             local_vecino=local_vecino.strip(),
             cantidad=cantidad,
+            valor_unidad=valor_unidad,
             estado='PENDIENTE'
         )
         db.session.add(nuevo_maneo)
@@ -341,9 +433,22 @@ def balance_financiero():
     if request.method == 'POST':
         fecha_inicio_str = request.form.get('fecha_inicio')
         fecha_fin_str = request.form.get('fecha_fin')
+        active_local = request.form.get('local', 'central').lower()
     else:
         fecha_inicio_str = request.args.get('fecha_inicio')
         fecha_fin_str = request.args.get('fecha_fin')
+        active_local = request.args.get('local', 'central').lower()
+
+    if active_local not in ['central', '1', '2', '3']:
+        active_local = 'central'
+
+    local_nombres = {
+        'central': 'Central (Consolidado General)',
+        '1': 'Local 1',
+        '2': 'Local 2',
+        '3': 'Local 3'
+    }
+    nombre_sede = local_nombres.get(active_local, 'Central (Consolidado General)')
 
     hoy = obtener_hora_bogota()
     import calendar
@@ -366,19 +471,28 @@ def balance_financiero():
         flash("Formato de fecha inválido.", "danger")
         return redirect(url_for('admin_bp.dashboard'))
 
-    # 1. Ventas Totales
-    ventas_query = Sale.query.filter(Sale.fecha_venta >= inicio_dt, Sale.fecha_venta < fin_dt_query).all()
+    # 1. Ventas Totales por Local o General
+    query_sales = Sale.query.filter(Sale.fecha_venta >= inicio_dt, Sale.fecha_venta < fin_dt_query)
+    if active_local != 'central':
+        local_num = int(active_local)
+        query_sales = query_sales.join(User, Sale.vendedor_id == User.id).filter(User.local_asignado == local_num)
     
+    ventas_query = query_sales.all()
     ventas_efectivo = sum(v.monto_total for v in ventas_query if v.metodo_pago == 'efectivo')
     ventas_transferencia = sum(v.monto_total for v in ventas_query if v.metodo_pago in ['transferencia', 'nequi', 'bancolombia', 'daviplata'])
     total_ingresos = ventas_efectivo + ventas_transferencia
 
-    # 2. Costo de Mercancía Vendida (COGS)
-    detalles_query = SaleDetail.query.join(Sale).filter(
+    # 2. Costo de Mercancía Vendida (COGS) por Local o General
+    from decimal import Decimal
+    query_detalles = SaleDetail.query.join(Sale).filter(
         Sale.fecha_venta >= inicio_dt,
         Sale.fecha_venta < fin_dt_query
-    ).all()
-    
+    )
+    if active_local != 'central':
+        local_num = int(active_local)
+        query_detalles = query_detalles.join(User, Sale.vendedor_id == User.id).filter(User.local_asignado == local_num)
+        
+    detalles_query = query_detalles.all()
     costos_directos = Decimal('0.00')
     for d in detalles_query:
         if d.nombre_manual:
@@ -397,9 +511,16 @@ def balance_financiero():
             if p:
                 costos_directos += (p.precio_costo or 0) * d.cantidad_vendida
 
-    # 3. Costos Indirectos y Gastos Operativos
-    gastos_query = Expense.query.filter(Expense.fecha_gasto >= inicio_dt, Expense.fecha_gasto < fin_dt_query).all()
-    
+    # 3. Costos Indirectos y Gastos Operativos por Local o General
+    from sqlalchemy import or_
+    query_expenses = Expense.query.filter(Expense.fecha_gasto >= inicio_dt, Expense.fecha_gasto < fin_dt_query)
+    if active_local != 'central':
+        local_num = int(active_local)
+        query_expenses = query_expenses.outerjoin(User, Expense.usuario_id == User.id).filter(
+            or_(Expense.local_id == local_num, User.local_asignado == local_num)
+        )
+        
+    gastos_query = query_expenses.all()
     costos_indirectos = sum(g.monto for g in gastos_query if g.tipo_gasto == 'Costo Indirecto')
     gastos_operacionales = sum(g.monto for g in gastos_query if g.tipo_gasto == 'Gasto Diario')
     
@@ -422,5 +543,7 @@ def balance_financiero():
         fecha_inicio=fecha_inicio_str,
         fecha_fin=fecha_fin_str,
         fecha_generacion=hoy.strftime('%Y-%m-%d %H:%M'),
-        datos=datos_financieros
+        datos=datos_financieros,
+        active_local=active_local,
+        nombre_sede=nombre_sede
     )

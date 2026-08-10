@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Encabezado Principal (Coincidiendo con el diseño visual) -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold text-brand-black mb-0">
+                <i class="fa-solid fa-users-gear me-2 text-dark"></i>Gestión de Asesores
+            </h2>
+            <p class="text-muted small mb-0">Registro y control de asesores comerciales asignados por sede</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('asesores_bp.ventas_asesor') }}" class="btn btn-primary rounded-pill fw-bold px-3 shadow-sm">
+                <i class="fa-solid fa-chart-line me-1"></i>Ver Ventas por Asesor
+            </a>
+            <a href="/admin/dashboard" class="btn btn-outline-dark rounded-pill fw-bold px-3 shadow-sm">
+                <i class="fa-solid fa-arrow-left me-1"></i>Panel Principal
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtro Interactivo por Sede / Local -->
+    <div class="card card-custom p-2 mb-4 border-0 shadow-sm bg-white">
+        <div class="nav nav-pills nav-justified gap-2" role="tablist">
+            <a href="{{ url_for('asesores_bp.index', local='central') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == 'central' %}active bg-dark text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                <i class="fa-solid fa-cubes me-2"></i>Central (Todos los Asesores)
+            </a>
+            <a href="{{ url_for('asesores_bp.index', local='1') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '1' %}active bg-primary text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                <i class="fa-solid fa-shop me-2"></i>Local 1
+            </a>
+            <a href="{{ url_for('asesores_bp.index', local='2') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '2' %}active bg-info text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                <i class="fa-solid fa-shop me-2"></i>Local 2
+            </a>
+            <a href="{{ url_for('asesores_bp.index', local='3') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '3' %}active bg-success text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                <i class="fa-solid fa-shop me-2"></i>Local 3
+            </a>
+        </div>
+    </div>
+
+    <!-- Estructura de 2 Columnas -->
+    <div class="row g-4">
+        <!-- COLUMNA IZQUIERDA: FORMULARIO REGISTRAR NUEVO ASESOR -->
+        <div class="col-lg-4">
+            <div class="card card-custom p-4 border-0 shadow-sm bg-white h-100">
+                <h5 class="fw-bold text-brand-black mb-4 d-flex align-items-center">
+                    <i class="fa-solid fa-user-plus text-danger me-2"></i>Registrar Nuevo Asesor
+                </h5>
+
+                <form action="{{ url_for('asesores_bp.crear') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label fw-semibold text-muted small">Nombre Completo <span class="text-danger">*</span></label>
+                        <input type="text" id="nombre" name="nombre" class="form-control form-control-lg bg-light border-0 fs-6" placeholder="Ej. Carlos Mendoza" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="local_id" class="form-label fw-semibold text-muted small">Asignar a Sede / Local <span class="text-danger">*</span></label>
+                        <select id="local_id" name="local_id" class="form-select form-select-lg bg-light border-0 fs-6 fw-bold">
+                            <option value="1" {% if active_local == '1' %}selected{% endif %}>Local 1</option>
+                            <option value="2" {% if active_local == '2' %}selected{% endif %}>Local 2</option>
+                            <option value="3" {% if active_local == '3' %}selected{% endif %}>Local 3</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-dark btn-lg w-100 rounded-3 fw-bold py-3 text-uppercase shadow-sm" style="background-color: #000; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-check me-2"></i>Registrar Asesor
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: LISTADO DE ASESORES GLOBALES O POR SEDE -->
+        <div class="col-lg-8">
+            <div class="card card-custom p-0 overflow-hidden shadow-sm border-0 bg-white h-100">
+                <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-brand-black mb-0">
+                        Listado de Asesores {% if active_local == 'central' %}Globales{% else %}Local {{ active_local }}{% endif %}
+                    </h5>
+                    <span class="badge bg-dark rounded-pill px-3 py-1">{{ total_asesores }} asesores</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-muted small text-uppercase" style="border-bottom: 2px solid #dc3545;">
+                            <tr>
+                                <th class="ps-4 py-3" width="30%">Nombre del Asesor</th>
+                                <th width="15%">Sede</th>
+                                <th width="25%">Fecha Registro</th>
+                                <th width="12%">Estado</th>
+                                <th class="text-center pe-4" width="18%">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in asesores %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark fs-6">{{ a.nombre }}</td>
+                                <td>
+                                    <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size:0.75rem;">
+                                        Local {{ a.local_id }}
+                                    </span>
+                                </td>
+                                <td class="text-muted small">
+                                    {{ a.fecha_registro.strftime('%d/%m/%Y %I:%M %p') }}
+                                </td>
+                                <td>
+                                    {% if a.estado == 'Activo' %}
+                                        <span class="badge bg-success rounded-pill px-3 py-1">Activo</span>
+                                    {% else %}
+                                        <span class="badge bg-danger rounded-pill px-3 py-1">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center pe-4">
+                                    <div class="d-flex align-items-center justify-content-center gap-2">
+                                        <!-- Botón Editar -->
+                                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#modalEditar_{{ a.id }}">
+                                            <i class="fa-solid fa-pen-to-square"></i> Editar
+                                        </button>
+
+                                        <!-- Botón Activar/Desactivar -->
+                                        <form action="{{ url_for('asesores_bp.toggle_estado', id=a.id) }}" method="POST" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            {% if a.estado == 'Activo' %}
+                                                <button type="submit" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold d-flex align-items-center gap-1">
+                                                    <i class="fa-solid fa-user-slash"></i> Desactivar
+                                                </button>
+                                            {% else %}
+                                                <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 fw-bold d-flex align-items-center gap-1">
+                                                    <i class="fa-solid fa-user-check"></i> Activar
+                                                </button>
+                                            {% endif %}
+                                        </form>
+
+                                        <!-- Botón Eliminar -->
+                                        <form action="{{ url_for('asesores_bp.eliminar', id=a.id) }}" method="POST" onsubmit="return confirm('¿Eliminar asesor {{ a.nombre }}?');" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle p-2" title="Eliminar Asesor">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+
+                                    <!-- Modal Editar Asesor -->
+                                    <div class="modal fade text-start" id="modalEditar_{{ a.id }}" tabindex="-1" aria-hidden="true">
+                                      <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content border-0 shadow-lg rounded-4">
+                                          <div class="modal-header border-bottom-0 pb-0">
+                                            <h5 class="fw-bold text-brand-black">
+                                                <i class="fa-solid fa-user-pen text-primary me-2"></i>Editar Asesor: {{ a.nombre }}
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                          </div>
+                                          <form action="{{ url_for('asesores_bp.editar', id=a.id) }}" method="POST">
+                                              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                              <div class="modal-body">
+                                                  <div class="mb-3">
+                                                      <label class="form-label fw-bold small text-brand-black">Nombre Completo <span class="text-danger">*</span></label>
+                                                      <input type="text" name="nombre" class="form-control bg-light border-0 fw-bold" value="{{ a.nombre }}" required>
+                                                  </div>
+
+                                                  <div class="mb-3">
+                                                      <label class="form-label fw-bold small text-brand-black">Sede / Local Asignado</label>
+                                                      <select name="local_id" class="form-select bg-light border-0 fw-bold">
+                                                          <option value="1" {% if a.local_id == 1 %}selected{% endif %}>Local 1</option>
+                                                          <option value="2" {% if a.local_id == 2 %}selected{% endif %}>Local 2</option>
+                                                          <option value="3" {% if a.local_id == 3 %}selected{% endif %}>Local 3</option>
+                                                      </select>
+                                                  </div>
+
+                                                  <div class="mb-3">
+                                                      <label class="form-label fw-bold small text-brand-black">Estado del Asesor</label>
+                                                      <select name="estado" class="form-select bg-light border-0 fw-bold">
+                                                          <option value="Activo" {% if a.estado == 'Activo' %}selected{% endif %}>Activo</option>
+                                                          <option value="Inactivo" {% if a.estado == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                                                      </select>
+                                                  </div>
+                                              </div>
+                                              <div class="modal-footer border-top-0 pt-0">
+                                                <button type="button" class="btn btn-light rounded-pill px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">
+                                                    <i class="fa-solid fa-floppy-disk me-1"></i> Actualizar Asesor
+                                                </button>
+                                              </div>
+                                          </form>
+                                        </div>
+                                      </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="fa-solid fa-users-slash fs-1 text-muted opacity-50 mb-2 d-block"></i>
+                                    No hay asesores registrados en esta sede.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

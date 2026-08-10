@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ticket de Compra #{{ venta.id }} - cases.com</title>
+    <title>Ticket de Compra #{{ venta.id }} - D & L Telefonía & Accesorios</title>
     <!-- Incluir solo la fuente base "Roboto Mono" (Letra de ticketera 80mm) -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -34,10 +34,18 @@
         }
 
         .logo {
-            font-size: 2.2rem;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0 0 5px 0;
+            letter-spacing: -1px;
+            color: #ED1C24;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
             font-weight: 700;
             margin: 0 0 10px 0;
-            letter-spacing: -1.5px;
+            letter-spacing: 0.5px;
         }
 
         .info {
@@ -80,11 +88,11 @@
             justify-content: space-between;
             font-size: 1.4rem;
             font-weight: 700;
-            /* Branding Inyectado: Resalte estricto en Azul Turquesa (#A3D8DE) */
-            background-color: #A3D8DE;
+            background-color: #ED1C24;
+            color: #FFFFFF;
             padding: 12px 15px;
             border-radius: 6px;
-            border: 1px solid #1A1A1A;
+            border: 2px solid #100F0D;
         }
 
         .footer {
@@ -97,11 +105,11 @@
             display: block;
             width: 100%;
             padding: 15px;
-            background-color: #1A1A1A;
+            background-color: #ED1C24;
             color: #FFFFFF;
-            border: 2px solid #1A1A1A;
+            border: 2px solid #100F0D;
             font-size: 1.1rem;
-            border-radius: 6px;
+            border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
             margin-top: 30px;
@@ -110,17 +118,17 @@
         }
 
         .btn-print:hover {
-            background-color: #FFFFFF;
-            color: #1A1A1A;
+            background-color: #C8141B;
+            color: #FFFFFF;
         }
 
-        /* MEDIA QUERY DE IMPRESIÓN RIGUROSA: Las reglas CSS aquí omiten UI inútil al imprimir en papel */
+        /* MEDIA QUERY DE IMPRESIÓN RIGUROSA */
         @media print {
             body { background-color: #FFFFFF; padding: 0; display: block; }
             .ticket { box-shadow: none; max-width: 100%; padding: 0; margin: 0 auto; width: 80mm; border: none; }
             .btn-print { display: none; }
             .total-row { background-color: transparent !important; border: none !important; padding: 10px 0 !important; }
-            .total-row * { color: #1A1A1A !important; } /* Desactivar Azul para impresiones monocromas */
+            .total-row * { color: #1A1A1A !important; }
         }
     </style>
 </head>
@@ -128,10 +136,14 @@
 
 <div class="ticket">
     <div class="header">
-        <h1 class="logo">cases.com</h1>
+        <h1 class="logo">D & L</h1>
+        <p class="subtitle">TELEFONÍA & ACCESORIOS</p>
         <p class="info">Folio / Ticket: #{{ venta.id }}</p>
         <p class="info">Expedido: {{ venta.fecha_venta.strftime('%d/%m/%Y %H:%M') }}</p>
         <p class="info">Cajero Asignado: {{ venta.vendedor.nombre }}</p>
+        {% if venta.asesor %}
+        <p class="info" style="font-weight: bold; color: #4FBE37;">Asesor Comercial: {{ venta.asesor.nombre }}</p>
+        {% endif %}
         <p class="info" style="font-weight: bold; text-transform: uppercase;">
             {% if venta.pagos|length > 1 %}
                 Método de Pago: PAGO DIVIDIDO
@@ -155,7 +167,6 @@
             {% for detalle in venta.detalles %}
             <tr>
                 <td class="col-qty">{{ detalle.cantidad_vendida }}</td>
-                <!-- Cortar la longitud del título si es gigantesco para no descuadrar la ticketera -->
                 <td class="col-prod">
                     {% if detalle.nombre_manual %}
                         {{ detalle.nombre_manual[:40] }}{% if detalle.nombre_manual|length > 40 %}...{% endif %}
@@ -185,7 +196,6 @@
         </div>
         
         {% if venta.pagos|length > 1 %}
-        <!-- Desglose de pagos mixtos -->
         <div style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ccc;">
             <p style="font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; text-align: center;">DESGLOSE DE PAGOS:</p>
             {% for pago in venta.pagos %}
@@ -199,9 +209,9 @@
     </div>
 
     <div class="footer">
-        <p style="font-size: 1rem; font-weight: bold;">¡Gracias por tu compra!</p>
+        <p style="font-size: 1rem; font-weight: bold;">¡Gracias por tu compra en D & L!</p>
         <p>Políticas de Tienda: Devoluciones únicamente presentando ticket impreso o digital.</p>
-        <p>Soporte: ventas@cases.com</p>
+        <p>Soporte: ventas@dltech.com</p>
     </div>
 
     <button class="btn-print" onclick="window.print()">

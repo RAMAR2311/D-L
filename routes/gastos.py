@@ -10,12 +10,20 @@ gastos_bp = Blueprint('gastos_bp', __name__)
 @gastos_bp.route('/', methods=['GET', 'POST'])
 @login_required
 def index():
+    is_admin = (current_user.rol == 'admin')
+    
     if request.method == 'POST':
         tipo_gasto = request.form.get('tipo_gasto')
         
         # Restricción de seguridad backend: Vendedores sólo registran gastos operativos
-        if current_user.rol != 'admin':
+        if not is_admin:
             tipo_gasto = 'Gasto Diario'
+            local_id_gasto = getattr(current_user, 'local_asignado', 1) or 1
+        else:
+            try:
+                local_id_gasto = int(request.form.get('local_id') or 1)
+            except (ValueError, TypeError):
+                local_id_gasto = 1
             
         categoria = request.form.get('categoria')
         descripcion = request.form.get('descripcion')
@@ -51,41 +59,58 @@ def index():
                         descripcion=descripcion,
                         monto=valor_float,
                         metodo_pago=metodo,
+                        local_id=local_id_gasto,
                         fecha_gasto=fecha_obj
                     )
                     db.session.add(nuevo_gasto)
             db.session.commit()
-            flash('Gasto registrado exitosamente.', 'success')
+            flash(f'Gasto registrado exitosamente (Local {local_id_gasto}).', 'success')
         except Exception as e:
             db.session.rollback()
             flash('Error al intentar registrar el gasto en la base de datos.', 'danger')
         
-        return redirect(url_for('gastos_bp.index'))
+        return redirect(url_for('gastos_bp.index', local=request.args.get('local', 'central')))
 
     # GET Logic (Filters current month expenses)
+    if is_admin:
+        active_local = request.args.get('local', 'central').lower()
+        if active_local not in ['central', '1', '2', '3']:
+            active_local = 'central'
+    else:
+        active_local = str(getattr(current_user, 'local_asignado', 1) or '1')
+
     ahora = obtener_hora_bogota()
     mes_actual = ahora.month
     anio_actual = ahora.year
 
-    # Consultamos registros del mes y del año actual
     query = Expense.query.filter(
         extract('month', Expense.fecha_gasto) == mes_actual,
         extract('year', Expense.fecha_gasto) == anio_actual
     )
-    
-    # Restricción de visibilidad: 
-    # Si no es administrador, SOLAMENTE puede ver los gastos que haya registrado él mismo.
-    if current_user.rol != 'admin':
-        query = query.filter(Expense.usuario_id == current_user.id)
+
+    if not is_admin or active_local != 'central':
+        local_num = int(active_local)
+        from sqlalchemy import or_
+        from models import User
+        query = query.outerjoin(User, Expense.usuario_id == User.id).filter(
+            or_(Expense.local_id == local_num, User.local_asignado == local_num)
+        )
         
     gastos_mes = query.order_by(Expense.fecha_gasto.desc()).all()
 
     total_diarios = sum((g.monto for g in gastos_mes if g.tipo_gasto == 'Gasto Diario'))
     total_indirectos = sum((g.monto for g in gastos_mes if g.tipo_gasto == 'Costo Indirecto'))
 
-    # Provide today's date formatted for HTML5 <input type="date">
     hoy_str = ahora.strftime('%Y-%m-%d')
-    return render_template('gastos/index.html', gastos=gastos_mes, total_diarios=total_diarios, total_indirectos=total_indirectos, hoy=hoy_str)
+    return render_template(
+        'gastos/index.html',
+        gastos=gastos_mes,
+        total_diarios=total_diarios,
+        total_indirectos=total_indirectos,
+        hoy=hoy_str,
+        active_local=active_local,
+        is_admin=is_admin
+    )
 
 @gastos_bp.route('/<int:id>/eliminar', methods=['POST'])
 @login_required

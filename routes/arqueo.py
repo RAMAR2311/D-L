@@ -1,10 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from models import db, Sale, SalePayment, ArqueoCaja, Expense
+from models import db, Sale, SalePayment, ArqueoCaja, Expense, User
 from decorators import admin_required
 from datetime import datetime, date
 from decimal import Decimal
-import re
+from sqlalchemy import or_
 import pytz
 
 arqueo_bp = Blueprint('arqueo_bp', __name__)
@@ -15,8 +15,8 @@ def obtener_hora_bogota():
 def calcular_totales_dia(ventas_del_dia):
     """Calcula los totales de efectivo y transferencias del día.
     Usa SalePayment si está disponible, de lo contrario usa metodo_pago legacy."""
-    total_efectivo = Decimal('0')
-    total_transferencia = Decimal('0')
+    total_efectivo = Decimal('0.00')
+    total_transferencia = Decimal('0.00')
     
     for v in ventas_del_dia:
         if v.pagos:  # Ventas nuevas con tabla sale_payments
@@ -33,84 +33,26 @@ def calcular_totales_dia(ventas_del_dia):
     
     return total_efectivo, total_transferencia
 
-def procesar_unidades_ch(ventas):
-    desglose = []
-    total_general_ch = Decimal('0')
-    
-    for v in ventas:
-        for detalle in v.detalles:
-            nombre = ""
-            if detalle.producto:
-                nombre = detalle.producto.nombre
-            elif detalle.nombre_manual:
-                nombre = detalle.nombre_manual
-                
-            subcategoria = ""
-            if detalle.variante:
-                subcategoria = detalle.variante.nombre_variante
-            
-            # Buscar el patrón 'CH', opcionalmente con espacio y/o 'x', seguido de un número
-            match_nombre = re.search(r'CH\s*x?(\d+)', nombre, re.IGNORECASE)
-            match_sub = re.search(r'CH\s*x?(\d+)', subcategoria, re.IGNORECASE)
-            
-            valor_extraido = None
-            error_formato = False
-            
-            # Prioridad: nombre del producto
-            if match_nombre:
-                try:
-                    valor_extraido = int(match_nombre.group(1))
-                except ValueError:
-                    error_formato = True
-            elif match_sub:
-                try:
-                    valor_extraido = int(match_sub.group(1))
-                except ValueError:
-                    error_formato = True
-            else:
-                # Si se detecta 'CH' pero no hay un número válido después
-                if re.search(r'CH', nombre, re.IGNORECASE) or re.search(r'CH', subcategoria, re.IGNORECASE):
-                    error_formato = True
-            
-            if valor_extraido is not None:
-                valor_unitario = valor_extraido * 1000
-                cantidad = detalle.cantidad_vendida
-                subtotal = Decimal(str(valor_unitario * cantidad))
-                
-                desglose.append({
-                    'nombre': f"{nombre} ({subcategoria})" if subcategoria else nombre,
-                    'cantidad': cantidad,
-                    'valor_unitario': valor_unitario,
-                    'subtotal': subtotal,
-                    'error': False
-                })
-                total_general_ch += subtotal
-            elif error_formato:
-                desglose.append({
-                    'nombre': f"{nombre} ({subcategoria})" if subcategoria else nombre,
-                    'cantidad': detalle.cantidad_vendida,
-                    'valor_unitario': 0,
-                    'subtotal': Decimal('0'),
-                    'error': 'Error de formato en descripción'
-                })
-                
-    return desglose, total_general_ch
-
-def procesar_celulares(ventas):
-    total_celulares = Decimal('0')
-    for v in ventas:
-        for detalle in v.detalles:
-            if detalle.producto and detalle.producto.tipo_inventario == 'celulares':
-                if detalle.variant_id and detalle.variante:
-                    costo = detalle.variante.precio_costo or 0
-                else:
-                    costo = detalle.producto.precio_costo or 0
-                total_celulares += Decimal(str(costo * detalle.cantidad_vendida))
-    return total_celulares
-
 @arqueo_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
 def nuevo():
+    is_admin = (current_user.rol == 'admin')
+    if is_admin:
+        active_local = request.args.get('local', '1').lower()
+        if active_local not in ['1', '2', '3']:
+            active_local = '1'
+        local_id_num = int(active_local)
+    else:
+        local_id_num = current_user.local_asignado or 1
+        active_local = str(local_id_num)
+
+    local_nombres = {
+        '1': 'Local 1',
+        '2': 'Local 2',
+        '3': 'Local 3'
+    }
+    nombre_sede = local_nombres.get(active_local, f'Local {active_local}')
+
     # Obtener fecha de la URL o usar hoy
     fecha_str = request.args.get('fecha', obtener_hora_bogota().strftime('%Y-%m-%d'))
     try:
@@ -119,65 +61,50 @@ def nuevo():
         fecha_seleccionada = obtener_hora_bogota().date()
         fecha_str = fecha_seleccionada.strftime('%Y-%m-%d')
 
-    # Calcular ventas del día usando el sistema híbrido (SalePayment + legacy)
-    ventas_del_dia = Sale.query.filter(
+    # Calcular ventas del día exclusivamente para el local seleccionado
+    ventas_del_dia = Sale.query.join(User, Sale.vendedor_id == User.id).filter(
         db.func.date(Sale.fecha_venta) == fecha_seleccionada,
-        Sale.tipo_venta == 'general'
-    ).all()
+        User.local_asignado == local_id_num
+    ).order_by(Sale.fecha_venta.desc()).all()
+
     total_efectivo, total_transferencia = calcular_totales_dia(ventas_del_dia)
 
-    # Calcular gastos automáticos del día
-    gastos_diarios_registros = Expense.query.filter(
+    # Calcular gastos automáticos del día exclusivamente para el local seleccionado
+    gastos_diarios_registros = Expense.query.outerjoin(User, Expense.usuario_id == User.id).filter(
         db.func.date(Expense.fecha_gasto) == fecha_seleccionada,
-        Expense.tipo_gasto == 'Gasto Diario'
+        Expense.tipo_gasto == 'Gasto Diario',
+        or_(Expense.local_id == local_id_num, User.local_asignado == local_id_num)
     ).all()
-    gastos_automaticos = float(sum(g.monto for g in gastos_diarios_registros))
+    gastos_automaticos = sum((Decimal(str(g.monto)) for g in gastos_diarios_registros), Decimal('0.00'))
 
-    # Calcular gastos por productos externos del día
-    gastos_externos_registros = Expense.query.filter(
-        db.func.date(Expense.fecha_gasto) == fecha_seleccionada,
-        Expense.categoria == 'Pago Prod. Externo'
-    ).all()
-    gastos_externos = float(sum(g.monto for g in gastos_externos_registros))
-
-    # Verificar si ya existe un arqueo GLOBAL para esa fecha (unificado para todos los usuarios)
-    arqueo_existente = ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, tipo_arqueo='general').first()
+    # Verificar si ya existe un arqueo para esa fecha y ese local
+    arqueo_existente = ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, local_id=local_id_num).first()
 
     if request.method == 'POST':
-        # Doble verificación en el backend para evitar duplicados por concurrencia
-        if ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, tipo_arqueo='general').first():
-            flash('Ya existe un arqueo cerrado para esta fecha. No se puede duplicar.', 'warning')
-            return redirect(url_for('arqueo_bp.reporte', fecha_inicio=fecha_str, fecha_fin=fecha_str))
+        if ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, local_id=local_id_num).first():
+            flash(f'Ya existe un arqueo cerrado para {nombre_sede} en esta fecha.', 'warning')
+            return redirect(url_for('arqueo_bp.reporte', fecha_inicio=fecha_str, fecha_fin=fecha_str, local=active_local))
 
         base_inicial = float(request.form.get('base_inicial', 0.0))
-        
-        # Recalcular gastos automáticos por seguridad en el backend
-        gastos_recalculados = Expense.query.filter(
-            db.func.date(Expense.fecha_gasto) == fecha_seleccionada,
-            Expense.tipo_gasto == 'Gasto Diario'
-        ).all()
-        gastos_del_dia = float(sum(g.monto for g in gastos_recalculados))
-        
         observaciones_gastos = request.form.get('observaciones_gastos', '').strip()
 
         nuevo_arqueo = ArqueoCaja(
             vendedor_id=current_user.id,
+            local_id=local_id_num,
             fecha_arqueo=fecha_seleccionada,
             base_inicial=base_inicial,
-            gastos_del_dia=gastos_del_dia,
+            gastos_del_dia=gastos_automaticos,
             observaciones_gastos=observaciones_gastos,
             total_efectivo_sistema=total_efectivo,
             total_transferencia_sistema=total_transferencia,
-            total_unidades_ch=procesar_unidades_ch(ventas_del_dia)[1],
-            total_celulares=Decimal('0.00'), # Ya no aplica al general
-            tipo_arqueo='general'
+            total_unidades_ch=0.0
         )
 
         try:
             db.session.add(nuevo_arqueo)
             db.session.commit()
-            flash('Arqueo de caja guardado exitosamente.', 'success')
-            return redirect(url_for('arqueo_bp.reporte', fecha_inicio=fecha_str, fecha_fin=fecha_str))
+            flash(f'¡Arqueo de caja para {nombre_sede} guardado y cerrado exitosamente!', 'success')
+            return redirect(url_for('arqueo_bp.reporte', fecha_inicio=fecha_str, fecha_fin=fecha_str, local=active_local))
         except Exception as e:
             db.session.rollback()
             flash('Ocurrió un error al guardar el arqueo de caja.', 'danger')
@@ -187,16 +114,33 @@ def nuevo():
         fecha=fecha_str,
         total_efectivo=total_efectivo,
         total_transferencia=total_transferencia,
+        ventas_del_dia=ventas_del_dia,
         arqueo_existente=arqueo_existente,
         gastos_automaticos=gastos_automaticos,
-        gastos_externos=gastos_externos,
-        total_general_ch=procesar_unidades_ch(ventas_del_dia)[1],
-        total_celulares=Decimal('0.00')
+        active_local=active_local,
+        is_admin=is_admin,
+        nombre_sede=nombre_sede
     )
 
 @arqueo_bp.route('/reporte', methods=['GET'])
 @login_required
 def reporte():
+    is_admin = (current_user.rol == 'admin')
+    if is_admin:
+        active_local = request.args.get('local', 'central').lower()
+        if active_local not in ['central', '1', '2', '3']:
+            active_local = 'central'
+    else:
+        active_local = str(current_user.local_asignado or '1')
+
+    local_nombres = {
+        'central': 'Central (Todos los Locales)',
+        '1': 'Local 1',
+        '2': 'Local 2',
+        '3': 'Local 3'
+    }
+    nombre_sede = local_nombres.get(active_local, 'Central (Todos los Locales)')
+
     fecha_inicio_str = request.args.get('fecha_inicio', obtener_hora_bogota().strftime('%Y-%m-%d'))
     fecha_fin_str = request.args.get('fecha_fin', obtener_hora_bogota().strftime('%Y-%m-%d'))
 
@@ -207,77 +151,70 @@ def reporte():
         fecha_inicio = obtener_hora_bogota().date()
         fecha_fin = obtener_hora_bogota().date()
 
-    # BLOQUEO DE SEGURIDAD: Los vendedores no pueden ver días anteriores
-    if current_user.rol != 'admin':
+    if not is_admin:
         hoy = obtener_hora_bogota().date()
         fecha_inicio = hoy
         fecha_fin = hoy
         fecha_inicio_str = hoy.strftime('%Y-%m-%d')
         fecha_fin_str = hoy.strftime('%Y-%m-%d')
 
-    # Arqueo unificado: todos los usuarios ven los mismos arqueos (ya no se filtra por vendedor)
     query = ArqueoCaja.query.filter(
         ArqueoCaja.fecha_arqueo >= fecha_inicio,
-        ArqueoCaja.fecha_arqueo <= fecha_fin,
-        ArqueoCaja.tipo_arqueo == 'general'
+        ArqueoCaja.fecha_arqueo <= fecha_fin
     )
+    if active_local != 'central':
+        local_num = int(active_local)
+        query = query.outerjoin(User, ArqueoCaja.vendedor_id == User.id).filter(
+            or_(ArqueoCaja.local_id == local_num, User.local_asignado == local_num)
+        )
 
     arqueos = query.order_by(ArqueoCaja.fecha_arqueo.desc()).all()
 
-    # Cálculos globales para el reporte
     resumen = {
         'total_base': sum(a.base_inicial for a in arqueos),
         'total_efectivo': sum(a.total_efectivo_sistema for a in arqueos),
         'total_transferencia': sum(a.total_transferencia_sistema for a in arqueos),
         'total_gastos': sum(a.gastos_del_dia for a in arqueos)
     }
-    
-    resumen['total_unidades_ch'] = sum(a.total_unidades_ch for a in arqueos)
-    resumen['total_celulares'] = sum(a.total_celulares for a in arqueos)
-    
-    # Calcular los gastos por productos externos en este rango de fechas
-    gastos_externos_query = Expense.query.filter(
-        db.func.date(Expense.fecha_gasto) >= fecha_inicio,
-        db.func.date(Expense.fecha_gasto) <= fecha_fin,
-        Expense.categoria == 'Pago Prod. Externo'
-    ).all()
-    resumen['total_gastos_externos'] = sum(g.monto for g in gastos_externos_query)
-    
+
     resumen['total_recaudado_bruto'] = resumen['total_efectivo'] + resumen['total_transferencia']
-    # Restar Unidades CH, Celulares y TOTAL DE GASTOS de la venta neta (Los gastos externos ya están incluidos en total_gastos si se registran como Gasto Diario)
-    resumen['total_recaudado_neto'] = resumen['total_recaudado_bruto'] - resumen['total_unidades_ch'] - resumen['total_celulares'] - resumen['total_gastos']
-    
-    # Calcular los gastos que fueron pagados en EFECTIVO
+    resumen['total_recaudado_neto'] = resumen['total_recaudado_bruto'] - resumen['total_gastos']
+
     gastos_efectivo_query = Expense.query.filter(
         db.func.date(Expense.fecha_gasto) >= fecha_inicio,
         db.func.date(Expense.fecha_gasto) <= fecha_fin,
         Expense.tipo_gasto == 'Gasto Diario',
         Expense.metodo_pago == 'efectivo'
-    ).all()
-    resumen['total_gastos_efectivo'] = sum(g.monto for g in gastos_efectivo_query)
+    )
+    if active_local != 'central':
+        local_num = int(active_local)
+        gastos_efectivo_query = gastos_efectivo_query.outerjoin(User, Expense.usuario_id == User.id).filter(
+            or_(Expense.local_id == local_num, User.local_asignado == local_num)
+        )
+    resumen['total_gastos_efectivo'] = sum(g.monto for g in gastos_efectivo_query.all())
+    resumen['efectivo_esperado'] = (resumen['total_base'] + resumen['total_efectivo']) - resumen['total_gastos_efectivo']
 
-    # El efectivo esperado en caja descuenta gastos en EFECTIVO, celulares y CH
-    resumen['efectivo_esperado'] = (resumen['total_base'] + resumen['total_efectivo']) - resumen['total_gastos_efectivo'] - resumen['total_unidades_ch'] - resumen['total_celulares']
-
-    # Obtener todas las ventas del periodo para el detalle en la "tirilla" (unificado)
     ventas_query = Sale.query.filter(
         db.func.date(Sale.fecha_venta) >= fecha_inicio,
-        db.func.date(Sale.fecha_venta) <= fecha_fin,
-        Sale.tipo_venta == 'general'
+        db.func.date(Sale.fecha_venta) <= fecha_fin
     )
-    
+    if active_local != 'central':
+        ventas_query = ventas_query.join(User, Sale.vendedor_id == User.id).filter(User.local_asignado == int(active_local))
+
     ventas_periodo = ventas_query.order_by(Sale.fecha_venta.asc()).all()
 
-    fecha_generacion = obtener_hora_bogota().strftime('%Y-%m-%d %H:%M')
-
-    # Procesar lógica de unidades CH
-    desglose_ch, total_general_ch = procesar_unidades_ch(ventas_periodo)
-    
-    # Obtener todos los gastos del periodo para el reporte detallado
-    gastos_periodo = Expense.query.filter(
+    gastos_query_periodo = Expense.query.filter(
         db.func.date(Expense.fecha_gasto) >= fecha_inicio,
         db.func.date(Expense.fecha_gasto) <= fecha_fin
-    ).order_by(Expense.fecha_gasto.asc()).all()
+    )
+    if active_local != 'central':
+        local_num = int(active_local)
+        gastos_query_periodo = gastos_query_periodo.outerjoin(User, Expense.usuario_id == User.id).filter(
+            or_(Expense.local_id == local_num, User.local_asignado == int(active_local))
+        )
+    gastos_periodo = gastos_query_periodo.order_by(Expense.fecha_gasto.asc()).all()
+
+    fecha_generacion = obtener_hora_bogota().strftime('%Y-%m-%d %H:%M')
 
     return render_template(
         'arqueo/reporte.html',
@@ -287,7 +224,8 @@ def reporte():
         fecha_fin=fecha_fin_str,
         fecha_generacion=fecha_generacion,
         ventas_periodo=ventas_periodo,
-        desglose_ch=desglose_ch,
-        total_general_ch=total_general_ch,
-        gastos_periodo=gastos_periodo
+        gastos_periodo=gastos_periodo,
+        active_local=active_local,
+        is_admin=is_admin,
+        nombre_sede=nombre_sede
     )

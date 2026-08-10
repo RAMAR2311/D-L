@@ -10,33 +10,44 @@
 
 <!-- Formulario para Nuevo Maneo -->
 <div class="card card-custom p-4 mb-4">
-    <h5 class="text-brand-black fw-bold mb-3"><i class="fa-solid fa-box-open text-brand-blue me-2"></i>Registrar Nuevo Maneo</h5>
+    <h5 class="text-brand-black fw-bold mb-3"><i class="fa-solid fa-box-open me-2" style="color: var(--mario-red);"></i>Registrar Nuevo Maneo</h5>
     <form method="POST" action="{{ url_for('admin_bp.maneos_prestar') }}" id="formNuevoManeo">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
         <input type="hidden" name="variant_id" id="variant_id_hidden" value="">
         <div class="row g-3 align-items-end">
-            <div class="col-md-4">
-                <label class="form-label fw-bold text-brand-black">Producto a Prestar / Entregar (SKU)</label>
-                <input type="text" name="sku" id="maneo_sku_input" class="form-control bg-light border-0" autofocus placeholder="Escanea o digita el SKU..." required>
+            <!-- Cantidad -->
+            <div class="col-md-1">
+                <label class="form-label fw-bold text-brand-black small">Cantidad</label>
+                <input type="number" name="cantidad" class="form-control bg-light border-0 fw-bold text-center" min="1" value="1" required>
+            </div>
+            <!-- Valor (Und) -->
+            <div class="col-md-2">
+                <label class="form-label fw-bold text-brand-black small">Valor (Und)</label>
+                <input type="number" name="valor_unidad" class="form-control bg-light border-0" min="0" step="1" placeholder="Ej: 15000">
+            </div>
+            <!-- Local Vecino / Persona -->
+            <div class="col-md-2">
+                <label class="form-label fw-bold text-brand-black small">Local Vecino / Persona</label>
+                <input type="text" name="local_vecino" class="form-control bg-light border-0" placeholder="Ej: Fundas Alex" required>
+            </div>
+            <!-- Producto a Prestar (SKU) -->
+            <div class="col-md-5">
+                <label class="form-label fw-bold text-brand-black small">Producto a Prestar / Entregar (SKU)</label>
+                <input type="text" name="sku" id="maneo_sku_input" class="form-control bg-light border-0" autofocus placeholder="Escribe el nombre o escanea el SKU..." required>
             </div>
             <!-- Selector de Subcategoría (aparece dinámicamente) -->
             <div class="col-md-3" id="variant_selector_col" style="display: none;">
-                <label class="form-label fw-bold text-brand-black"><i class="fa-solid fa-layer-group text-primary me-1"></i>Subcategoría</label>
+                <label class="form-label fw-bold text-brand-black small"><i class="fa-solid fa-layer-group text-primary me-1"></i>Subcategoría</label>
                 <select id="variant_selector" class="form-select bg-light border-0" onchange="onVariantChange()">
                     <option value="">— Producto general —</option>
                 </select>
                 <small class="text-muted" id="variant_stock_info"></small>
             </div>
+            <!-- Botón Registrar -->
             <div class="col-md-2">
-                <label class="form-label fw-bold text-brand-black">Local Vecino / Persona</label>
-                <input type="text" name="local_vecino" class="form-control bg-light border-0" placeholder="Ej: Fundas Alex" required>
-            </div>
-            <div class="col-md-1">
-                <label class="form-label fw-bold text-brand-black">Cantidad</label>
-                <input type="number" name="cantidad" class="form-control bg-light border-0" min="1" value="1" required>
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-blue w-100 rounded-pill"><i class="fa-solid fa-paper-plane me-1"></i> Prestar</button>
+                <button type="submit" class="btn w-100 rounded-pill fw-bold" style="background-color: var(--dark-border); color: white;">
+                    <i class="fa-solid fa-paper-plane me-1"></i> Registrar Maneo
+                </button>
             </div>
         </div>
     </form>
@@ -48,18 +59,25 @@
         <table class="table table-hover table-custom mb-0">
             <thead class="bg-light">
                 <tr>
-                    <th class="ps-4">FECHA PRÉSTAMO</th>
-                    <th>LOCAL VECINO</th>
-                    <th>PRODUCTO (SKU)</th>
-                    <th class="text-center">CANTIDAD</th>
-                    <th class="text-center">ESTADO</th>
-                    <th class="text-center">ACCIONES RÁPIDAS</th>
+                    <th class="ps-4 text-center" style="color: var(--mario-red);">CANTIDAD</th>
+                    <th style="color: var(--mario-red);">VALOR</th>
+                    <th style="color: var(--mario-red);">LOCAL VECINO</th>
+                    <th style="color: var(--mario-red);">PRODUCTO (SKU)</th>
+                    <th class="text-center" style="color: var(--mario-red);">ESTADO</th>
+                    <th class="text-center" style="color: var(--mario-red);">ACCIONES RÁPIDAS</th>
                 </tr>
             </thead>
             <tbody>
                 {% for m in maneos %}
                 <tr>
-                    <td class="ps-4 text-muted"><small>{{ m.fecha_prestamo.strftime('%d/%m/%Y %H:%M') }}</small></td>
+                    <td class="ps-4 text-center fw-bold">{{ m.cantidad }} uds</td>
+                    <td class="fw-bold" style="color: var(--mario-red);">
+                        {% if m.valor_unidad and m.valor_unidad > 0 %}
+                            ${{ '{:,.0f}'.format(m.valor_unidad) }}
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
                     <td class="fw-bold text-brand-black"><i class="fa-solid fa-store text-muted me-2"></i>{{ m.local_vecino }}</td>
                     <td>
                         <span class="text-brand-black fw-semibold">{{ m.producto.nombre }}</span> <small class="text-muted">({{ m.producto.sku }})</small>
@@ -67,7 +85,6 @@
                             <br><span class="badge bg-light text-primary border border-primary border-opacity-25 rounded-pill px-2 mt-1" style="font-size: 0.75rem;"><i class="fa-solid fa-layer-group me-1"></i>{{ m.variante.nombre_variante }}</span>
                         {% endif %}
                     </td>
-                    <td class="text-center fw-bold">{{ m.cantidad }} uds</td>
                     <td class="text-center">
                         {% if m.estado == 'PENDIENTE' %}
                             <span class="badge bg-warning text-dark border border-warning rounded-pill px-3 py-2">Pendiente</span>

@@ -1,11 +1,11 @@
 {
-    "name": "Cases App",
-    "short_name": "Cases",
-    "description": "Sistema de gestión y punto de venta web",
+    "name": "D & L - Telefonía & Accesorios",
+    "short_name": "D & L",
+    "description": "Sistema ERP y Punto de Venta D & L",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#F9C8D3",
+    "background_color": "#FFFFFF",
+    "theme_color": "#ED1C24",
     "icons": [
         {
             "src": "/static/img/icons/icon-192x192.png",

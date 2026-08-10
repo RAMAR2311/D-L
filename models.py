@@ -18,17 +18,19 @@ class User(UserMixin, db.Model):
     telefono = db.Column(db.String(20)) # Nuevo Campo de Contacto (Nullable por Defecto)
     password_hash = db.Column(db.String(256), nullable=False)
     rol = db.Column(db.String(50), nullable=False, default='vendedor')
+    local_asignado = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
     
     ventas = db.relationship('Sale', backref='vendedor', lazy=True)
     ajustes_stock = db.relationship('StockAdjustment', backref='admin', lazy=True)
     arqueos = db.relationship('ArqueoCaja', backref='cajero', lazy=True)
 
-    def __init__(self, nombre=None, email=None, telefono=None, password_hash=None, rol=None, **kwargs):
+    def __init__(self, nombre=None, email=None, telefono=None, password_hash=None, rol=None, local_asignado=None, **kwargs):
         if nombre is not None: kwargs['nombre'] = nombre
         if email is not None: kwargs['email'] = email
         if telefono is not None: kwargs['telefono'] = telefono
         if password_hash is not None: kwargs['password_hash'] = password_hash
         if rol is not None: kwargs['rol'] = rol
+        if local_asignado is not None: kwargs['local_asignado'] = local_asignado
         super(User, self).__init__(**kwargs)
 
 class Product(db.Model):
@@ -46,15 +48,15 @@ class Product(db.Model):
     observacion = db.Column(db.Text, nullable=True) # Nota descriptiva
     fecha_creacion = db.Column(db.DateTime, default=obtener_hora_bogota)
     
-    # Campos específicos para módulo de celulares (tipo_inventario='celulares')
-    imei = db.Column(db.String(50), unique=True, nullable=True, index=True)
-    marca = db.Column(db.String(100), nullable=True)
-    modelo_celular = db.Column(db.String(100), nullable=True)
-    estado_celular = db.Column(db.String(50), nullable=True, default='Nuevo') # Nuevo, Usado
     
     detalles_venta = db.relationship('SaleDetail', backref='producto', lazy=True)
     ajustes_stock = db.relationship('StockAdjustment', backref='producto_rel', lazy=True)
     variantes = db.relationship('ProductVariant', backref='producto', lazy=True, cascade="all, delete-orphan")
+
+    stock_local_1 = db.Column(db.Integer, nullable=False, default=0)
+    stock_local_2 = db.Column(db.Integer, nullable=False, default=0)
+    stock_local_3 = db.Column(db.Integer, nullable=False, default=0)
+    descontar_inventario = db.Column(db.Boolean, nullable=False, default=False)
 
     def __init__(self, **kwargs):
         super(Product, self).__init__(**kwargs)
@@ -62,8 +64,21 @@ class Product(db.Model):
     @property
     def total_stock(self):
         if self.variantes:
-            return sum(v.cantidad_stock for v in self.variantes)
-        return self.cantidad_stock
+            return sum(v.total_stock for v in self.variantes)
+        return (self.stock_local_1 or 0) + (self.stock_local_2 or 0) + (self.stock_local_3 or 0)
+
+    def get_stock_local(self, local_code='central'):
+        local_code = str(local_code or 'central').lower()
+        if self.variantes:
+            return sum(v.get_stock_local(local_code) for v in self.variantes)
+        if local_code in ['1', 'local1', 'local 1']:
+            return self.stock_local_1 or 0
+        elif local_code in ['2', 'local2', 'local 2']:
+            return self.stock_local_2 or 0
+        elif local_code in ['3', 'local3', 'local 3']:
+            return self.stock_local_3 or 0
+        else:
+            return (self.stock_local_1 or 0) + (self.stock_local_2 or 0) + (self.stock_local_3 or 0)
 
     @property
     def rango_precios(self):
@@ -111,28 +126,47 @@ class ProductVariant(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     nombre_variante = db.Column(db.String(100), nullable=False)
     cantidad_stock = db.Column(db.Integer, nullable=False, default=0)
+    stock_local_1 = db.Column(db.Integer, nullable=False, default=0)
+    stock_local_2 = db.Column(db.Integer, nullable=False, default=0)
+    stock_local_3 = db.Column(db.Integer, nullable=False, default=0)
     
     # Nuevos precios específicos para variantes
     precio_costo = db.Column(db.Numeric(10, 2), nullable=True) 
     precio_minimo = db.Column(db.Numeric(10, 2), nullable=True)
     precio_sugerido = db.Column(db.Numeric(10, 2), nullable=True)
+    descontar_inventario = db.Column(db.Boolean, nullable=False, default=False)
 
     def __init__(self, **kwargs):
         super(ProductVariant, self).__init__(**kwargs)
+
+    @property
+    def total_stock(self):
+        return (self.stock_local_1 or 0) + (self.stock_local_2 or 0) + (self.stock_local_3 or 0)
+
+    def get_stock_local(self, local_code='central'):
+        local_code = str(local_code or 'central').lower()
+        if local_code in ['1', 'local1', 'local 1']:
+            return self.stock_local_1 or 0
+        elif local_code in ['2', 'local2', 'local 2']:
+            return self.stock_local_2 or 0
+        elif local_code in ['3', 'local3', 'local 3']:
+            return self.stock_local_3 or 0
+        else:
+            return (self.stock_local_1 or 0) + (self.stock_local_2 or 0) + (self.stock_local_3 or 0)
 
 class Sale(db.Model):
     __tablename__ = 'sales'
     
     id = db.Column(db.Integer, primary_key=True)
     vendedor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
     fecha_venta = db.Column(db.DateTime, default=obtener_hora_bogota)
     monto_total = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     metodo_pago = db.Column(db.String(50), nullable=False, default='efectivo')
-    tipo_venta = db.Column(db.String(50), nullable=False, server_default='general') # 'general' o 'celulares'
-    
+
     detalles = db.relationship('SaleDetail', backref='venta', lazy=True, cascade="all, delete-orphan")
     pagos = db.relationship('SalePayment', backref='venta', lazy=True, cascade="all, delete-orphan")
-    cliente = db.relationship('SaleClient', backref='venta', lazy=True, cascade="all, delete-orphan", uselist=False)
+    asesor = db.relationship('Asesor', backref='ventas', lazy=True)
 
     def __init__(self, **kwargs):
         super(Sale, self).__init__(**kwargs)
@@ -163,20 +197,7 @@ class SalePayment(db.Model):
     def __init__(self, **kwargs):
         super(SalePayment, self).__init__(**kwargs)
 
-class SaleClient(db.Model):
-    """Modelo para almacenar los datos del cliente, especialmente requerido en ventas de celulares."""
-    __tablename__ = 'sale_clients'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=False, unique=True)
-    nombre = db.Column(db.String(150), nullable=False)
-    documento = db.Column(db.String(50), nullable=False, index=True)
-    telefono = db.Column(db.String(50), nullable=False)
-    
-    # Relación configurada desde Sale
 
-    def __init__(self, **kwargs):
-        super(SaleClient, self).__init__(**kwargs)
 
 class SaleDetail(db.Model):
     __tablename__ = 'sale_details'
@@ -216,14 +237,15 @@ class ArqueoCaja(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vendedor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     fecha_arqueo = db.Column(db.Date, nullable=False)
-    tipo_arqueo = db.Column(db.String(50), nullable=False, server_default='general') # 'general' o 'celulares'
+
     base_inicial = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     gastos_del_dia = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     observaciones_gastos = db.Column(db.String(255), nullable=True)
     total_efectivo_sistema = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     total_transferencia_sistema = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     total_unidades_ch = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
-    total_celulares = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
+    local_id = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
+
     fecha_creacion = db.Column(db.DateTime, default=obtener_hora_bogota)
 
     def __init__(self, **kwargs):
@@ -237,6 +259,7 @@ class Maneo(db.Model):
     variant_id = db.Column(db.Integer, db.ForeignKey('product_variants.id'), nullable=True)
     local_vecino = db.Column(db.String(150), nullable=False)
     cantidad = db.Column(db.Integer, nullable=False)
+    valor_unidad = db.Column(db.Numeric(12, 2), nullable=True, default=0)  # Valor pactado por unidad
     estado = db.Column(db.String(50), nullable=False, default='PENDIENTE') # PENDIENTE, FACTURADO, DEVUELTO
     fecha_prestamo = db.Column(db.DateTime, default=obtener_hora_bogota)
     fecha_resolucion = db.Column(db.DateTime, nullable=True)
@@ -257,6 +280,7 @@ class Expense(db.Model):
     descripcion = db.Column(db.String(255), nullable=True)
     monto = db.Column(db.Numeric(10, 2), nullable=False)
     metodo_pago = db.Column(db.String(50), nullable=False, default='efectivo')
+    local_id = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
     fecha_gasto = db.Column(db.DateTime, default=obtener_hora_bogota)
 
     usuario = db.relationship('User', backref='gastos', lazy=True)
@@ -364,3 +388,73 @@ class AbonoBodega(db.Model):
 
     def __init__(self, **kwargs):
         super(AbonoBodega, self).__init__(**kwargs)
+
+class LocalConfig(db.Model):
+    __tablename__ = 'local_configs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    local_id = db.Column(db.Integer, unique=True, nullable=False) # 1, 2, 3
+    descontar_inventario = db.Column(db.Boolean, nullable=False, default=False)
+    fecha_actualizacion = db.Column(db.DateTime, default=obtener_hora_bogota, onupdate=obtener_hora_bogota)
+
+    def __init__(self, **kwargs):
+        super(LocalConfig, self).__init__(**kwargs)
+
+
+class Provider(db.Model):
+    __tablename__ = 'providers'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(150), nullable=False)
+    empresa = db.Column(db.String(150), nullable=True)
+    telefono = db.Column(db.String(50), nullable=True)
+    fecha_creacion = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    invoices = db.relationship('ProviderInvoice', backref='provider', lazy=True, cascade='all, delete-orphan')
+    payments = db.relationship('ProviderPayment', backref='provider', lazy=True, cascade='all, delete-orphan')
+
+    def __init__(self, **kwargs):
+        super(Provider, self).__init__(**kwargs)
+
+
+class ProviderInvoice(db.Model):
+    __tablename__ = 'provider_invoices'
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id', ondelete='CASCADE'), nullable=False)
+    monto_total = db.Column(db.Numeric(12, 2), nullable=False)
+    numero_factura = db.Column(db.String(100), nullable=True)
+    descripcion = db.Column(db.String(255), nullable=True)
+    comprobante = db.Column(db.String(255), nullable=True)
+    fecha_factura = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    def __init__(self, **kwargs):
+        super(ProviderInvoice, self).__init__(**kwargs)
+
+
+class ProviderPayment(db.Model):
+    __tablename__ = 'provider_payments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id', ondelete='CASCADE'), nullable=False)
+    monto_abonado = db.Column(db.Numeric(12, 2), nullable=False)
+    observacion = db.Column(db.String(255), nullable=True)
+    fecha_pago = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    def __init__(self, **kwargs):
+        super(ProviderPayment, self).__init__(**kwargs)
+
+
+class Asesor(db.Model):
+    __tablename__ = 'asesores'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(150), nullable=False)
+    local_id = db.Column(db.Integer, nullable=False, default=1) # 1, 2, 3
+    estado = db.Column(db.String(20), nullable=False, default='Activo') # 'Activo' o 'Inactivo'
+    fecha_registro = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    def __init__(self, **kwargs):
+        super(Asesor, self).__init__(**kwargs)
+
+

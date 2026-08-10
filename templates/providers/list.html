@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Header Principal -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold text-brand-black mb-1">
+                <i class="fa-solid fa-truck-field me-2 text-primary"></i>Gestión de Proveedores y Cuentas por Pagar
+            </h2>
+            <p class="text-muted mb-0 small">Control consolidado de facturas emitidas, abonos y saldo de deuda acumulada</p>
+        </div>
+        <div>
+            <button type="button" class="btn btn-primary rounded-pill fw-bold shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#modalNuevoProveedor">
+                <i class="fa-solid fa-user-plus me-2"></i>Registrar Nuevo Proveedor
+            </button>
+        </div>
+    </div>
+
+    <!-- TARJETAS DE KPIS GLOBALES -->
+    <div class="row g-3 mb-4">
+        <!-- KPI 1: Proveedores Registrados -->
+        <div class="col-md-3">
+            <div class="card card-custom h-100 p-4 border-start border-4 border-info shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small fw-bold text-uppercase">Proveedores</span>
+                    <div class="rounded-circle bg-info bg-opacity-10 p-2 text-info">
+                        <i class="fa-solid fa-building-user fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="fw-bolder text-dark mb-0">{{ total_proveedores }}</h2>
+                <small class="text-muted" style="font-size: 0.75rem;">Directorio activo de proveedores</small>
+            </div>
+        </div>
+
+        <!-- KPI 2: Total Facturado -->
+        <div class="col-md-3">
+            <div class="card card-custom h-100 p-4 border-start border-4 border-secondary shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small fw-bold text-uppercase">Total Facturado</span>
+                    <div class="rounded-circle bg-secondary bg-opacity-10 p-2 text-secondary">
+                        <i class="fa-solid fa-file-invoice-dollar fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="fw-bolder text-dark mb-0">${{ total_facturado_global|cop }}</h2>
+                <small class="text-muted" style="font-size: 0.75rem;">Sumatoria histórica de facturas</small>
+            </div>
+        </div>
+
+        <!-- KPI 3: Total Abonos -->
+        <div class="col-md-3">
+            <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small fw-bold text-uppercase">Total Pagado / Abonado</span>
+                    <div class="rounded-circle bg-success bg-opacity-10 p-2 text-success">
+                        <i class="fa-solid fa-hand-holding-dollar fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="fw-bolder text-success mb-0">${{ total_abonos_global|cop }}</h2>
+                <small class="text-muted" style="font-size: 0.75rem;">Dinero girado a proveedores</small>
+            </div>
+        </div>
+
+        <!-- KPI 4: Deuda Total Pendiente -->
+        <div class="col-md-3">
+            <div class="card card-custom h-100 p-4 border-start border-4 {% if total_deuda_global > 0 %}border-danger{% else %}border-success{% endif %} shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small fw-bold text-uppercase">Deuda Pendiente Total</span>
+                    <div class="rounded-circle {% if total_deuda_global > 0 %}bg-danger bg-opacity-10 text-danger{% else %}bg-success bg-opacity-10 text-success{% endif %} p-2">
+                        <i class="fa-solid fa-scale-unbalanced-flip fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="fw-bolder {% if total_deuda_global > 0 %}text-danger{% else %}text-success{% endif %} mb-0">${{ total_deuda_global|cop }}</h2>
+                <small class="text-muted" style="font-size: 0.75rem;">Cuentas por pagar activas</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLA / CARDS DE PROVEEDORES -->
+    <div class="card card-custom p-0 overflow-hidden shadow-sm border-0 bg-white">
+        <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-brand-black mb-0">
+                <i class="fa-solid fa-list text-primary me-2"></i>Directorio de Proveedores y Cuentas Corrientes
+            </h5>
+            <span class="badge bg-primary rounded-pill px-3 py-1">{{ proveedores|length }} registrados</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4 py-3" width="22%">Proveedor / Razón Social</th>
+                        <th width="18%">Empresa / Casa Comercial</th>
+                        <th width="15%">Teléfono</th>
+                        <th class="text-end" width="13%">Total Facturado</th>
+                        <th class="text-end" width="13%">Total Abonado</th>
+                        <th class="text-end" width="13%">Saldo Pendiente</th>
+                        <th class="text-center pe-4" width="6%">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in proveedores %}
+                    {% set prov = d.provider %}
+                    <tr>
+                        <td class="ps-4">
+                            <a href="{{ url_for('providers_bp.detail', provider_id=prov.id) }}" class="fw-bold text-primary text-decoration-none fs-6 d-block">
+                                {{ prov.nombre }}
+                            </a>
+                            <small class="text-muted" style="font-size: 0.75rem;">
+                                <i class="fa-regular fa-calendar me-1"></i>Registrado el {{ prov.fecha_creacion.strftime('%d/%m/%Y') }}
+                            </small>
+                        </td>
+                        <td>
+                            {% if prov.empresa %}
+                                <span class="fw-semibold text-dark"><i class="fa-solid fa-building me-1 text-muted"></i>{{ prov.empresa }}</span>
+                            {% else %}
+                                <span class="text-muted fst-italic">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if prov.telefono %}
+                                <span class="badge bg-light text-dark border px-2 py-1"><i class="fa-solid fa-phone me-1 text-success"></i>{{ prov.telefono }}</span>
+                            {% else %}
+                                <span class="text-muted fst-italic">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-semibold text-dark">${{ d.total_facturado|cop }}</td>
+                        <td class="text-end fw-semibold text-success">${{ d.total_abonos|cop }}</td>
+                        <td class="text-end">
+                            {% if d.saldo_pendiente > 0 %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger px-3 py-2 fs-6 fw-bolder">
+                                    ${{ d.saldo_pendiente|cop }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 fs-6 fw-bold">
+                                    $0 (Al Día)
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center pe-4">
+                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                <a href="{{ url_for('providers_bp.detail', provider_id=prov.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold" title="Ver Cuenta Corriente">
+                                    <i class="fa-solid fa-wallet me-1"></i>Cuenta
+                                </a>
+                                <form action="{{ url_for('providers_bp.eliminar', provider_id=prov.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de eliminar a {{ prov.nombre }}? Se borrará todo su historial de facturas y pagos.');" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle p-2" title="Eliminar Proveedor">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-truck-ramp-box fs-1 text-muted opacity-50 mb-2 d-block"></i>
+                            No hay proveedores registrados aún. Haz clic en "Registrar Nuevo Proveedor" para comenzar.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CREAR NUEVO PROVEEDOR -->
+<div class="modal fade" id="modalNuevoProveedor" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="fw-bold text-brand-black">
+            <i class="fa-solid fa-user-plus text-primary me-2"></i>Registrar Nuevo Proveedor
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('providers_bp.crear') }}" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="modal-body">
+              <div class="mb-3">
+                  <label for="nombre" class="form-label fw-bold small text-brand-black">Nombre del Proveedor / Nombre Contacto <span class="text-danger">*</span></label>
+                  <input type="text" id="nombre" name="nombre" class="form-control bg-light border-0" placeholder="Ej: Distribuidora Central S.A." required>
+              </div>
+
+              <div class="mb-3">
+                  <label for="empresa" class="form-label fw-bold small text-brand-black">Nombre de Empresa / Razón Social (Opcional)</label>
+                  <input type="text" id="empresa" name="empresa" class="form-control bg-light border-0" placeholder="Ej: Importaciones y Logística SAS">
+              </div>
+
+              <div class="mb-3">
+                  <label for="telefono" class="form-label fw-bold small text-brand-black">Teléfono / WhatsApp (Opcional)</label>
+                  <input type="text" id="telefono" name="telefono" class="form-control bg-light border-0" placeholder="Ej: +57 300 1234567">
+              </div>
+          </div>
+          <div class="modal-footer border-top-0 pt-0">
+            <button type="button" class="btn btn-light rounded-pill px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">
+                <i class="fa-solid fa-floppy-disk me-1"></i> Guardar Proveedor
+            </button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

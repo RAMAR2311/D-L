@@ -19,7 +19,7 @@
             <input type="text" name="q" class="form-control bg-light border-0 py-2 shadow-sm" value="{{ q }}" placeholder="Busca escribiendo el SKU Oficial o el Nombre del accesorio..." autocomplete="off">
         </div>
         <div class="col-md-3">
-            <!-- Botón Dominante en Turquesa (Azul de Cases.com '#A3D8DE') -->
+            <!-- Botón Dominante en Turquesa (Azul de koba.com '#A3D8DE') -->
             <button type="submit" class="btn btn-blue w-100 py-2 rounded-3 shadow-sm fw-bold">
                 Buscar Existencias
             </button>
@@ -58,20 +58,51 @@
                         <span class="badge bg-danger rounded-pill px-2"><i class="fa-solid fa-ban"></i> Agotado</span>
                     {% endif %}
                 </div>
-                <h5 class="card-title fw-bolder text-brand-black mb-3">{{ p.nombre }}</h5>
+                {% set total_stock = p.get_stock_local('central') %}
+                {% set l1_stock = p.get_stock_local('1') %}
+                {% set l2_stock = p.get_stock_local('2') %}
+                {% set l3_stock = p.get_stock_local('3') %}
+                <h5 class="card-title fw-bolder text-brand-black mb-2">{{ p.nombre }}</h5>
+                
+                <!-- Desglose de Existencias por Sede (Local Global) -->
+                <div class="bg-light p-2 rounded-3 mb-3 border shadow-none">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <small class="fw-bold text-muted" style="font-size: 0.7rem; letter-spacing: 0.5px;"><i class="fa-solid fa-store me-1"></i>STOCK POR SEDE:</small>
+                        <span class="badge bg-dark rounded-pill" style="font-size: 0.68rem;">Total: {{ total_stock }} uds</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-center gap-1" style="font-size: 0.72rem;">
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary flex-fill py-1">
+                            L1: <strong>{{ l1_stock }}</strong>
+                        </span>
+                        <span class="badge bg-info bg-opacity-10 text-info border border-info flex-fill py-1">
+                            L2: <strong>{{ l2_stock }}</strong>
+                        </span>
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success flex-fill py-1">
+                            L3: <strong>{{ l3_stock }}</strong>
+                        </span>
+                    </div>
+                </div>
                 
                 {% if p.variantes %}
                     <h6 class="fw-bold text-muted mb-2" style="font-size: 0.75rem; letter-spacing: 0.5px;">SUBCATEGORÍAS DISPONIBLES:</h6>
                     <div class="table-responsive mb-auto">
                         <table class="table table-sm table-borderless align-middle mb-0">
                             <tbody style="font-size: 0.9rem;">
-                                {% set ns = namespace(active_variants=0) %}
+                                 {% set ns = namespace(active_variants=0) %}
                                 {% for v in p.variantes %}
-                                    {% if v.cantidad_stock > 0 %}
+                                    {% set v_total = v.get_stock_local('central') %}
+                                    {% if v_total > 0 %}
                                         {% set ns.active_variants = ns.active_variants + 1 %}
                                         <tr class="border-bottom border-light">
-                                            <td class="ps-0 text-secondary"><i class="fa-solid fa-caret-right text-brand-pink me-1" style="font-size: 0.7rem;"></i> {{ v.nombre_variante }}</td>
-                                            <td class="text-end fw-bold text-brand-black pe-0">${{ (v.precio_sugerido or p.precio_sugerido)|cop }}</td>
+                                            <td class="ps-0 text-secondary">
+                                                <i class="fa-solid fa-caret-right text-brand-pink me-1" style="font-size: 0.7rem;"></i> {{ v.nombre_variante }}
+                                                <small class="d-block text-muted" style="font-size: 0.68rem;">
+                                                    <span class="text-primary">L1: {{ v.get_stock_local('1') }}</span> · 
+                                                    <span class="text-info">L2: {{ v.get_stock_local('2') }}</span> · 
+                                                    <span class="text-success">L3: {{ v.get_stock_local('3') }}</span>
+                                                </small>
+                                            </td>
+                                            <td class="text-end fw-bold text-brand-black pe-0 align-top">${{ (v.precio_sugerido or p.precio_sugerido)|cop }}</td>
                                         </tr>
                                     {% endif %}
                                 {% endfor %}

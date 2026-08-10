@@ -1,0 +1,268 @@
+/* ==========================================================================
+   MARIO & LUIGI RETRO-GAMING ERP BRAND THEME & STYLING SPECIFICATIONS
+   ========================================================================== */
+
+/* 1. Google Fonts Integration */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&family=Luckiest+Guy&display=swap');
+
+/* 2. CSS Custom Properties (:root Tokens) */
+:root {
+    /* Brand Primary: Mario Red */
+    --mario-red: #ED1C24;
+    --mario-red-hover: #C8141B;
+    --mario-red-dark: #5E1214;
+
+    /* Brand Secondary: Luigi Green */
+    --luigi-green: #4FBE37;
+    --luigi-green-hover: #3DA627;
+    --luigi-green-dark: #1E6D35;
+
+    /* Brand Accent: Sky/Ampersand Blue */
+    --accent-blue: #99DEF9;
+    --accent-blue-hover: #6EC4E8;
+    --accent-blue-dark: #2E3192;
+
+    /* Highlight / Warning: Star Yellow */
+    --star-yellow: #F9D006;
+    --star-yellow-hover: #E5BD05;
+    --star-yellow-dark: #B08E00;
+
+    /* Neutral Dark & Light Surfaces */
+    --dark-border: #100F0D;
+    --neutral-bg: #F8F9FA;
+    --card-bg: #FFFFFF;
+
+    /* Typography Definitions */
+    --font-title: 'Fredoka', 'Luckiest Guy', cursive, sans-serif;
+    --font-body: 'Poppins', 'Inter', sans-serif;
+
+    /* Backward Compatibility Variable Mapping */
+    --brand-red: var(--mario-red);
+    --brand-blue: var(--accent-blue);
+    --brand-black: var(--dark-border);
+    --brand-bg: var(--neutral-bg);
+    --brand-card-bg: var(--card-bg);
+}
+
+/* 3. Base Body Typography & Background */
+body {
+    font-family: var(--font-body);
+    background-color: var(--neutral-bg);
+    color: var(--dark-border);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, .font-title {
+    font-family: var(--font-title);
+    letter-spacing: 0.3px;
+}
+
+/* 4. Cartoon & 3D Text Shadow Utilities */
+.text-shadow-cartoon {
+    text-shadow: 2px 2px 0px var(--dark-border);
+}
+
+.text-shadow-mario {
+    text-shadow: 2px 2px 0px var(--mario-red-dark);
+}
+
+.text-shadow-luigi {
+    text-shadow: 2px 2px 0px var(--luigi-green-dark);
+}
+
+/* 5. ERP Theme Preset - Interactive Action Buttons */
+.btn-mario {
+    background-color: var(--mario-red) !important;
+    color: #FFFFFF !important;
+    border: 2px solid var(--dark-border) !important;
+    box-shadow: 3px 3px 0px var(--dark-border) !important;
+    font-family: var(--font-title) !important;
+    font-weight: 600 !important;
+    border-radius: 0.85rem !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+.btn-mario:hover {
+    background-color: var(--mario-red-hover) !important;
+    transform: translate(-1px, -1px) !important;
+    box-shadow: 4px 4px 0px var(--dark-border) !important;
+}
+
+.btn-mario:active {
+    transform: translate(2px, 2px) !important;
+    box-shadow: 1px 1px 0px var(--dark-border) !important;
+}
+
+.btn-luigi {
+    background-color: var(--luigi-green) !important;
+    color: #FFFFFF !important;
+    border: 2px solid var(--dark-border) !important;
+    box-shadow: 3px 3px 0px var(--dark-border) !important;
+    font-family: var(--font-title) !important;
+    font-weight: 600 !important;
+    border-radius: 0.85rem !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+.btn-luigi:hover {
+    background-color: var(--luigi-green-hover) !important;
+    transform: translate(-1px, -1px) !important;
+    box-shadow: 4px 4px 0px var(--dark-border) !important;
+}
+
+.btn-luigi:active {
+    transform: translate(2px, 2px) !important;
+    box-shadow: 1px 1px 0px var(--dark-border) !important;
+}
+
+.btn-blue-cartoon {
+    background-color: var(--accent-blue) !important;
+    color: var(--dark-border) !important;
+    border: 2px solid var(--dark-border) !important;
+    box-shadow: 3px 3px 0px var(--dark-border) !important;
+    font-family: var(--font-title) !important;
+    font-weight: 600 !important;
+    border-radius: 0.85rem !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+.btn-blue-cartoon:hover {
+    background-color: var(--accent-blue-hover) !important;
+    transform: translate(-1px, -1px) !important;
+    box-shadow: 4px 4px 0px var(--dark-border) !important;
+}
+
+.btn-blue-cartoon:active {
+    transform: translate(2px, 2px) !important;
+    box-shadow: 1px 1px 0px var(--dark-border) !important;
+}
+
+.btn-yellow-cartoon {
+    background-color: var(--star-yellow) !important;
+    color: var(--dark-border) !important;
+    border: 2px solid var(--dark-border) !important;
+    box-shadow: 3px 3px 0px var(--dark-border) !important;
+    font-family: var(--font-title) !important;
+    font-weight: 600 !important;
+    border-radius: 0.85rem !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+.btn-yellow-cartoon:hover {
+    background-color: var(--star-yellow-hover) !important;
+    transform: translate(-1px, -1px) !important;
+    box-shadow: 4px 4px 0px var(--dark-border) !important;
+}
+
+.btn-yellow-cartoon:active {
+    transform: translate(2px, 2px) !important;
+    box-shadow: 1px 1px 0px var(--dark-border) !important;
+}
+
+/* 6. ERP Theme Preset - Cards, Boxes & Containers */
+.card-cartoon {
+    background-color: var(--card-bg) !important;
+    border: 2px solid var(--dark-border) !important;
+    box-shadow: 4px 4px 0px var(--dark-border) !important;
+    border-radius: 1rem !important;
+}
+
+.card-cartoon-mario {
+    background-color: var(--card-bg) !important;
+    border: 2px solid var(--dark-border) !important;
+    border-top: 6px solid var(--mario-red) !important;
+    box-shadow: 4px 4px 0px var(--dark-border) !important;
+    border-radius: 1rem !important;
+}
+
+.card-cartoon-luigi {
+    background-color: var(--card-bg) !important;
+    border: 2px solid var(--dark-border) !important;
+    border-top: 6px solid var(--luigi-green) !important;
+    box-shadow: 4px 4px 0px var(--dark-border) !important;
+    border-radius: 1rem !important;
+}
+
+.card-cartoon-blue {
+    background-color: var(--card-bg) !important;
+    border: 2px solid var(--dark-border) !important;
+    border-top: 6px solid var(--accent-blue-dark) !important;
+    box-shadow: 4px 4px 0px var(--dark-border) !important;
+    border-radius: 1rem !important;
+}
+
+/* 7. ERP Theme Preset - Navigation (Navbar & Sidebar) */
+.navbar-cartoon {
+    background-color: #FFFFFF !important;
+    border-bottom: 3px solid var(--dark-border) !important;
+    box-shadow: 0 4px 0px rgba(16, 15, 13, 0.05) !important;
+}
+
+.navbar-brand-badge {
+    background-color: var(--mario-red) !important;
+    color: #FFFFFF !important;
+    font-family: var(--font-title) !important;
+    padding: 0.35rem 0.85rem !important;
+    border-radius: 0.6rem !important;
+    border: 2px solid var(--dark-border) !important;
+    box-shadow: 2px 2px 0px var(--dark-border) !important;
+}
+
+.sidebar-cartoon {
+    background-color: #FFFFFF !important;
+    border-right: 3px solid var(--dark-border) !important;
+}
+
+.sidebar-cartoon .nav-link {
+    font-family: var(--font-body);
+    font-weight: 500;
+    color: var(--dark-border);
+    transition: all 0.15s ease;
+}
+
+.sidebar-cartoon .nav-link:hover {
+    background-color: #F0F9FF;
+    color: var(--mario-red);
+}
+
+.sidebar-cartoon .nav-link.active {
+    background-color: var(--mario-red) !important;
+    color: #FFFFFF !important;
+    font-weight: 600;
+    border: 2px solid var(--dark-border);
+    box-shadow: 2px 2px 0px var(--dark-border);
+}
+
+/* 8. ERP Theme Preset - Badges */
+.badge-mario {
+    background-color: var(--mario-red) !important;
+    color: #FFFFFF !important;
+    font-family: var(--font-title);
+    border: 1.5px solid var(--dark-border);
+    box-shadow: 1.5px 1.5px 0px var(--dark-border);
+}
+
+.badge-luigi {
+    background-color: var(--luigi-green) !important;
+    color: #FFFFFF !important;
+    font-family: var(--font-title);
+    border: 1.5px solid var(--dark-border);
+    box-shadow: 1.5px 1.5px 0px var(--dark-border);
+}
+
+.badge-blue {
+    background-color: var(--accent-blue) !important;
+    color: var(--dark-border) !important;
+    font-family: var(--font-title);
+    border: 1.5px solid var(--dark-border);
+    box-shadow: 1.5px 1.5px 0px var(--dark-border);
+}
+
+.badge-yellow {
+    background-color: var(--star-yellow) !important;
+    color: var(--dark-border) !important;
+    font-family: var(--font-title);
+    border: 1.5px solid var(--dark-border);
+    box-shadow: 1.5px 1.5px 0px var(--dark-border);
+}

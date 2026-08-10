@@ -4,31 +4,47 @@
 <div class="row justify-content-center">
     <!-- Navbar y Filtros: Ocultos en Impresión -->
     <div class="col-12 d-print-none mb-4">
-        <div class="card card-custom p-4 border-0 shadow-sm d-flex justify-content-between align-items-center flex-row">
-            <h4 class="fw-bold m-0" style="color: #A3D8DE;">
-                <i class="fa-solid fa-file-invoice me-1"></i> Reporte Arqueo Caja
+        <div class="card card-custom p-4 border-0 shadow-sm d-flex justify-content-between align-items-center flex-row flex-wrap gap-3">
+            <h4 class="fw-bold m-0 text-brand-black">
+                <i class="fa-solid fa-file-invoice text-primary me-2"></i>Reporte Arqueo de Caja
             </h4>
             
-            {% if current_user.rol == 'admin' %}
-            <form action="{{ url_for('arqueo_bp.reporte') }}" method="GET" class="d-flex align-items-center justify-content-end gap-3 flex-grow-1 mx-4">
-                <label for="fecha_inicio" class="fw-bold text-brand-black m-0">Desde:</label>
-                <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ fecha_inicio }}" class="form-control w-auto">
+            {% if is_admin %}
+            <div class="btn-group shadow-sm rounded-pill overflow-hidden border bg-white" role="group">
+                <a href="{{ url_for('arqueo_bp.reporte', local='central', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == 'central' %}btn-dark fw-bold{% else %}btn-outline-dark{% endif %} px-3">
+                    <i class="fa-solid fa-cubes me-1"></i> Central (Todos)
+                </a>
+                <a href="{{ url_for('arqueo_bp.reporte', local='1', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == '1' %}btn-primary fw-bold{% else %}btn-outline-primary{% endif %} px-3">
+                    <i class="fa-solid fa-shop me-1"></i> Local 1
+                </a>
+                <a href="{{ url_for('arqueo_bp.reporte', local='2', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == '2' %}btn-info text-white fw-bold{% else %}btn-outline-info{% endif %} px-3">
+                    <i class="fa-solid fa-shop me-1"></i> Local 2
+                </a>
+                <a href="{{ url_for('arqueo_bp.reporte', local='3', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == '3' %}btn-success fw-bold{% else %}btn-outline-success{% endif %} px-3">
+                    <i class="fa-solid fa-shop me-1"></i> Local 3
+                </a>
+            </div>
 
-                <label for="fecha_fin" class="fw-bold text-brand-black m-0 ms-2">Hasta:</label>
-                <input type="date" name="fecha_fin" id="fecha_fin" value="{{ fecha_fin }}" class="form-control w-auto">
+            <form action="{{ url_for('arqueo_bp.reporte') }}" method="GET" class="d-flex align-items-center justify-content-end gap-2">
+                <input type="hidden" name="local" value="{{ active_local }}">
+                <label for="fecha_inicio" class="fw-bold text-brand-black m-0 small">Desde:</label>
+                <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ fecha_inicio }}" class="form-control form-control-sm w-auto">
+
+                <label for="fecha_fin" class="fw-bold text-brand-black m-0 ms-1 small">Hasta:</label>
+                <input type="date" name="fecha_fin" id="fecha_fin" value="{{ fecha_fin }}" class="form-control form-control-sm w-auto">
                 
-                <button type="submit" class="btn btn-outline-secondary rounded-pill px-4">Filtrar</button>
+                <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Filtrar</button>
             </form>
             {% else %}
             <div class="flex-grow-1 mx-4 text-center">
-                <span class="badge bg-light text-secondary border px-3 py-2">
-                    <i class="fa-solid fa-calendar-day me-1"></i> Mostrando Arqueo de Hoy ({{ fecha_inicio }})
+                <span class="badge bg-dark text-white rounded-pill px-3 py-2 fs-6 shadow-sm">
+                    <i class="fa-solid fa-shop me-1 text-info"></i> {{ nombre_sede }}
                 </span>
             </div>
             {% endif %}
 
-            <button onclick="window.print()" class="btn px-4 rounded-pill fw-bold text-dark border shadow-sm" style="background-color: #F9C8D3; border-color: #ebaebc;">
-                <i class="fa-solid fa-print me-1"></i> Imprimir Tirilla
+            <button onclick="window.print()" class="btn btn-blue rounded-pill fw-bold text-white px-4 shadow-sm">
+                <i class="fa-solid fa-print me-1"></i> Imprimir Reporte / PDF
             </button>
         </div>
     </div>
@@ -39,8 +55,12 @@
             
             <!-- Encabezado Ticket / Documento Contable -->
             <div class="text-center mb-5 pb-3 border-bottom">
-                <h1 class="fw-bold text-brand-black mb-1"><i class="fa-solid fa-calculator me-2"></i> cases.com</h1>
-                <h4 class="text-muted fw-semibold">INFORME CONTABLE DE CIERRE DE CAJA (ARQUEO)</h4>
+                <img src="{{ url_for('static', filename='img/DL.png') }}" alt="D & L Telefonía & Accesorios" style="max-height: 80px;" class="mb-3 d-block mx-auto">
+                <h2 class="font-title fw-bold text-dark mb-1">D & L - TELEFONÍA & ACCESORIOS</h2>
+                <h4 class="text-muted fw-semibold mb-2">INFORME CONTABLE DE CIERRE DE CAJA (ARQUEO)</h4>
+                <div class="my-2">
+                    <span class="badge bg-dark text-white rounded-pill px-3 py-2 fs-6 shadow-sm"><i class="fa-solid fa-shop me-1 text-info"></i> {{ nombre_sede|upper }}</span>
+                </div>
                 <p class="mb-0 text-secondary">
                     Período: <strong>{{ fecha_inicio }}</strong> hasta <strong>{{ fecha_fin }}</strong>
                     <br>
@@ -54,93 +74,75 @@
             <!-- Resumen Consolidado de Totales -->
             <h5 class="fw-bold text-brand-black mb-3">📍 Resumen General del Período Recaudado</h5>
             <div class="row g-3 mb-5 resumen-totales">
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                     <div class="card p-3 border rounded shadow-sm text-center h-100" style="background-color: #d4edda; border-left: 4px solid #28a745 !important;">
-                        <small class="fw-bold text-uppercase d-block mb-1" style="color: #155724;">Venta + Banco</small>
+                        <small class="fw-bold text-uppercase d-block mb-1" style="color: #155724;">Recaudo Neto Total</small>
                         <h4 class="mb-0 fw-bold" style="color: #155724;">
                             ${{ (resumen.total_recaudado_neto)|cop }}
                         </h4>
-                        <small class="d-block mt-1 opacity-75" style="font-size:0.7rem; color: #155724;">Total - CH - Celulares - Gastos</small>
+                        <small class="d-block mt-1 opacity-75" style="font-size:0.7rem; color: #155724;">(Venta Total - Gastos)</small>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
-                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100">
+                <div class="col-12 col-md-3">
+                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #dc3545 !important;">
                         <small class="text-secondary fw-bold text-uppercase d-block mb-1">Total Gastos Operativos</small>
                         <h4 class="mb-0 text-danger fw-bold">$-{{ (resumen.total_gastos)|cop }}</h4>
                         <small class="text-muted d-block mt-1" style="font-size:0.7rem;">(Efectivo: ${{ (resumen.total_gastos_efectivo)|cop }})</small>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
-                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #F9C8D3 !important;">
-                        <small class="text-secondary fw-bold text-uppercase d-block mb-1">Total Unidades CH</small>
-                        <h4 class="mb-0 text-brand-pink fw-bold" style="font-size: 1.6rem;">${{ (resumen.total_unidades_ch)|cop }}</h4>
-                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">Valor descontado de la venta</small>
+                <div class="col-12 col-md-3">
+                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #0d6efd !important;">
+                        <small class="text-secondary fw-bold text-uppercase d-block mb-1">Venta Total Bruta</small>
+                        <h4 class="mb-0 text-primary fw-bold">${{ (resumen.total_recaudado_bruto)|cop }}</h4>
+                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">Suma Efectivo + Digital</small>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
-                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #6c757d !important;">
-                        <small class="text-secondary fw-bold text-uppercase d-block mb-1">Venta Total</small>
-                        <h4 class="mb-0 text-dark fw-bold" style="font-size: 1.6rem;">${{ (resumen.total_recaudado_bruto)|cop }}</h4>
-                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">Suma de Cash + Bancos</small>
-                    </div>
-                </div>
-                <div class="col-12 col-md-4">
-                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #6f42c1 !important;">
-                        <small class="text-secondary fw-bold text-uppercase d-block mb-1">Total Celulares</small>
-                        <h4 class="mb-0 fw-bold" style="font-size: 1.6rem; color: #6f42c1;">${{ (resumen.total_celulares)|cop }}</h4>
-                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">Valor descontado de la venta</small>
-                    </div>
-                </div>
-                <div class="col-12 col-md-4">
-                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #A3D8DE !important;">
-                        <small class="text-secondary fw-bold d-block mb-1">CAJA FÍSICA ESPERADA FINAL</small>
-                        <h4 class="mb-0 text-dark fw-bold">${{ (resumen.efectivo_esperado)|cop }}</h4>
-                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">(Base + VtasEfectivo) - GastosEfec - CH - Cels</small>
+                <div class="col-12 col-md-3">
+                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #198754 !important;">
+                        <small class="text-secondary fw-bold d-block mb-1">EFECTIVO ESPERADO EN CAJA</small>
+                        <h4 class="mb-0 text-success fw-bold">${{ (resumen.efectivo_esperado)|cop }}</h4>
+                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">(Base + VentasEfectivo) - GastosEfectivo</small>
                     </div>
                 </div>
             </div>
 
-        <!-- Tabla Desglosada Registro a Registro -->
+            <!-- Tabla Desglosada Registro a Registro -->
             <h5 class="fw-bold text-brand-black mb-3 border-bottom pb-2">📋 Desglose Analítico por Cierres de Día</h5>
             <div class="table-responsive">
                 <table class="table table-bordered table-sm fw-semibold mb-0 table-hover align-middle">
                     <thead class="table-light text-center text-uppercase" style="font-size: 0.85rem;">
                         <tr>
                             <th width="10%">Fecha</th>
-                            <th width="15%">Cajero(a)</th>
-                            <th width="12%" class="text-primary">Base Inicial</th>
-                            <th width="10%" class="text-dark bg-light border-start border-end">Venta Total</th>
-                            <th width="10%" class="text-success">Ventas Efectivo</th>
-                            <th width="10%" class="text-info">Bancos</th>
-                            <th width="10%" style="color: #e83e8c;">Unid. CH</th>
-                            <th width="10%" style="color: #6f42c1;">Celulares</th>
-                            <th width="12%" class="text-danger">Gastos</th>
-                            <th width="24%">Detalle del Gasto</th>
+                            <th width="10%">Sede</th>
+                            <th width="18%">Cajero(a)</th>
+                            <th width="13%" class="text-primary">Base Inicial</th>
+                            <th width="13%" class="text-dark bg-light border-start border-end">Venta Total</th>
+                            <th width="13%" class="text-success">Ventas Efectivo</th>
+                            <th width="13%" class="text-info">Bancos</th>
+                            <th width="10%" class="text-danger">Gastos</th>
                         </tr>
                     </thead>
                     <tbody style="font-size: 0.9rem;">
                         {% for arqueo in arqueos %}
                         <tr>
                             <td class="text-center text-secondary">{{ arqueo.fecha_arqueo }}</td>
-                            <td class="text-truncate" style="max-width:120px;" title="{{ arqueo.cajero.nombre }}">{{ arqueo.cajero.nombre }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size:0.72rem;">
+                                    Local {{ arqueo.local_id or (arqueo.cajero.local_asignado if arqueo.cajero else 1) }}
+                                </span>
+                            </td>
+                            <td class="text-truncate" style="max-width:140px;" title="{{ arqueo.cajero.nombre }}">{{ arqueo.cajero.nombre }}</td>
                             <td class="text-end text-primary fw-bold">${{ (arqueo.base_inicial)|cop }}</td>
                             <td class="text-end text-dark fw-bolder bg-light border-start border-end">${{ (arqueo.total_efectivo_sistema + arqueo.total_transferencia_sistema)|cop }}</td>
-                             <td class="text-end text-success fw-bold">${{ (arqueo.total_efectivo_sistema)|cop }}</td>
+                            <td class="text-end text-success fw-bold">${{ (arqueo.total_efectivo_sistema)|cop }}</td>
                             <td class="text-end text-info fw-bold">${{ (arqueo.total_transferencia_sistema)|cop }}</td>
-                            <td class="text-end fw-bold" style="color: #e83e8c;">${{ (arqueo.total_unidades_ch)|cop }}</td>
-                            <td class="text-end fw-bold" style="color: #6f42c1;">${{ (arqueo.total_celulares)|cop }}</td>
-                            
                             <td class="text-end {% if arqueo.gastos_del_dia > 0 %}text-danger{% else %}text-muted{% endif %} fw-bold">
                                 ${{ (arqueo.gastos_del_dia)|cop }}
-                            </td>
-                            
-                            <td class="text-muted fst-italic" style="font-size: 0.8rem;">
-                                {{ arqueo.observaciones_gastos if arqueo.observaciones_gastos else '-' }}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted p-4">No hay datos encontrados en estas fechas.</td>
+                            <td colspan="8" class="text-center text-muted p-4">No hay arqueos registrados en estas fechas.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -161,210 +163,71 @@
                         <tr>
                             <th width="10%">Ticket ID</th>
                             <th width="12%">Hora</th>
-                            <th width="15%">Método Pago</th>
-                            <th width="35%">Productos y Cantidades</th>
+                            <th width="18%">Método Pago</th>
+                            <th width="45%">Productos y Cantidades</th>
                             <th width="15%" class="text-end">Total Ticket</th>
                         </tr>
                     </thead>
-                    <tbody style="font-size: 0.9rem;">
+                    <tbody style="font-size: 0.85rem;">
                         {% for v in ventas_periodo %}
                         <tr>
-                            <td class="text-center text-secondary fw-bold">#{{ "%05d"|format(v.id) }}</td>
+                            <td class="text-center text-primary fw-bold">#{{ "%05d"|format(v.id) }}</td>
                             <td class="text-center text-muted">{{ v.fecha_venta.strftime('%H:%M') }}</td>
                             <td class="text-center">
-                                {% if v.pagos|length > 1 %}
-                                    <span class="badge bg-light text-dark border rounded-pill px-3 py-1" style="border-color: #fd7e14 !important;">
-                                        Mixto
-                                    </span>
-                                    <div style="font-size: 0.7rem; margin-top: 3px; color: #888;">
-                                        {% for p in v.pagos %}
-                                            {{ p.metodo_pago|capitalize }}: ${{ (p.monto)|cop }}{% if not loop.last %}<br>{% endif %}
-                                        {% endfor %}
-                                    </div>
-                                {% elif v.pagos|length == 1 %}
-                                    <span class="badge bg-light text-dark border rounded-pill px-3 py-1">
-                                        {{ v.pagos[0].metodo_pago|capitalize }}
-                                    </span>
+                                {% if v.pagos and v.pagos|length > 1 %}
+                                    <span class="badge bg-warning text-dark border border-warning">Pago Mixto</span>
+                                {% elif v.metodo_pago == 'efectivo' or (v.pagos and v.pagos[0].metodo_pago == 'efectivo') %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">Efectivo</span>
                                 {% else %}
-                                    <span class="badge bg-light text-dark border rounded-pill px-3 py-1">
-                                        {{ v.metodo_pago|capitalize }}
-                                    </span>
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info">{{ v.metodo_pago_display }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
-                                    {% for detalle in v.detalles %}
-                                    <li>
-                                        <strong>{{ detalle.cantidad_vendida }}x</strong> 
-                                        {% if detalle.nombre_manual %}
-                                            {{ detalle.nombre_manual }} <span class="badge bg-primary bg-opacity-10 text-primary border rounded-pill px-1" style="font-size: 0.65rem;">Externo</span>
-                                        {% else %}
-                                            {{ detalle.producto.nombre }} 
-                                            {% if detalle.variant_id %}
-                                                <span class="text-muted">(Var: {{ detalle.variante.nombre_variante }})</span>
-                                            {% endif %}
-                                        {% endif %}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
+                                {% for d in v.detalles %}
+                                    <span class="d-inline-block me-2">
+                                        <strong>{{ d.cantidad_vendida }}x</strong> {{ d.producto.nombre if d.producto else (d.nombre_manual or 'Producto') }}
+                                        {% if d.variante %}<small class="text-muted">({{ d.variante.nombre_variante }})</small>{% endif %};
+                                    </span>
+                                {% endfor %}
                             </td>
-                            <td class="text-end fw-bold text-brand-black fs-6">${{ (v.monto_total)|cop }}</td>
+                            <td class="text-end fw-bold">${{ (v.monto_total)|cop }}</td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted p-4">No se registraron ventas en este período.</td>
+                            <td colspan="5" class="text-center text-muted p-4">No hay ventas registradas en este período.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-
-            <!-- DETALLE DE GASTOS DEL PERIODO -->
-            {% if gastos_periodo %}
-            <div class="mt-5 pt-4 border-top">
-                <h4 class="fw-bold text-brand-black mb-3">
-                    <i class="fa-solid fa-money-bill-transfer me-2 text-danger"></i> Detalle de Gastos Registrados
-                </h4>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered align-middle table-hover">
-                        <thead class="table-light text-center text-uppercase" style="font-size: 0.8rem;">
-                            <tr>
-                                <th width="12%">Fecha</th>
-                                <th width="15%">Tipo</th>
-                                <th width="15%">Categoría</th>
-                                <th>Descripción</th>
-                                <th width="12%">Método</th>
-                                <th width="15%">Monto</th>
-                            </tr>
-                        </thead>
-                        <tbody style="font-size: 0.85rem;">
-                            {% for gasto in gastos_periodo %}
-                            <tr>
-                                <td class="text-center text-muted">{{ gasto.fecha_gasto.strftime('%Y-%m-%d %H:%M') }}</td>
-                                <td class="text-center">
-                                    {% if gasto.tipo_gasto == 'Gasto Diario' %}
-                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">Diario</span>
-                                    {% else %}
-                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">Indirecto</span>
-                                    {% endif %}
-                                </td>
-                                <td class="fw-bold">{{ gasto.categoria }}</td>
-                                <td class="text-muted fst-italic">{{ gasto.descripcion or '—' }}</td>
-                                <td class="text-center">
-                                    {% if gasto.metodo_pago == 'efectivo' %}
-                                        <span class="text-success fw-bold"><i class="fa-solid fa-money-bill-wave me-1"></i> Efectivo</span>
-                                    {% else %}
-                                        <span class="text-info fw-bold"><i class="fa-solid fa-building-columns me-1"></i> {{ gasto.metodo_pago|capitalize }}</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end fw-bold {% if gasto.metodo_pago == 'efectivo' %}text-danger{% endif %}">
-                                    ${{ (gasto.monto)|cop }}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- DESGLOSE POR UNIDADES CH (Nuevo Requerimiento) -->
-            {% if desglose_ch %}
-            <div class="mt-5 pt-4 border-top">
-                <h4 class="fw-bold text-brand-black mb-3">
-                    <i class="fa-solid fa-tags me-2 text-brand-pink"></i> DESGLOSE POR UNIDADES CH
-                </h4>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered align-middle">
-                        <thead class="table-light text-center" style="font-size: 0.8rem;">
-                            <tr>
-                                <th>Nombre del Producto / Subcategoría</th>
-                                <th width="10%">Ctd</th>
-                                <th width="20%">Valor Unitario CH</th>
-                                <th width="20%">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody style="font-size: 0.85rem;">
-                            {% for item in desglose_ch %}
-                            <tr>
-                                <td>{{ item.nombre }}</td>
-                                <td class="text-center">{{ item.cantidad }}</td>
-                                <td class="text-end">
-                                    {% if item.error %}
-                                        <span class="text-danger small fw-bold">{{ item.error }}</span>
-                                    {% else %}
-                                        ${{ item.valor_unitario|cop }}
-                                    {% endif %}
-                                </td>
-                                <td class="text-end fw-bold">
-                                    ${{ item.subtotal|cop }}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                        <tfoot class="table-light">
-                            <tr>
-                                <td colspan="3" class="text-end fw-bold text-uppercase">TOTAL GENERAL CH:</td>
-                                <td class="text-end fw-bold text-brand-pink fs-5">${{ total_general_ch|cop }}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-                <small class="text-muted d-block mt-1">
-                    <i class="fa-solid fa-circle-info me-1"></i> Este desglose se calcula extrayendo el valor numérico del patrón <strong>CHx</strong> en el nombre o subcategoría y multiplicándolo por 1.000.
-                </small>
-            </div>
-            {% endif %}
-
-            <!-- Firmas Contables (Solo visibles al imprimir el PDF de tamaño carta) -->
-            <div class="row mt-5 pt-5 d-none d-print-flex">
-                <div class="col-6 text-center">
-                    <hr class="w-75 mx-auto border-dark border-1 opacity-100">
-                    <p class="mb-0 fw-bold">Firma Administrador</p>
-                    <p class="text-muted small">Revisado y Validado</p>
-                </div>
-                <div class="col-6 text-center">
-                    <hr class="w-75 mx-auto border-dark border-1 opacity-100">
-                    <p class="mb-0 fw-bold">Firma Cajero(a)</p>
-                    <p class="text-muted small">Cierre conforme y Entregado</p>
-                </div>
             </div>
         </div>
     </div>
 </div>
 
 <style>
-/* ====== Estilos Exclusivos para PDF/Impresión Tamaño Carta (A4) ====== */
+/* ====== Estilos Exclusivos para PDF/Impresión ====== */
 @media print {
+    @page {
+        size: A4 portrait;
+        margin: 10mm;
+    }
     body {
         background-color: white !important;
-        margin: 0; padding: 0;
-        font-size: 11pt;
+        font-size: 10pt;
     }
-    
-    /* Ocultar barra de navegación superior si existe en el layout general, y cualquier otro elemento innecesario */
-    main > nav, header, footer, .sidebar, .d-print-none {
+    .d-print-none, nav, sidebar, .navbar, .btn {
         display: none !important;
     }
-
-    /* Quitar sombras y reestablecer contenedores principales a 100% de ancho */
     .printable-document {
         box-shadow: none !important;
-        border: none !important;
         padding: 0 !important;
-        margin-bottom: 2rem !important;
-        page-break-inside: avoid;
+        border: none !important;
     }
-    
-    /* Forzar los colores de Bootstrap/Custom para que la impresora los dibuje literalmente */
-    * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    /* Mostrar las firmas explícitamente solo al imprimir */
-    .d-print-flex {
-        display: flex !important;
+    .container, .container-fluid, .row, .col-12, .col-xl-10 {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 }
 </style>

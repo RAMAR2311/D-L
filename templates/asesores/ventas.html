@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Header Principal -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold text-brand-black mb-1">
+                <i class="fa-solid fa-chart-line me-2 text-primary"></i>Reporte de Ventas por Asesor Comercial
+            </h2>
+            <p class="text-muted mb-0 small">Auditoría de rendimiento comercial y ventas registradas por rango de fechas</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 flex-wrap d-print-none">
+            <a href="{{ url_for('asesores_bp.index') }}" class="btn btn-outline-dark rounded-pill fw-bold px-3 shadow-sm">
+                <i class="fa-solid fa-users-gear me-1"></i>Gestionar Asesores
+            </a>
+            <button onclick="window.print()" class="btn btn-primary rounded-pill fw-bold px-4 shadow-sm">
+                <i class="fa-solid fa-print me-1"></i>Imprimir a PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- BARRA DE FILTROS (Formulario GET) -->
+    <div class="card card-custom p-4 mb-4 border-0 shadow-sm bg-white d-print-none">
+        <form action="{{ url_for('asesores_bp.ventas_asesor') }}" method="GET" class="row g-3 align-items-end">
+            <!-- Filtro por Asesor -->
+            <div class="col-md-3">
+                <label for="asesor_id" class="form-label fw-bold text-brand-black small">
+                    <i class="fa-solid fa-user-check text-primary me-1"></i>Asesor Comercial
+                </label>
+                <select id="asesor_id" name="asesor_id" class="form-select bg-light border-0 fw-bold">
+                    <option value="todas" {% if asesor_id_str == 'todas' %}selected{% endif %}>👥 Todos los Asesores</option>
+                    {% for a in todos_asesores %}
+                        <option value="{{ a.id }}" {% if asesor_id_str == a.id|string %}selected{% endif %}>
+                            👤 {{ a.nombre }} (Local {{ a.local_id }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filtro por Sede / Local -->
+            <div class="col-md-3">
+                <label for="local" class="form-label fw-bold text-brand-black small">
+                    <i class="fa-solid fa-shop text-info me-1"></i>Sede / Local
+                </label>
+                <select id="local" name="local" class="form-select bg-light border-0 fw-bold">
+                    <option value="central" {% if active_local == 'central' %}selected{% endif %}>🏢 Central (Todos los Locales)</option>
+                    <option value="1" {% if active_local == '1' %}selected{% endif %}>🏪 Local 1</option>
+                    <option value="2" {% if active_local == '2' %}selected{% endif %}>🏪 Local 2</option>
+                    <option value="3" {% if active_local == '3' %}selected{% endif %}>🏪 Local 3</option>
+                </select>
+            </div>
+
+            <!-- Rango de Fechas: Desde -->
+            <div class="col-md-2">
+                <label for="fecha_inicio" class="form-label fw-bold text-brand-black small">Fecha Inicio</label>
+                <input type="date" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio }}" class="form-control bg-light border-0 fw-bold">
+            </div>
+
+            <!-- Rango de Fechas: Hasta -->
+            <div class="col-md-2">
+                <label for="fecha_fin" class="form-label fw-bold text-brand-black small">Fecha Fin</label>
+                <input type="date" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin }}" class="form-control bg-light border-0 fw-bold">
+            </div>
+
+            <!-- Botón Filtrar -->
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary rounded-pill w-100 fw-bold shadow-sm py-2">
+                    <i class="fa-solid fa-magnifying-glass me-1"></i>Filtrar Reporte
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- TARJETAS DE KPIS FINANCIEROS Y COMERCIALES -->
+    <div class="row g-3 mb-4">
+        <!-- KPI 1: Total Facturado -->
+        <div class="col-md-3">
+            <div class="card card-custom h-100 p-3 border-start border-4 border-success shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small fw-bold text-uppercase">Total Facturado</span>
+                    <div class="rounded-circle bg-success bg-opacity-10 p-2 text-success">
+                        <i class="fa-solid fa-sack-dollar fs-5"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bolder text-success mb-0">${{ total_ventas_asesor|cop }}</h3>
+                <small class="text-muted" style="font-size: 0.72rem;">Recaudado en el rango seleccionado</small>
+            </div>
+        </div>
+
+        <!-- KPI 2: Ventas Registradas -->
+        <div class="col-md-3">
+            <div class="card card-custom h-100 p-3 border-start border-4 border-primary shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small fw-bold text-uppercase">Ventas Registradas</span>
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-2 text-primary">
+                        <i class="fa-solid fa-receipt fs-5"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bolder text-primary mb-0">{{ conteo_ventas_asesor }}</h3>
+                <small class="text-muted" style="font-size: 0.72rem;">Transacciones con asesor asignado</small>
+            </div>
+        </div>
+
+        <!-- KPI 3: Asesor Filtrado -->
+        <div class="col-md-3">
+            <div class="card card-custom h-100 p-3 border-start border-4 border-info shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small fw-bold text-uppercase">Asesor Comercial</span>
+                    <div class="rounded-circle bg-info bg-opacity-10 p-2 text-info">
+                        <i class="fa-solid fa-user-check fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bolder text-dark mb-0 text-truncate">
+                    {{ asesor_seleccionado.nombre if asesor_seleccionado else 'Todos los Asesores' }}
+                </h4>
+                <small class="text-muted" style="font-size: 0.72rem;">
+                    {% if asesor_seleccionado %}Sede: Local {{ asesor_seleccionado.local_id }}{% else %}Filtro consolidado{% endif %}
+                </small>
+            </div>
+        </div>
+
+        <!-- KPI 4: Promedio por Ticket -->
+        <div class="col-md-3">
+            <div class="card card-custom h-100 p-3 border-start border-4 border-warning shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small fw-bold text-uppercase">Ticket Promedio</span>
+                    <div class="rounded-circle bg-warning bg-opacity-10 p-2 text-warning">
+                        <i class="fa-solid fa-chart-line fs-5"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bolder text-dark mb-0">
+                    ${{ ((total_ventas_asesor / conteo_ventas_asesor) if conteo_ventas_asesor > 0 else 0)|cop }}
+                </h3>
+                <small class="text-muted" style="font-size: 0.72rem;">Monto promedio por factura</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLA DETALLADA DE VENTAS POR ASESOR -->
+    <div class="card card-custom p-0 overflow-hidden shadow-sm border-0 bg-white">
+        <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-brand-black mb-0">
+                <i class="fa-solid fa-list-check text-primary me-2"></i>Tirilla Digital de Ventas por Asesor
+            </h5>
+            <span class="badge bg-dark rounded-pill px-3 py-1">{{ ventas|length }} facturas</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4 py-3" width="10%">Ticket</th>
+                        <th width="15%">Fecha y Hora</th>
+                        <th width="20%">Asesor Comercial</th>
+                        <th width="15%">Método Pago</th>
+                        <th width="28%">Productos / Servicios</th>
+                        <th class="text-end pe-4" width="12%">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in ventas %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-primary">#{{ "%05d"|format(v.id) }}</td>
+                        <td class="text-muted small">
+                            <i class="fa-regular fa-calendar me-1"></i>{{ v.fecha_venta.strftime('%d/%m/%Y %H:%M') }}
+                        </td>
+                        <td>
+                            {% if v.asesor %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 rounded-pill fw-bold fs-6">
+                                    <i class="fa-solid fa-user-check me-1"></i>{{ v.asesor.nombre }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-light text-muted border px-2 py-1">Sin Asesor Asignado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if v.pagos and v.pagos|length > 1 %}
+                                <span class="badge bg-warning text-dark border border-warning">Pago Mixto</span>
+                            {% elif v.metodo_pago == 'efectivo' or (v.pagos and v.pagos[0].metodo_pago == 'efectivo') %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success">Efectivo</span>
+                            {% else %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info">{{ v.metodo_pago_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="lh-sm">
+                                {% for d in v.detalles %}
+                                    <span class="d-block text-dark small">
+                                        <strong class="text-primary">{{ d.cantidad_vendida }}x</strong> 
+                                        {{ d.producto.nombre if d.producto else (d.nombre_manual or 'Producto') }}
+                                        {% if d.variante %}<span class="text-muted">({{ d.variante.nombre_variante }})</span>{% endif %}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted small">Sin detalles</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="text-end pe-4 fw-bolder text-dark fs-6">${{ v.monto_total|cop }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-inbox fs-1 text-muted opacity-50 mb-2 d-block"></i>
+                            No se registraron ventas para los filtros seleccionados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

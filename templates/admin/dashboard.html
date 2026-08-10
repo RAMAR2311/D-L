@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-5">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
     <div>
-        <h2 class="fw-bold text-brand-black mb-0">Dashboard Operativo</h2>
-        <p class="text-muted">¡Bienvenido al panel central, {{ current_user.nombre }}!</p>
+        <h2 class="fw-bold text-brand-black mb-0">Dashboard Operativo Multisede</h2>
+        <p class="text-muted mb-0">¡Bienvenido al panel central, {{ current_user.nombre }}!</p>
     </div>
     <div>
         <button type="button" class="btn btn-blue rounded-pill fw-bold shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#modalBalance">
@@ -23,14 +23,25 @@
       </div>
       <form action="{{ url_for('admin_bp.balance_financiero') }}" method="GET">
           <div class="modal-body">
-              <p class="text-muted small">Selecciona el rango de fechas para cruzar las ventas e ingresos totales contra el Costo Directo y los Gastos Registrados.</p>
+              <p class="text-muted small">Selecciona el local (o vista general) y el rango de fechas para generar el informe de balance financiero.</p>
+              
+              <div class="mb-3">
+                  <label class="form-label fw-bold text-brand-black small"><i class="fa-solid fa-store text-primary me-1"></i>Sede / Local del Balance</label>
+                  <select name="local" class="form-select bg-light border-0 py-2 shadow-sm fw-bold">
+                      <option value="central" {% if active_local == 'central' %}selected{% endif %}>🏢 Central (Consolidado General)</option>
+                      <option value="1" {% if active_local == '1' %}selected{% endif %}>🏪 Local 1</option>
+                      <option value="2" {% if active_local == '2' %}selected{% endif %}>🏪 Local 2</option>
+                      <option value="3" {% if active_local == '3' %}selected{% endif %}>🏪 Local 3</option>
+                  </select>
+              </div>
+
               <div class="mb-3">
                   <label class="form-label fw-bold text-brand-black small">Fecha de Inicio</label>
-                  <input type="date" name="fecha_inicio" class="form-control" required>
+                  <input type="date" name="fecha_inicio" class="form-control bg-light border-0" required>
               </div>
               <div class="mb-4">
                   <label class="form-label fw-bold text-brand-black small">Fecha de Fin</label>
-                  <input type="date" name="fecha_fin" class="form-control" required>
+                  <input type="date" name="fecha_fin" class="form-control bg-light border-0" required>
               </div>
           </div>
           <div class="modal-footer border-top-0 pt-0">
@@ -42,64 +53,204 @@
   </div>
 </div>
 
-<!-- Layout de Tarjetas (Fila de 4 Elementos) -->
+<!-- Selector Interactivo de Sede / Filtro para Administrador -->
+<div class="card card-custom p-2 mb-4 border-0 shadow-sm bg-white">
+    <div class="nav nav-pills nav-justified gap-2" role="tablist">
+        <a href="{{ url_for('admin_bp.dashboard', local='central') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == 'central' %}active bg-dark text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+            <i class="fa-solid fa-cubes me-2"></i>1. Vista General (Central)
+        </a>
+        <a href="{{ url_for('admin_bp.dashboard', local='1') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '1' %}active bg-primary text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+            <i class="fa-solid fa-shop me-2"></i>2. Local 1
+        </a>
+        <a href="{{ url_for('admin_bp.dashboard', local='2') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '2' %}active bg-info text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+            <i class="fa-solid fa-shop me-2"></i>3. Local 2
+        </a>
+        <a href="{{ url_for('admin_bp.dashboard', local='3') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '3' %}active bg-success text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+            <i class="fa-solid fa-shop me-2"></i>4. Local 3
+        </a>
+    </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- FILA 1: OPERACIONES Y FINANZAS (4 TARJETAS)               -->
+<!-- ========================================================= -->
+<div class="row g-3 mb-3">
+    <!-- 1. Tarjeta: CAJA POS -->
+    <div class="col-md-3">
+        <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                    <i class="fa-solid fa-cash-register fs-2"></i>
+                </div>
+                <span class="badge bg-success rounded-pill">
+                    {% if active_local == 'central' %}Ventas Globales{% else %}Ventas Local {{ active_local }}{% endif %}
+                </span>
+            </div>
+            <h5 class="text-brand-black fw-bold mb-1">Caja POS</h5>
+            <h2 class="fw-bolder text-success mb-1">${{ (total_ventas)|cop }}</h2>
+            <p class="text-muted small mb-0"><i class="fa-solid fa-store me-1"></i> Facturación en mostrador</p>
+            <div class="mt-auto pt-3">
+                <a href="{{ url_for('sales_bp.caja_visual', local=active_local if active_local != 'central' else '1') }}" class="btn btn-success text-white w-100 rounded-pill shadow-sm fw-bold">
+                    <i class="fa-solid fa-store me-1"></i> Abrir Caja POS
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Tarjeta: REGISTRO DE VENTAS -->
+    <div class="col-md-3">
+        <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                    <i class="fa-solid fa-receipt fs-2"></i>
+                </div>
+                <span class="badge bg-success rounded-pill">
+                    {% if active_local == 'central' %}Historial Global{% else %}Facturas Local {{ active_local }}{% endif %}
+                </span>
+            </div>
+            <h5 class="text-brand-black fw-bold mb-1">Registro de Ventas</h5>
+            <h2 class="fw-bolder text-success mb-1">{{ conteo_ventas }} <span class="fs-6 fw-normal text-muted">ventas</span></h2>
+            <p class="text-muted small mb-0"><i class="fa-solid fa-clock-rotate-left me-1"></i> Auditoría de transacciones</p>
+            <div class="mt-auto pt-3">
+                <a href="{{ url_for('sales_bp.historial', local=active_local) }}" class="btn btn-success text-white w-100 rounded-pill shadow-sm fw-bold">
+                    <i class="fa-solid fa-receipt me-1"></i> Ver Registro Ventas
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Tarjeta: GASTOS OPERATIVOS -->
+    <div class="col-md-3">
+        <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                    <i class="fa-solid fa-money-bill-transfer fs-2"></i>
+                </div>
+                <span class="badge bg-success rounded-pill">
+                    {% if active_local == 'central' %}Egresos Empresa{% else %}Gastos Local {{ active_local }}{% endif %}
+                </span>
+            </div>
+            <h5 class="text-brand-black fw-bold mb-1">Gastos Operativos</h5>
+            <h2 class="fw-bolder text-success mb-1">${{ (total_gastos)|cop }}</h2>
+            <p class="text-muted small mb-0"><i class="fa-solid fa-file-invoice me-1"></i> {{ conteo_gastos }} gastos comprobados</p>
+            <div class="mt-auto pt-3">
+                <a href="/gastos?local={{ active_local }}" class="btn btn-success text-white w-100 rounded-pill shadow-sm fw-bold">
+                    <i class="fa-solid fa-receipt me-1"></i> Ver Gastos
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Tarjeta: ARQUEO DE CAJA -->
+    <div class="col-md-3">
+        <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                    <i class="fa-solid fa-calculator fs-2"></i>
+                </div>
+                <span class="badge bg-success rounded-pill">Cierres</span>
+            </div>
+            <h5 class="text-brand-black fw-bold mb-1">Arqueo de Caja</h5>
+            <h2 class="fw-bolder text-success mb-1">{{ total_arqueos }} <span class="fs-6 fw-normal text-muted">cierres</span></h2>
+            <p class="text-muted small mb-0">
+                <i class="fa-solid fa-clock-rotate-left me-1"></i>
+                {% if ultimo_arqueo %}
+                    Último: {{ ultimo_arqueo.fecha_arqueo.strftime('%d/%m/%Y') if ultimo_arqueo.fecha_arqueo else 'Registrado' }}
+                {% else %}
+                    Sin arqueos registrados
+                {% endif %}
+            </p>
+            <div class="mt-auto pt-3">
+                <a href="/arqueo/nuevo?local={{ active_local if active_local != 'central' else '1' }}" class="btn btn-success text-white w-100 rounded-pill shadow-sm fw-bold">
+                    <i class="fa-solid fa-calculator me-1"></i> Realizar Arqueo
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- FILA 2: PERSONAL, INVENTARIO Y LOGÍSTICA (4 TARJETAS)     -->
+<!-- ========================================================= -->
 <div class="row g-3 mb-4">
-    <!-- 1. Tarjeta: Ingresos Totales (Botones/Textos Azul Turquesa / .btn-blue) -->
+    <!-- 5. Tarjeta: PROVEEDORES Y CUENTAS POR PAGAR -->
     <div class="col-md-3">
-        <div class="card card-custom h-100 p-4">
+        <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm">
             <div class="d-flex justify-content-between align-items-start mb-3">
-                <i class="fa-solid fa-sack-dollar fs-1" style="color: var(--brand-blue);"></i>
-                <span class="badge bg-brand-blue rounded-pill">Quincena Actual</span>
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                    <i class="fa-solid fa-truck-field fs-2"></i>
+                </div>
+                <span class="badge bg-success rounded-pill">
+                    {{ total_proveedores }} Proveedores
+                </span>
             </div>
-            <h5 class="text-brand-black fw-bold">Ingresos (Quincena)</h5>
-            <h2 class="fw-bolder" style="color: var(--brand-blue);">${{ (total_ventas)|cop }}</h2>
-            <p class="text-muted small mb-0"><i class="fa-solid fa-receipt me-1"></i> {{ conteo_ventas }} ventas realizadas</p>
+            <h5 class="text-brand-black fw-bold mb-1">Proveedores (Cuentas por Pagar)</h5>
+            <h2 class="fw-bolder text-success mb-1">${{ (deuda_proveedores)|cop }}</h2>
+            <p class="text-muted small mb-0"><i class="fa-solid fa-wallet me-1"></i> Deuda total pendiente</p>
             <div class="mt-auto pt-3">
-                <a href="{{ url_for('sales_bp.historial') }}" class="btn btn-blue w-100 rounded-pill"><i class="fa-solid fa-file-invoice-dollar me-2"></i> Ver Historial</a>
+                <a href="{{ url_for('providers_bp.index') }}" class="btn btn-success text-white w-100 rounded-pill shadow-sm fw-bold">
+                    <i class="fa-solid fa-truck-field me-1"></i> Gestionar Proveedores
+                </a>
             </div>
         </div>
     </div>
 
-    <!-- 2. Tarjeta: Productos en Catálogo (Rosa Pastel / .btn-pink) -->
+    <!-- 6. Tarjeta: PRODUCTOS EN CATÁLOGO -->
     <div class="col-md-3">
-        <div class="card card-custom h-100 p-4">
+        <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm">
             <div class="d-flex justify-content-between align-items-start mb-3">
-                <i class="fa-solid fa-cubes fs-1" style="color: var(--brand-pink);"></i>
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                    <i class="fa-solid fa-boxes-stacked fs-2"></i>
+                </div>
+                <span class="badge bg-success rounded-pill">Inventario</span>
             </div>
-            <h5 class="text-brand-black fw-bold">Productos en Catálogo</h5>
-            <h2 class="fw-bolder text-brand-black">{{ total_productos }} uds.</h2>
-            <div class="mt-auto pt-4">
-                <a href="/inventory/" class="btn btn-pink w-100 rounded-pill text-brand-black"><i class="fa-solid fa-sliders me-2"></i> Gestionar Inventario</a>
+            <h5 class="text-brand-black fw-bold mb-1">Catálogo General</h5>
+            <h2 class="fw-bolder text-success mb-1">{{ total_productos }} <span class="fs-6 fw-normal text-muted">referencias</span></h2>
+            <p class="text-muted small mb-0"><i class="fa-solid fa-layer-group me-1"></i> Productos y subcategorías</p>
+            <div class="mt-auto pt-3">
+                <a href="/inventory/?local={{ active_local }}" class="btn btn-success text-white w-100 rounded-pill shadow-sm fw-bold">
+                    <i class="fa-solid fa-sliders me-1"></i> Gestionar Inventario
+                </a>
             </div>
         </div>
     </div>
 
-    <!-- 3. Tarjeta: Alertas de Stock (Danger Colors / Bootstrap Nativo) -->
+    <!-- 7. Tarjeta: ALERTAS CRÍTICAS DE STOCK -->
     <div class="col-md-3">
-        <div class="card card-custom h-100 p-4 border border-danger border-2">
+        <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm">
             <div class="d-flex justify-content-between align-items-start mb-3">
-                <i class="fa-solid fa-triangle-exclamation fs-1 text-danger"></i>
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                    <i class="fa-solid fa-triangle-exclamation fs-2"></i>
+                </div>
+                <span class="badge bg-success rounded-pill">Alertas (≤ 3 uds)</span>
             </div>
-            <h5 class="text-brand-black fw-bold">Alertas Críticas de Stock</h5>
-            <h2 class="fw-bolder text-danger">{{ productos_bajo_stock }} productos</h2>
-            <p class="text-muted small">Tienen existencias limitadas (10 o menos unidades).</p>
+            <h5 class="text-brand-black fw-bold mb-1">Stock Bajo en Sede</h5>
+            <h2 class="fw-bolder text-success mb-1">{{ productos_bajo_stock }} <span class="fs-6 fw-normal text-muted">productos</span></h2>
+            <p class="text-muted small mb-0"><i class="fa-solid fa-circle-exclamation me-1"></i> Existencias limitadas</p>
             <div class="mt-auto pt-3">
-                <a href="/inventory/" class="btn btn-outline-danger w-100 rounded-pill fw-bold"><i class="fa-solid fa-eye me-2"></i> Revisar Urgencias</a>
+                <a href="/inventory/?local={{ active_local }}" class="btn btn-success text-white w-100 rounded-pill shadow-sm fw-bold">
+                    <i class="fa-solid fa-eye me-1"></i> Revisar Urgencias
+                </a>
             </div>
         </div>
     </div>
 
-    <!-- 4. Tarjeta: Maneos de Mercancía -->
+    <!-- 8. Tarjeta: MANEOS ACTIVOS -->
     <div class="col-md-3">
-        <div class="card card-custom h-100 p-4 border border-warning border-2">
+        <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm">
             <div class="d-flex justify-content-between align-items-start mb-3">
-                <i class="fa-solid fa-handshake fs-1 text-warning"></i>
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                    <i class="fa-solid fa-handshake fs-2"></i>
+                </div>
+                <span class="badge bg-success rounded-pill">Préstamos</span>
             </div>
-            <h5 class="text-brand-black fw-bold">Maneos Activos</h5>
-            <h2 class="fw-bolder text-warning">{{ maneos_activos }} docs.</h2>
-            <p class="text-muted small">Préstamos vecinos esperando resolución.</p>
+            <h5 class="text-brand-black fw-bold mb-1">Maneos Activos</h5>
+            <h2 class="fw-bolder text-success mb-1">{{ maneos_activos }} <span class="fs-6 fw-normal text-muted">documentos</span></h2>
+            <p class="text-muted small mb-0"><i class="fa-solid fa-building me-1"></i> Intercambio entre tiendas</p>
             <div class="mt-auto pt-3">
-                <a href="{{ url_for('admin_bp.maneos') }}" class="btn btn-outline-warning text-dark w-100 rounded-pill fw-bold"><i class="fa-solid fa-eye me-2"></i> Ver Maneos</a>
+                <a href="{{ url_for('admin_bp.maneos') }}" class="btn btn-success text-white w-100 rounded-pill shadow-sm fw-bold">
+                    <i class="fa-solid fa-eye me-1"></i> Ver Maneos Vecinos
+                </a>
             </div>
         </div>
     </div>

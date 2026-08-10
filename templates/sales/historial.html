@@ -2,11 +2,31 @@
 
 {% block content %}
 <div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center mb-4">
-        <!-- Título con acento Azul Turquesa según reglas de Branding (.text-brand-blue es #A3D8DE) -->
-        <h2 class="fw-bolder m-0" style="color: var(--brand-blue);">
-            <i class="fa-solid fa-clock-rotate-left me-2"></i>Historial de Operaciones
-        </h2>
+    <div class="col-12 d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bolder m-0" style="color: var(--brand-blue);">
+                <i class="fa-solid fa-clock-rotate-left me-2"></i>Historial de Registro de Ventas
+            </h2>
+            <small class="text-muted">Consolidado y auditoría de facturación diaria por sede</small>
+        </div>
+
+        {% if current_user.rol == 'admin' %}
+        <div class="btn-group shadow-sm rounded-pill overflow-hidden border bg-white d-print-none" role="group">
+            <a href="{{ url_for('sales_bp.historial', local='central', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == 'central' %}btn-dark fw-bold{% else %}btn-outline-dark{% endif %} px-3">
+                <i class="fa-solid fa-cubes me-1"></i> Central (Todos)
+            </a>
+            <a href="{{ url_for('sales_bp.historial', local='1', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == '1' %}btn-primary fw-bold{% else %}btn-outline-primary{% endif %} px-3">
+                <i class="fa-solid fa-shop me-1"></i> Local 1
+            </a>
+            <a href="{{ url_for('sales_bp.historial', local='2', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == '2' %}btn-info text-white fw-bold{% else %}btn-outline-info{% endif %} px-3">
+                <i class="fa-solid fa-shop me-1"></i> Local 2
+            </a>
+            <a href="{{ url_for('sales_bp.historial', local='3', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == '3' %}btn-success fw-bold{% else %}btn-outline-success{% endif %} px-3">
+                <i class="fa-solid fa-shop me-1"></i> Local 3
+            </a>
+        </div>
+        {% endif %}
+
         <div class="d-flex align-items-center gap-2 d-print-none">
             <button onclick="window.print()" class="btn px-4 rounded-pill fw-bold text-dark border shadow-sm" style="background-color: #F9C8D3; border-color: #ebaebc;">
                 <i class="fa-solid fa-print me-1"></i> Imprimir a PDF
@@ -19,7 +39,8 @@
 
     <!-- Encabezado de Impresión / PDF -->
     <div class="col-12 d-none d-print-block text-center mb-4 pb-3 border-bottom">
-        <h1 class="fw-bold text-brand-black mb-1"><i class="fa-solid fa-chart-line me-2"></i> cases.com</h1>
+        <img src="{{ url_for('static', filename='img/DL.png') }}" alt="D & L Telefonía & Accesorios" style="max-height: 70px;" class="mb-2 d-block mx-auto">
+        <h2 class="font-title fw-bold text-dark mb-1">D & L - TELEFONÍA & ACCESORIOS</h2>
         <h4 class="text-muted fw-semibold">REPORTE CONSOLIDADO DE VENTAS</h4>
         <p class="mb-0 text-secondary">
             Período Analizado: <strong>{{ fecha_inicio if fecha_inicio else 'Inicios' }}</strong> hasta <strong>{{ fecha_fin if fecha_fin else 'Hoy' }}</strong>

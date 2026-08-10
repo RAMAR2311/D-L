@@ -3,156 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cases.com - CRM & POS</title>
+    <title>DL Tech - ERP & POS</title>
     <!-- Favicon y PWA -->
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/cases.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}?v=4">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}?v=4">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     
     <!-- Meta tags para iOS y PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Cases">
+    <meta name="apple-mobile-web-app-title" content="DL Tech">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icons/icon-192x192.png') }}">
-    <meta name="theme-color" content="#F9C8D3">
+    <meta name="theme-color" content="#ED1C24">
 
     <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Mario & Luigi Brand Theme & Styling Tokens -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/globals.css') }}">
     <style>
-        /* REGLA DE BRANDING ESTRICTA Y COLORES */
-        :root {
-            --brand-pink: #F9C8D3;   /* Rosa Pastel */
-            --brand-blue: #A3D8DE;   /* Azul Turquesa */
-            --brand-black: #1A1A1A;  /* Negro */
-            --brand-white: #FFFFFF;  /* Blanco */
-            
-            --brand-bg: #F8F9FA;     /* Fondo gris súper claro para dar profundidad al blanco */
-        }
-
-        body {
-            background-color: var(--brand-bg);
-            color: var(--brand-black);
-            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* Variables Utilitarias */
-        .bg-brand-blue { background-color: var(--brand-blue) !important; color: var(--brand-black); }
-        .bg-brand-pink { background-color: var(--brand-pink) !important; color: var(--brand-black); }
-        .bg-brand-white { background-color: var(--brand-white) !important; }
-        .text-brand-black { color: var(--brand-black) !important; }
-        .text-brand-pink { color: var(--brand-pink) !important; }
-
-        /* Navbar E-commerce Vibe (Ahora en Rosa Pastel) */
+        /* Ajustes de compatibilidad de marca para vistas integradas */
         .navbar-custom {
-            background-color: var(--brand-pink);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            padding: 1rem 0;
+            background-color: #FFFFFF !important;
+            border-bottom: 3px solid #100F0D !important;
+            padding: 0.75rem 0 !important;
+            box-shadow: 0 4px 0px rgba(16, 15, 13, 0.05) !important;
         }
         
         .navbar-custom .navbar-brand {
-            font-weight: 800;
-            color: var(--brand-black);
-            font-size: 1.75rem;
-            letter-spacing: -0.5px;
+            font-family: var(--font-title);
+            font-weight: 700;
+            color: #100F0D !important;
+            font-size: 1.5rem;
         }
 
-        .navbar-custom .nav-link {
-            color: var(--brand-black);
-            font-weight: 500;
-            margin-left: 1rem;
-            transition: opacity 0.2s;
-        }
-
-        .navbar-custom .nav-link:hover {
-            opacity: 0.7;
-        }
-
-        /* Botones Pro */
         .btn-pink {
-            background-color: var(--brand-pink);
-            color: var(--brand-black);
+            background-color: var(--mario-red) !important;
+            color: #FFFFFF !important;
+            font-family: var(--font-title);
             font-weight: 600;
-            border: none;
-            transition: all 0.2s ease-in-out;
-        }
-        .btn-pink:hover {
-            background-color: #f0aebb;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(249, 200, 211, 0.4);
+            border: 2px solid #100F0D !important;
+            box-shadow: 3px 3px 0px #100F0D !important;
+            transition: all 0.15s ease-in-out;
         }
 
         .btn-blue {
-            background-color: var(--brand-blue);
-            color: var(--brand-black);
+            background-color: var(--luigi-green) !important;
+            color: #FFFFFF !important;
+            font-family: var(--font-title);
             font-weight: 600;
-            border: none;
-            transition: all 0.2s ease-in-out;
-        }
-        .btn-blue:hover {
-            background-color: #8bc3c9;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(163, 216, 222, 0.4);
+            border: 2px solid #100F0D !important;
+            box-shadow: 3px 3px 0px #100F0D !important;
+            transition: all 0.15s ease-in-out;
         }
 
-        /* Superficies Claras y Limpias */
         .card-custom {
-            background-color: var(--brand-white);
-            border: none;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+            background-color: #FFFFFF !important;
+            border: 2px solid #100F0D !important;
+            box-shadow: 4px 4px 0px #100F0D !important;
+            border-radius: 1rem !important;
         }
 
-        /* Tablas */
-        .table-custom {
-            background-color: var(--brand-white);
-            border-radius: 12px;
-        }
-        .table-custom thead th {
-            color: var(--brand-black);
-            /* Borde inferior de la tabla ahora en rosa pastel para hacer juego con el navbar */
-            border-bottom: 2px solid var(--brand-pink);
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.5px;
-            padding: 1.25rem 1rem;
-        }
-        .table-custom tbody td {
-            padding: 1.25rem 1rem;
-            vertical-align: middle;
+        .offcanvas-header {
+            background-color: var(--mario-red) !important;
+            color: #FFFFFF !important;
+            border-bottom: 3px solid #100F0D !important;
         }
 
-        /* Sidebar Offcanvas Estilos */
-        .offcanvas-body .nav-link {
-            transition: all 0.2s ease-in-out;
-        }
-        .offcanvas-body .nav-link:hover {
-            background-color: rgba(163, 216, 222, 0.15); /* bg-brand-blue transparente */
-            transform: translateX(4px);
-            border-left: 3px solid var(--brand-pink) !important;
+        .offcanvas-title {
+            color: #FFFFFF !important;
+            font-family: var(--font-title);
         }
     </style>
 </head>
 <body>
-    <!-- Navbar cases.com -->
+    <!-- Navbar Principal DL Tech -->
     <nav class="navbar navbar-custom mb-5 position-relative">
         <div class="container-fluid px-3 d-flex justify-content-between align-items-center">
             
             {% if current_user.is_authenticated %}
             <!-- Botón Hamburguesa (Izquierda) -->
-            <button class="navbar-toggler border-0 shadow-none p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar">
-                <i class="fa-solid fa-bars fs-3 text-brand-black"></i>
+            <button class="navbar-toggler border-2 border-dark shadow-sm p-2 bg-light rounded-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar">
+                <i class="fa-solid fa-bars fs-3 text-dark"></i>
             </button>
             {% else %}
-            <!-- Spacer if not authenticated -->
+            <!-- Spacer si no está autenticado -->
             <div style="width: 40px;"></div>
             {% endif %}
 
             <!-- Brand Logo (Centro) -->
             <a class="navbar-brand d-flex align-items-center fw-bold m-0 position-absolute start-50 translate-middle-x" href="{{ url_for('index') }}">
-                <img src="{{ url_for('static', filename='img/cases.png') }}" alt="cases.com" style="height: 38px; width: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));" class="me-2">
-                cases.com
+                <img src="{{ url_for('static', filename='img/DL.png') }}" alt="DL Tech Logo" style="height: 42px; width: auto; filter: drop-shadow(2px 2px 0px #100F0D);" class="me-2 rounded">
+                <span class="font-title fs-3 text-dark">DL Tech</span>
             </a>
 
             <!-- Spacer derecho para equilibrar flex -->
@@ -162,164 +106,133 @@
 
     {% if current_user.is_authenticated %}
     <!-- Offcanvas Menú Lateral (Sidebar) -->
-    <div class="offcanvas offcanvas-start border-0 shadow" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel" style="width: 280px;">
-        <div class="offcanvas-header bg-brand-pink border-bottom">
-            <h5 class="offcanvas-title fw-bold text-brand-black" id="offcanvasNavbarLabel">
-                <i class="fa-solid fa-user-circle me-2"></i>{{ current_user.rol | capitalize }}
+    <div class="offcanvas offcanvas-start border-0 shadow" tabindex="-1" id="offcanvasNavbar" aria-labelledby="offcanvasNavbarLabel" style="width: 290px;">
+        <div class="offcanvas-header bg-danger border-bottom border-dark border-3" style="background-color: var(--mario-red) !important;">
+            <h5 class="offcanvas-title font-title fw-bold text-white mb-0" id="offcanvasNavbarLabel">
+                <i class="fa-solid fa-gamepad me-2 text-warning"></i>{{ current_user.rol | upper }}
             </h5>
-            <button type="button" class="btn-close shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
-        <div class="offcanvas-body d-flex flex-column p-0">
+        <div class="offcanvas-body d-flex flex-column p-0 bg-white">
             <ul class="navbar-nav w-100 mb-auto px-3 py-3 gap-2">
                 {% if current_user.rol == 'admin' %}
-                    <!-- Enlaces Únicos para el Administrador de la Tienda -->
+                    <!-- Enlaces Únicos para el Administrador -->
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/dashboard"><i class="fa-solid fa-chart-pie text-primary me-2" style="width:20px; text-align:center;"></i> Dashboard</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/dashboard">
+                            <i class="fa-solid fa-chart-pie me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Dashboard Principal
+                        </a>
                     </li>
                     <!-- Módulo Inventario -->
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseInventario" role="button" aria-expanded="false" aria-controls="collapseInventario">
-                            <span><i class="fa-solid fa-box text-success me-2" style="width:20px; text-align:center;"></i> Módulo Inventario</span>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseInventario" role="button" aria-expanded="false" aria-controls="collapseInventario">
+                            <span><i class="fa-solid fa-box me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Módulo Inventario</span>
                             <i class="fa-solid fa-chevron-down small text-muted"></i>
                         </a>
                         <div class="collapse" id="collapseInventario">
                             <ul class="nav flex-column ms-3 mt-1 mb-2 gap-1 border-start ps-2">
                                 <li class="nav-item">
-                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="/inventory"><i class="fa-solid fa-box-open text-success me-2" style="width:20px; text-align:center;"></i> Inventario Tienda</a>
+                                    <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold small" href="/inventory">
+                                        <i class="fa-solid fa-box-open me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Inventario Tienda
+                                    </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="/sales/catalogo"><i class="fa-solid fa-book-open text-brand-pink me-2" style="width:20px; text-align:center;"></i> Catálogo Físico</a>
+                                    <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold small" href="/sales/catalogo">
+                                        <i class="fa-solid fa-book-open me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Catálogo Físico
+                                    </a>
                                 </li>
                             </ul>
                         </div>
                     </li>
-                    <!-- Módulo Celulares Independiente (Agrupado) -->
+                    <!-- Módulo Caja / POS -->
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseCelulares" role="button" aria-expanded="false" aria-controls="collapseCelulares">
-                            <span><i class="fa-solid fa-mobile-screen-button text-brand-blue me-2" style="width:20px; text-align:center;"></i> Módulo Celulares</span>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/caja_visual">
+                            <i class="fa-solid fa-cash-register me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Caja / Punto de Venta (POS)
+                        </a>
+                    </li>
+                    <!-- Módulo Personal (Dropdown Desplegable) -->
+                    <li class="nav-item">
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapsePersonal" role="button" aria-expanded="false" aria-controls="collapsePersonal">
+                            <span><i class="fa-solid fa-users-gear me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Módulo Personal</span>
                             <i class="fa-solid fa-chevron-down small text-muted"></i>
                         </a>
-                        <div class="collapse" id="collapseCelulares">
+                        <div class="collapse" id="collapsePersonal">
                             <ul class="nav flex-column ms-3 mt-1 mb-2 gap-1 border-start ps-2">
                                 <li class="nav-item">
-                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="{{ url_for('celulares_bp.inventario') }}"><i class="fa-solid fa-mobile-screen-button text-brand-blue me-2" style="width:20px; text-align:center;"></i> Inventario Celulares</a>
+                                    <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold small" href="/admin/vendedores">
+                                        <i class="fa-solid fa-users me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Personal / Vendedores
+                                    </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="{{ url_for('celulares_bp.historial_ventas') }}"><i class="fa-solid fa-clock-rotate-left text-brand-pink me-2" style="width:20px; text-align:center;"></i> Historial Celulares</a>
+                                    <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold small" href="/asesores">
+                                        <i class="fa-solid fa-user-check me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Asesores Comerciales
+                                    </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="{{ url_for('celulares_bp.clientes') }}"><i class="fa-solid fa-users text-success me-2" style="width:20px; text-align:center;"></i> Clientes Celulares</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="{{ url_for('celulares_bp.arqueo_nuevo') }}"><i class="fa-solid fa-calculator text-brand-blue me-2" style="width:20px; text-align:center;"></i> Arqueo Celulares</a>
+                                    <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold small" href="/asesores/ventas">
+                                        <i class="fa-solid fa-chart-line me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Ventas por Asesor
+                                    </a>
                                 </li>
                             </ul>
                         </div>
                     </li>
-                    <!-- Módulo Caja -->
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseCaja" role="button" aria-expanded="false" aria-controls="collapseCaja">
-                            <span><i class="fa-solid fa-cash-register text-warning me-2" style="width:20px; text-align:center;"></i> Módulo Caja</span>
-                            <i class="fa-solid fa-chevron-down small text-muted"></i>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/gastos">
+                            <i class="fa-solid fa-money-bill-transfer me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Gastos
                         </a>
-                        <div class="collapse" id="collapseCaja">
-                            <ul class="nav flex-column ms-3 mt-1 mb-2 gap-1 border-start ps-2">
-                                <li class="nav-item">
-                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="/sales/nueva"><i class="fa-solid fa-cash-register text-warning me-2" style="width:20px; text-align:center;"></i> Caja Terminal</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold small" href="/sales/caja_visual"><i class="fa-solid fa-store text-brand-blue me-2" style="width:20px; text-align:center;"></i> Caja Rápida Visual</a>
-                                </li>
-                            </ul>
-                        </div>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/vendedores"><i class="fa-solid fa-users text-info me-2" style="width:20px; text-align:center;"></i> Personal</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/proveedores">
+                            <i class="fa-solid fa-truck-field me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Proveedores (Cuentas por Pagar)
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/gastos"><i class="fa-solid fa-money-bill-transfer text-danger me-2" style="width:20px; text-align:center;"></i> Gastos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/maneos"><i class="fa-solid fa-handshake text-primary me-2" style="width:20px; text-align:center;"></i> Maneos</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/maneos">
+                            <i class="fa-solid fa-handshake me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Maneos Inter-Sedes
+                        </a>
                     </li>
                     <li class="nav-item mt-2">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-bold bg-light border" href="/arqueo/nuevo"><i class="fa-solid fa-calculator text-brand-blue me-2" style="width:20px; text-align:center;"></i> Arqueo de Caja</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-bold bg-light border border-2 border-dark" href="/arqueo/nuevo">
+                            <i class="fa-solid fa-calculator me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Arqueo de Caja
+                        </a>
                     </li>
                 {% elif current_user.rol == 'vendedor' %}
-                    <!-- Vistas Estrictamente Operativas (Cajeros) -->
+                    <!-- Vistas Estrictamente Operativas (Vendedores / Cajeros) -->
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/catalogo"><i class="fa-solid fa-book-open text-muted me-2" style="width:20px; text-align:center;"></i> Catálogo Rápido</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/catalogo">
+                            <i class="fa-solid fa-book-open me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Catálogo Rápido
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/nueva"><i class="fa-solid fa-cash-register text-brand-pink me-2" style="width:20px; text-align:center;"></i> Módulo de Caja</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/caja_visual">
+                            <i class="fa-solid fa-cash-register me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Caja / Punto de Venta (POS)
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/caja_visual"><i class="fa-solid fa-store text-brand-blue me-2" style="width:20px; text-align:center;"></i> Caja Rápida Visual</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/ventas_hoy">
+                            <i class="fa-solid fa-list-check me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Ventas del Día
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/sales/ventas_hoy"><i class="fa-solid fa-list-check me-2" style="color: var(--brand-blue); width:20px; text-align:center;"></i> Ventas del Día</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/maneos">
+                            <i class="fa-solid fa-handshake me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Maneos
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/admin/maneos"><i class="fa-solid fa-handshake text-muted me-2" style="width:20px; text-align:center;"></i> Maneos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="/gastos"><i class="fa-solid fa-money-bill-transfer text-success me-2" style="width:20px; text-align:center;"></i> Gastos</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom" href="/gastos">
+                            <i class="fa-solid fa-money-bill-transfer me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Gastos
+                        </a>
                     </li>
                     <li class="nav-item mt-2">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-bold bg-light border" href="/arqueo/nuevo"><i class="fa-solid fa-calculator text-brand-blue me-2" style="width:20px; text-align:center;"></i> Arqueo</a>
-                    </li>
-                    <li class="nav-item mt-2">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-bold bg-light border" href="{{ url_for('celulares_bp.arqueo_nuevo') }}"><i class="fa-solid fa-calculator text-brand-pink me-2" style="width:20px; text-align:center;"></i> Arqueo Celulares</a>
-                    </li>
-                {% elif current_user.rol == 'bodega' %}
-                    <!-- Vistas Exclusivas para el Encargado de Bodega -->
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.dashboard') }}"><i class="fa-solid fa-boxes-stacked text-brand-blue me-2" style="width:20px; text-align:center;"></i> Bodega</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('inventory_bp.index') }}"><i class="fa-solid fa-box text-brand-pink me-2" style="width:20px; text-align:center;"></i> Mi Inventario (Bodega)</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.clientes') }}"><i class="fa-solid fa-address-book text-muted me-2" style="width:20px; text-align:center;"></i> Directorio Clientes</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.nuevo_cliente') }}"><i class="fa-solid fa-user-plus text-muted me-2" style="width:20px; text-align:center;"></i> Registrar Cliente</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.caja_rapida') }}"><i class="fa-solid fa-store text-brand-pink me-2" style="width:20px; text-align:center;"></i> Caja Rápida (POS)</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.nueva_factura') }}"><i class="fa-solid fa-file-invoice text-muted me-2" style="width:20px; text-align:center;"></i> Factura Manual</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-bold border-bottom" href="{{ url_for('bodega_bp.modulo_abonos') }}"><i class="fa-solid fa-money-bill-transfer text-success me-2" style="width:20px; text-align:center;"></i> Módulo Abonos</a>
-                    </li>
-                {% elif current_user.rol == 'vendedor_bodega' %}
-                    <!-- Vistas para el Vendedor de Bodega (Sin Inventario) -->
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.dashboard') }}"><i class="fa-solid fa-house-chimney text-brand-blue me-2" style="width:20px; text-align:center;"></i> Mi Panel</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.clientes') }}"><i class="fa-solid fa-address-book text-muted me-2" style="width:20px; text-align:center;"></i> Mis Clientes</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.nuevo_cliente') }}"><i class="fa-solid fa-user-plus text-muted me-2" style="width:20px; text-align:center;"></i> Crear Cliente</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.caja_rapida') }}"><i class="fa-solid fa-store text-brand-pink me-2" style="width:20px; text-align:center;"></i> Caja Rápida (POS)</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-semibold border-bottom" href="{{ url_for('bodega_bp.nueva_factura') }}"><i class="fa-solid fa-file-invoice text-muted me-2" style="width:20px; text-align:center;"></i> Factura Manual</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-brand-black rounded-3 px-3 py-2 fw-bold border-bottom" href="{{ url_for('bodega_bp.modulo_abonos') }}"><i class="fa-solid fa-money-bill-transfer text-success me-2" style="width:20px; text-align:center;"></i> Registrar Abono</a>
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-bold bg-light border border-2 border-dark" href="/arqueo/nuevo">
+                            <i class="fa-solid fa-calculator me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Arqueo de Caja
+                        </a>
                     </li>
                 {% endif %}
             </ul>
             
             <!-- Interfaz de Desconexión / Fin de Turno al final del sidebar -->
             <div class="px-3 pb-4 mt-auto">
-                <a class="btn btn-outline-danger w-100 rounded-pill fw-bold" href="{{ url_for('auth_bp.logout') }}">
+                <a class="btn btn-mario w-100 py-2 rounded-3 text-uppercase" href="{{ url_for('auth_bp.logout') }}">
                     <i class="fa-solid fa-sign-out-alt me-2"></i> Salir del Sistema
                 </a>
             </div>

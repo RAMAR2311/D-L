@@ -1,8 +1,21 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold text-brand-black m-0">Inventario Central</h2>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <div>
+        <h2 class="fw-bold text-brand-black m-0">
+            {% if active_local == '1' %}
+                <i class="fa-solid fa-store text-primary me-2"></i>Inventario Local 1
+            {% elif active_local == '2' %}
+                <i class="fa-solid fa-store text-info me-2"></i>Inventario Local 2
+            {% elif active_local == '3' %}
+                <i class="fa-solid fa-store text-purple me-2"></i>Inventario Local 3
+            {% else %}
+                <i class="fa-solid fa-boxes-stacked text-brand-pink me-2"></i>Inventario Central (Todos los Locales)
+            {% endif %}
+        </h2>
+        <small class="text-muted">Filtra y gestiona las existencias según la sede o vista global</small>
+    </div>
     <div class="d-flex gap-2">
         <button type="button" class="btn btn-outline-success rounded-pill px-4 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#importarModal">
             <i class="fa-solid fa-file-excel me-1"></i> Importar Masivo
@@ -13,7 +26,82 @@
     </div>
 </div>
 
+<!-- Selector de Inventario por Sede (4 Filtros) -->
+<div class="card card-custom p-2 mb-4 border-0 shadow-sm bg-white">
+    <div class="nav nav-pills nav-justified gap-2" role="tablist">
+        <a href="{{ url_for('inventory_bp.index', local='central') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == 'central' %}active bg-dark text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+            <i class="fa-solid fa-cubes me-2"></i>1. Inventario Central (Consolidado)
+        </a>
+        <a href="{{ url_for('inventory_bp.index', local='1') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '1' %}active bg-primary text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+            <i class="fa-solid fa-shop me-2"></i>2. Inventario Local 1
+        </a>
+        <a href="{{ url_for('inventory_bp.index', local='2') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '2' %}active bg-info text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+            <i class="fa-solid fa-shop me-2"></i>3. Inventario Local 2
+        </a>
+        <a href="{{ url_for('inventory_bp.index', local='3') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '3' %}active bg-success text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+            <i class="fa-solid fa-shop me-2"></i>4. Inventario Local 3
+        </a>
+    </div>
+</div>
 
+<!-- Tarjetas Interactivas de Métricas Dinámicas por Sede -->
+<div class="row g-3 mb-4">
+    <!-- Card 1: Total Unidades -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 position-relative overflow-hidden border-start border-4 border-primary">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3 text-primary">
+                    <i class="fa-solid fa-boxes-stacked fa-2x"></i>
+                </div>
+                <div>
+                    <span class="text-muted fw-bold small text-uppercase d-block" style="letter-spacing: 0.5px;">Total Unidades Físicas</span>
+                    <h3 class="fw-bolder mb-0 text-dark">{{ "{:,}".format(total_unidades_fisicas) }} <span class="fs-6 fw-normal text-muted">uds</span></h3>
+                    <small class="text-primary fw-semibold" style="font-size: 0.75rem;">
+                        <i class="fa-solid fa-store me-1"></i>Sede: 
+                        {% if active_local == 'central' %}Central (Todos){% else %}Local {{ active_local }}{% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 2: Valor Total a Costo -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 position-relative overflow-hidden border-start border-4 border-warning">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3 text-warning">
+                    <i class="fa-solid fa-coins fa-2x"></i>
+                </div>
+                <div>
+                    <span class="text-muted fw-bold small text-uppercase d-block" style="letter-spacing: 0.5px;">Valor Total a Costo</span>
+                    <h3 class="fw-bolder mb-0 text-dark">${{ valor_costo|cop }}</h3>
+                    <small class="text-warning text-dark fw-semibold" style="font-size: 0.75rem;">
+                        <i class="fa-solid fa-warehouse me-1"></i>Inversión en 
+                        {% if active_local == 'central' %}Inventario Central{% else %}Local {{ active_local }}{% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 3: Ventas Posibles a Precio Sugerido -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 position-relative overflow-hidden border-start border-4 border-success">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3 text-success">
+                    <i class="fa-solid fa-chart-line fa-2x"></i>
+                </div>
+                <div>
+                    <span class="text-muted fw-bold small text-uppercase d-block" style="letter-spacing: 0.5px;">Ventas Posibles (Sugerido)</span>
+                    <h3 class="fw-bolder mb-0 text-success">${{ valor_sugerido|cop }}</h3>
+                    <small class="text-success fw-semibold" style="font-size: 0.75rem;">
+                        <i class="fa-solid fa-sack-dollar me-1"></i>Proyección comercial {{ active_local|upper }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Buscador Rápido de Inventario -->
 <div class="card card-custom p-3 mb-4 border-0 shadow-sm bg-white">
@@ -47,17 +135,19 @@
                 <tr>
                     <th width="120" class="ps-4">SKU</th>
                     <th>PRODUCTO</th>
-                    <th width="150" class="text-center">STOCK</th>
-                    <th width="150" class="text-end">PRECIO COSTO</th>
-                    <th width="150" class="text-end">PRECIO MÍNIMO</th>
-                    <th width="150" class="text-end pe-4">PRECIO SUGERIDO</th>
-                    <th width="220" class="text-center">ACCIONES</th>
+                    <th width="140" class="text-center">MODO STOCK</th>
+                    <th width="200" class="text-center">STOCK ({{ active_local|upper }})</th>
+                    <th width="140" class="text-end">PRECIO COSTO</th>
+                    <th width="140" class="text-end">PRECIO MÍNIMO</th>
+                    <th width="140" class="text-end pe-4">PRECIO SUGERIDO</th>
+                    <th width="200" class="text-center">ACCIONES</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in productos %}
+                {% set stock_actual = p.get_stock_local(active_local) %}
                 <tr>
-                    <td class="text-muted text-nowrap">
+                    <td class="text-muted text-nowrap ps-4">
                         {% if p.variantes %}
                             <button class="btn btn-sm btn-light border me-1 rounded-circle shadow-sm p-1" style="width: 28px; height: 28px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVariantes{{ p.id }}" aria-expanded="false" title="Ver Subcategorías">
                                 <i class="fa-solid fa-chevron-down small"></i>
@@ -66,13 +156,31 @@
                         <small><strong>{{ p.sku }}</strong></small>
                     </td>
                     <td class="fw-semibold text-brand-black">{{ p.nombre }}</td>
-                    <td>
-                        <!-- Regla Estricta: Badge rojo si el stock <= 3 -->
-                        {% if p.total_stock <= 3 %}
-                            <span class="badge bg-danger rounded-pill px-3 py-2"><i class="fa-solid fa-triangle-exclamation me-1"></i> {{ p.total_stock }} (Stock Bajo)</span>
+                    <td class="text-center align-middle">
+                        <div class="form-check form-switch d-inline-block text-start mb-0">
+                            <input class="form-check-input product-stock-toggle cursor-pointer shadow-none ms-0" type="checkbox" role="switch" data-product-id="{{ p.id }}" {% if p.descontar_inventario %}checked{% endif %} title="Alternar Facturación Libre vs Descuento Real de Stock">
+                            <small class="d-block toggle-status-label fw-bold mt-1" style="font-size: 0.72rem;">
+                                {% if p.descontar_inventario %}
+                                    <span class="text-success"><i class="fa-solid fa-check me-1"></i>Con Stock</span>
+                                {% else %}
+                                    <span class="text-warning text-dark"><i class="fa-solid fa-bolt me-1"></i>Factura Libre</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        {% if stock_actual <= 3 %}
+                            <span class="badge bg-danger rounded-pill px-3 py-2"><i class="fa-solid fa-triangle-exclamation me-1"></i> {{ stock_actual }} (Bajo)</span>
                         {% else %}
-                            <!-- Badge en Rosa Pastel para stock normal -->
-                            <span class="badge bg-brand-pink text-dark rounded-pill px-3 py-2 border">{{ p.total_stock }} unidades</span>
+                            <span class="badge bg-brand-pink text-dark rounded-pill px-3 py-2 border">{{ stock_actual }} unidades</span>
+                        {% endif %}
+
+                        {% if active_local == 'central' %}
+                            <div class="mt-1" style="font-size: 0.72rem;">
+                                <span class="badge bg-light text-dark border">L1: {{ p.get_stock_local('1') }}</span>
+                                <span class="badge bg-light text-dark border">L2: {{ p.get_stock_local('2') }}</span>
+                                <span class="badge bg-light text-dark border">L3: {{ p.get_stock_local('3') }}</span>
+                            </div>
                         {% endif %}
                     </td>
                     <td class="text-end fw-bold" style="color: var(--brand-pink);">
@@ -143,7 +251,7 @@
                                 <thead class="text-muted" style="font-size: 0.8rem; border-bottom: 1px solid #eee;">
                                     <tr>
                                         <th class="ps-3"><i class="fa-solid fa-arrow-turn-down me-2 text-black-50"></i>Subcategoría (Variante)</th>
-                                        <th class="text-center">Stock Físico</th>
+                                        <th class="text-center">Stock Sede</th>
                                         <th class="text-end">Costo Unitario</th>
                                         <th class="text-end text-success">Valor Invertido (Costo)</th>
                                         <th class="text-end">Sugerido</th>
@@ -151,17 +259,21 @@
                                 </thead>
                                 <tbody>
                                     {% for v in p.variantes %}
+                                    {% set v_stock_act = v.get_stock_local(active_local) %}
                                     <tr class="align-middle">
                                         <td class="ps-4 fw-semibold text-brand-black" style="font-size: 0.95rem;">{{ v.nombre_variante }}</td>
                                         <td class="text-center">
-                                            {% if v.cantidad_stock <= 3 %}
-                                                <span class="badge bg-danger rounded-pill">{{ v.cantidad_stock }}</span>
+                                            {% if v_stock_act <= 3 %}
+                                                <span class="badge bg-danger rounded-pill">{{ v_stock_act }}</span>
                                             {% else %}
-                                                <span class="badge bg-secondary rounded-pill text-white">{{ v.cantidad_stock }}</span>
+                                                <span class="badge bg-secondary rounded-pill text-white">{{ v_stock_act }}</span>
+                                            {% endif %}
+                                            {% if active_local == 'central' %}
+                                                <div style="font-size:0.7rem;" class="text-muted mt-1">L1: {{ v.stock_local_1 }} | L2: {{ v.stock_local_2 }} | L3: {{ v.stock_local_3 }}</div>
                                             {% endif %}
                                         </td>
                                         <td class="text-end text-muted">${{ (v.precio_costo or p.precio_costo)|cop }}</td>
-                                        <td class="text-end fw-bold text-success">${{ ((v.precio_costo or p.precio_costo) * v.cantidad_stock)|cop }}</td>
+                                        <td class="text-end fw-bold text-success">${{ ((v.precio_costo or p.precio_costo) * v_stock_act)|cop }}</td>
                                         <td class="text-end text-muted">${{ (v.precio_sugerido or p.precio_sugerido)|cop }}</td>
                                     </tr>
                                     {% endfor %}
@@ -173,10 +285,10 @@
                 {% endif %}
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center py-5 text-muted">
+                    <td colspan="7" class="text-center py-5 text-muted">
                         <!-- Icono en Rosa Pastel -->
                         <i class="fa-solid fa-box-open fs-1 mb-3 text-brand-pink"></i>
-                        <p class="mb-0">El inventario está vacío.</p>
+                        <p class="mb-0">El inventario está vacío para esta selección.</p>
                     </td>
                 </tr>
                 {% endfor %}
@@ -193,7 +305,7 @@
         <!-- Anterior -->
         <li class="page-item {% if not paginacion.has_prev %}disabled{% endif %}">
             <a class="page-link rounded-pill px-3 shadow-sm"
-               href="{% if paginacion.has_prev %}{{ url_for('inventory_bp.index', page=paginacion.prev_num) }}{% else %}#{% endif %}"
+               href="{% if paginacion.has_prev %}{{ url_for('inventory_bp.index', page=paginacion.prev_num, local=active_local) }}{% else %}#{% endif %}"
                aria-label="Anterior">
                 <i class="fa-solid fa-chevron-left"></i>
             </a>
@@ -204,7 +316,7 @@
             {% if p_num %}
                 <li class="page-item {% if p_num == paginacion.page %}active{% endif %}">
                     <a class="page-link rounded-pill px-3 shadow-sm"
-                       href="{{ url_for('inventory_bp.index', page=p_num) }}">{{ p_num }}</a>
+                       href="{{ url_for('inventory_bp.index', page=p_num, local=active_local) }}">{{ p_num }}</a>
                 </li>
             {% else %}
                 <li class="page-item disabled">
@@ -216,7 +328,7 @@
         <!-- Siguiente -->
         <li class="page-item {% if not paginacion.has_next %}disabled{% endif %}">
             <a class="page-link rounded-pill px-3 shadow-sm"
-               href="{% if paginacion.has_next %}{{ url_for('inventory_bp.index', page=paginacion.next_num) }}{% else %}#{% endif %}"
+               href="{% if paginacion.has_next %}{{ url_for('inventory_bp.index', page=paginacion.next_num, local=active_local) }}{% else %}#{% endif %}"
                aria-label="Siguiente">
                 <i class="fa-solid fa-chevron-right"></i>
             </a>
@@ -255,7 +367,7 @@
                     <div class="text-start mb-2">
                         <label class="form-label fw-bold">2. Subir archivo rellenado</label>
                         <input type="file" name="archivo" accept=".xlsx, .csv" class="form-control bg-light border-0 shadow-sm" required>
-                        <small class="text-muted d-block mt-2"><i class="fa-solid fa-circle-info text-info me-1"></i>Si el código SKU ya existe, su cantidad será <strong>SUMADA</strong> al inventario actual y se pisarán los precios.</small>
+                        <small class="text-muted d-block mt-2"><i class="fa-solid fa-circle-info text-info me-1"></i>Puedes incluir una columna <strong>local</strong> con valores (<code>Local 1</code>, <code>Local 2</code> o <code>Local 3</code>) para asignar las existencias a cada sede. Si el SKU ya existe, su cantidad será <strong>SUMADA</strong> al inventario de dicha sede.</small>
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light rounded-bottom">
@@ -360,6 +472,40 @@ document.addEventListener('DOMContentLoaded', function() {
         dropdown.classList.add('d-none');
         dropdown.classList.remove('show');
         searchInput.focus();
+    });
+
+    // Lógica AJAX para el Toggle Switch por Producto
+    document.querySelectorAll('.product-stock-toggle').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const productId = this.getAttribute('data-product-id');
+            const variantId = this.getAttribute('data-variant-id');
+            const isChecked = this.checked;
+            const labelContainer = this.nextElementSibling;
+            
+            fetch('/inventory/toggle-product-stock', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    product_id: productId,
+                    variant_id: variantId,
+                    descontar_inventario: isChecked
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && labelContainer) {
+                    if (data.descontar_inventario) {
+                        labelContainer.innerHTML = '<span class="text-success"><i class="fa-solid fa-check me-1"></i>Con Stock</span>';
+                    } else {
+                        labelContainer.innerHTML = '<span class="text-warning text-dark"><i class="fa-solid fa-bolt me-1"></i>Factura Libre</span>';
+                    }
+                }
+            })
+            .catch(err => console.error('Error toggling product stock:', err));
+        });
     });
 });
 </script>

@@ -29,7 +29,7 @@
                 
                 <div class="mb-3">
                     <label class="form-label text-brand-black fw-semibold small">Correo Empresarial (Login)</label>
-                    <input type="email" name="email" class="form-control bg-light border-0 py-2" required placeholder="ventas@cases.com">
+                    <input type="email" name="email" class="form-control bg-light border-0 py-2" required placeholder="ventas@koba.com">
                 </div>
                 
                 <div class="mb-3">
@@ -40,9 +40,17 @@
                 <div class="mb-3">
                     <label class="form-label text-brand-black fw-semibold small">Asignar Rol / Perfil de Usuario</label>
                     <select name="rol" class="form-select bg-light border-0 py-2" required>
-                        <option value="vendedor">Vendedor (Cajas/Tienda)</option>
-                        <option value="bodega">Encargado de Bodega (Admin de Bodega)</option>
-                        <option value="vendedor_bodega">Vendedor de Bodega (Facturación)</option>
+                        <option value="vendedor">Vendedor (Cajas / Tienda)</option>
+                        <option value="admin">Administrador (Acceso Total)</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-brand-black fw-semibold small">Sede / Local Asignado (Facturación POS)</label>
+                    <select name="local_asignado" class="form-select bg-light border-0 py-2" required>
+                        <option value="1">Local 1</option>
+                        <option value="2">Local 2</option>
+                        <option value="3">Local 3</option>
                     </select>
                 </div>
 
@@ -75,6 +83,7 @@
                             <th class="ps-4">NOMBRE DE EMPLEADO</th>
                             <th>EMAIL (CREDENCIAL DE ACCESO)</th>
                             <th>ROL / PERFIL</th>
+                            <th class="text-center">SEDE</th>
                             <th class="text-center">STATUS</th>
                             <th class="text-center pe-4">ACCIONES</th>
                         </tr>
@@ -86,14 +95,15 @@
                             <td class="text-muted">{{ vendedor.email }}</td>
                             <td class="text-muted">
                                 {% if vendedor.rol == 'vendedor' %}
-                                    <span class="badge bg-info bg-opacity-10 text-info border border-info rounded-pill px-2">Vendedor Cajas</span>
-                                {% elif vendedor.rol == 'bodega' %}
-                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary rounded-pill px-2">Encargado Bodega</span>
-                                {% elif vendedor.rol == 'vendedor_bodega' %}
-                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning rounded-pill px-2">Vendedor Bodega</span>
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info rounded-pill px-2">Vendedor</span>
+                                {% elif vendedor.rol == 'admin' %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-2">Administrador</span>
                                 {% else %}
-                                    {{ vendedor.rol }}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2">{{ vendedor.rol|capitalize }}</span>
                                 {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-dark text-white rounded-pill px-3 py-1">Local {{ vendedor.local_asignado or 1 }}</span>
                             </td>
                             <td class="text-center">
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2 w-100">Activo</span>

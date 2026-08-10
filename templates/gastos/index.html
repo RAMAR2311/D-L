@@ -1,11 +1,31 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold text-brand-black m-0">Control de Gastos y Costos</h2>
-    <a href="{{ url_for('admin_bp.dashboard') if current_user.rol == 'admin' else url_for('sales_bp.procesar_venta') }}" class="btn btn-outline-secondary rounded-pill px-4">
-        <i class="fa-solid fa-arrow-left me-1"></i> Volver al Menú
-    </a>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold text-brand-black m-0"><i class="fa-solid fa-money-bill-transfer text-danger me-2"></i>Control de Gastos y Costos</h2>
+        <small class="text-muted">Registro y auditoría de egresos operativos por sede</small>
+    </div>
+    {% if is_admin %}
+    <div class="btn-group shadow-sm rounded-pill overflow-hidden border bg-white" role="group">
+        <a href="{{ url_for('gastos_bp.index', local='central') }}" class="btn btn-sm {% if active_local == 'central' %}btn-dark fw-bold{% else %}btn-outline-dark{% endif %} px-3">
+            <i class="fa-solid fa-cubes me-1"></i> Central (Todos)
+        </a>
+        <a href="{{ url_for('gastos_bp.index', local='1') }}" class="btn btn-sm {% if active_local == '1' %}btn-primary fw-bold{% else %}btn-outline-primary{% endif %} px-3">
+            <i class="fa-solid fa-shop me-1"></i> Local 1
+        </a>
+        <a href="{{ url_for('gastos_bp.index', local='2') }}" class="btn btn-sm {% if active_local == '2' %}btn-info text-white fw-bold{% else %}btn-outline-info{% endif %} px-3">
+            <i class="fa-solid fa-shop me-1"></i> Local 2
+        </a>
+        <a href="{{ url_for('gastos_bp.index', local='3') }}" class="btn btn-sm {% if active_local == '3' %}btn-success fw-bold{% else %}btn-outline-success{% endif %} px-3">
+            <i class="fa-solid fa-shop me-1"></i> Local 3
+        </a>
+    </div>
+    {% else %}
+    <span class="badge bg-dark text-white rounded-pill px-3 py-2 fs-6 shadow-sm">
+        <i class="fa-solid fa-shop me-1 text-info"></i> Sede Registradora: Local {{ active_local }}
+    </span>
+    {% endif %}
 </div>
 
 <!-- Tarjetas de Resumen Financiero -->
@@ -17,7 +37,7 @@
                 <i class="fa-solid fa-cart-shopping fs-2" style="color: var(--brand-blue);"></i>
             </div>
             <h2 class="fw-bolder m-0">${{ (total_diarios)|cop }}</h2>
-            <p class="text-muted small mt-2 m-0">Operativos: comida, transportes, aseo.</p>
+            <p class="text-muted small mt-2 m-0">Operativos en {{ active_local|upper }}: comida, transportes, aseo.</p>
         </div>
     </div>
     <div class="col-md-6">
@@ -27,7 +47,7 @@
                 <i class="fa-solid fa-building-columns fs-2" style="color: var(--brand-pink);"></i>
             </div>
             <h2 class="fw-bolder m-0">${{ (total_indirectos)|cop }}</h2>
-            <p class="text-muted small mt-2 m-0">Fijos: arriendo, nómina, servicios.</p>
+            <p class="text-muted small mt-2 m-0">Fijos en {{ active_local|upper }}: arriendo, servicios.</p>
         </div>
     </div>
 </div>
@@ -37,8 +57,22 @@
     <h5 class="text-brand-black fw-bold mb-4"><i class="fa-solid fa-money-bill-transfer text-brand-blue me-2"></i>Registrar Salida de Dinero</h5>
     <form method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        {% if not is_admin %}
+            <input type="hidden" name="local_id" value="{{ active_local }}">
+        {% endif %}
+        
         <div class="row g-3 align-items-end">
-            <div class="col-md-3">
+            {% if is_admin %}
+            <div class="col-md-2">
+                <label class="form-label fw-bold text-brand-black">Sede Destino</label>
+                <select name="local_id" class="form-select bg-light border-0" required>
+                    <option value="1" {% if active_local == '1' %}selected{% endif %}>Local 1</option>
+                    <option value="2" {% if active_local == '2' %}selected{% endif %}>Local 2</option>
+                    <option value="3" {% if active_local == '3' %}selected{% endif %}>Local 3</option>
+                </select>
+            </div>
+            {% endif %}
+            <div class="{% if is_admin %}col-md-3{% else %}col-md-3{% endif %}">
                 <label class="form-label fw-bold text-brand-black">Tipo de Salida</label>
                 <select name="tipo_gasto" class="form-select bg-light border-0" required>
                     {% if current_user.rol == 'admin' %}
@@ -50,7 +84,7 @@
                     {% endif %}
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="{% if is_admin %}col-md-3{% else %}col-md-3{% endif %}">
                 <label class="form-label fw-bold text-brand-black">Categoría</label>
                 <!-- Usamos datalist para permitir escribir o seleccionar opciones -->
                 <input type="text" name="categoria" list="categoriasComunes" class="form-control bg-light border-0" autocomplete="off" placeholder="Ej: Arriendo, Aseo..." required>
@@ -66,7 +100,7 @@
                     <option value="Insumos Varios">
                 </datalist>
             </div>
-            <div class="col-md-6 border-start ps-4">
+            <div class="{% if is_admin %}col-md-4{% else %}col-md-6{% endif %} border-start ps-4">
                 <label class="form-label fw-bold text-brand-black">División de Pagos (Monto y Método)</label>
                 <div id="gastos-lineas-container">
                     <div class="row g-2 align-items-center mb-2 linea-gasto">
@@ -91,7 +125,7 @@
                 <label class="form-label fw-bold text-brand-black">Fecha</label>
                 <input type="date" name="fecha_gasto" class="form-control bg-light border-0" value="{{ hoy }}" required>
             </div>
-            <div class="col-md-10 mt-3">
+            <div class="col-md-8 mt-3">
                 <label class="form-label fw-bold text-brand-black">Nota o Descripción</label>
                 <input type="text" name="descripcion" class="form-control bg-light border-0" placeholder="Breve detalle del gasto..." required>
             </div>
@@ -110,6 +144,7 @@
                 <tr>
                     <th class="ps-4">FECHA</th>
                     <th>REGISTRADO POR</th>
+                    <th class="text-center">SEDE</th>
                     <th>TIPO</th>
                     <th>CATEGORÍA</th>
                     <th>DESCRIPCIÓN</th>
@@ -125,6 +160,11 @@
                 <tr>
                     <td class="ps-4 text-muted"><small>{{ gasto.fecha_gasto.strftime('%d/%m/%Y') }}</small></td>
                     <td><span class="text-brand-black fw-semibold"><i class="fa-solid fa-user-tie text-muted me-1"></i>{{ gasto.usuario.nombre }}</span></td>
+                    <td class="text-center">
+                        <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size: 0.72rem;">
+                            Local {{ gasto.local_id or (gasto.usuario.local_asignado if gasto.usuario else 1) }}
+                        </span>
+                    </td>
                     <td>
                         {% if gasto.tipo_gasto == 'Gasto Diario' %}
                             <span class="badge rounded-pill text-dark" style="background-color: var(--brand-blue);">{{ gasto.tipo_gasto }}</span>
