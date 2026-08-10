@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, abort, request, redirect, url_for,
 from flask_login import login_required, current_user
 from models import db, Product, ProductVariant, Sale, User, Maneo, SaleDetail, SalePayment, StockAdjustment, Expense, ArqueoCaja, obtener_hora_bogota
 from sqlalchemy.sql import func
+from sqlalchemy import or_
 from werkzeug.security import generate_password_hash
 from decorators import admin_required
 from decimal import Decimal
@@ -125,7 +126,7 @@ def dashboard():
     query_sales = Sale.query.filter(Sale.fecha_venta >= inicio_quincena)
     if active_local != 'central':
         local_num = int(active_local)
-        query_sales = query_sales.join(User, Sale.vendedor_id == User.id).filter(User.local_asignado == local_num)
+        query_sales = query_sales.filter(Sale.local_id == local_num)
     
     ventas_list = query_sales.all()
     total_ventas = sum(v.monto_total for v in ventas_list) if ventas_list else 0.0
@@ -135,7 +136,7 @@ def dashboard():
     query_expenses = Expense.query.filter(Expense.fecha_gasto >= inicio_quincena)
     if active_local != 'central':
         local_num = int(active_local)
-        query_expenses = query_expenses.join(User, Expense.usuario_id == User.id).filter(User.local_asignado == local_num)
+        query_expenses = query_expenses.filter(or_(Expense.local_id == local_num, User.local_asignado == local_num)).outerjoin(User, Expense.usuario_id == User.id)
 
     gastos_list = query_expenses.all()
     total_gastos = sum(g.monto for g in gastos_list) if gastos_list else 0.0

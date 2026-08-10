@@ -57,16 +57,6 @@ def procesar_venta():
             except (ValueError, TypeError):
                 asesor_id_val = None
 
-        nueva_venta = Sale(
-            vendedor_id=current_user.id,
-            asesor_id=asesor_id_val,
-            monto_total=Decimal('0.00'),
-            metodo_pago=metodo_pago_principal,
-            fecha_venta=fecha_venta_obj
-        )
-        db.session.add(nueva_venta)
-        db.session.flush()
-
         # Determinar Sede Venta según rol
         if current_user.rol != 'admin':
             local_id_venta = current_user.local_asignado or 1
@@ -75,6 +65,18 @@ def procesar_venta():
                 local_id_venta = int(data.get('local_id') or 1)
             except (ValueError, TypeError):
                 local_id_venta = 1
+
+        nueva_venta = Sale(
+            vendedor_id=current_user.id,
+            asesor_id=asesor_id_val,
+            monto_total=Decimal('0.00'),
+            metodo_pago=metodo_pago_principal,
+            fecha_venta=fecha_venta_obj,
+            local_id=local_id_venta
+        )
+        db.session.add(nueva_venta)
+        db.session.flush()
+
 
         monto_total = Decimal('0.00')
 
@@ -354,7 +356,7 @@ def historial():
     query = Sale.query.options(joinedload(Sale.vendedor))
     if active_local != 'central':
         local_num = int(active_local)
-        query = query.join(User, Sale.vendedor_id == User.id).filter(User.local_asignado == local_num)
+        query = query.filter(Sale.local_id == local_num)
     
     # Motor de búsqueda por Rango Restricto
     if fecha_inicio:
@@ -428,10 +430,13 @@ def ventas_hoy():
     inicio_dt = datetime.combine(hoy_bogota, datetime.min.time())
     fin_dt = datetime.combine(hoy_bogota, datetime.max.time())
     
-    # Consultar todas las ventas de este día (sin importar si es admin o vendedor)
+    # Filtrar ventas de este día para el local asignado al usuario
+    local_id_cajero = current_user.local_asignado or 1
+    
     ventas = Sale.query.options(joinedload(Sale.vendedor)).filter(
         Sale.fecha_venta >= inicio_dt,
-        Sale.fecha_venta <= fin_dt
+        Sale.fecha_venta <= fin_dt,
+        Sale.local_id == local_id_cajero
     ).order_by(Sale.fecha_venta.desc()).all()
     
     # Acumuladores de las ventas de hoy

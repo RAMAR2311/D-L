@@ -62,9 +62,9 @@ def nuevo():
         fecha_str = fecha_seleccionada.strftime('%Y-%m-%d')
 
     # Calcular ventas del día exclusivamente para el local seleccionado
-    ventas_del_dia = Sale.query.join(User, Sale.vendedor_id == User.id).filter(
+    ventas_del_dia = Sale.query.filter(
         db.func.date(Sale.fecha_venta) == fecha_seleccionada,
-        User.local_asignado == local_id_num
+        Sale.local_id == local_id_num
     ).order_by(Sale.fecha_venta.desc()).all()
 
     total_efectivo, total_transferencia = calcular_totales_dia(ventas_del_dia)
@@ -199,7 +199,7 @@ def reporte():
         db.func.date(Sale.fecha_venta) <= fecha_fin
     )
     if active_local != 'central':
-        ventas_query = ventas_query.join(User, Sale.vendedor_id == User.id).filter(User.local_asignado == int(active_local))
+        ventas_query = ventas_query.filter(Sale.local_id == int(active_local))
 
     ventas_periodo = ventas_query.order_by(Sale.fecha_venta.asc()).all()
 

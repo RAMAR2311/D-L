@@ -160,6 +160,7 @@ class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vendedor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
+    local_id = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
     fecha_venta = db.Column(db.DateTime, default=obtener_hora_bogota)
     monto_total = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     metodo_pago = db.Column(db.String(50), nullable=False, default='efectivo')
