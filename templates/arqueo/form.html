@@ -185,6 +185,51 @@
                 </div>
             </div>
 
+            <!-- Sección: Abonos a Puntos Realizados Hoy -->
+            <div class="card card-custom p-0 overflow-hidden shadow-sm border-0 bg-white mt-4">
+                <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-brand-black mb-0">
+                        <i class="fa-solid fa-hand-holding-dollar text-success me-2"></i>Abonos a Puntos (Locales) Realizados Hoy
+                    </h5>
+                    <span class="badge bg-success rounded-pill px-3 py-1 fs-6">${{ total_abonos_puntos|cop }}</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-muted small text-uppercase">
+                            <tr>
+                                <th class="ps-3 py-3" width="15%">Hora</th>
+                                <th width="25%">Local / Punto</th>
+                                <th width="25%">Descripción</th>
+                                <th width="15%">Método Pago</th>
+                                <th class="text-end pe-3" width="20%">Monto Abono</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in abonos_puntos_registros %}
+                            <tr>
+                                <td class="ps-3 text-muted small"><i class="fa-regular fa-clock me-1"></i>{{ a.fecha.strftime('%H:%M') }}</td>
+                                <td class="fw-bold text-dark"><i class="fa-solid fa-shop me-1 text-primary"></i>{{ a.punto.nombre }}</td>
+                                <td class="small text-muted">{{ a.descripcion or 'Abono registrado' }}</td>
+                                <td>
+                                    <span class="badge bg-light text-dark border rounded-pill px-2 py-1">
+                                        {{ a.metodo_pago.capitalize() if a.metodo_pago else 'Efectivo' }}
+                                    </span>
+                                </td>
+                                <td class="text-end pe-3 fw-bold text-success">${{ a.monto|cop }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted small">
+                                    <i class="fa-solid fa-circle-info me-1"></i>No se han realizado abonos a Puntos en el día de hoy.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
 
         <!-- ========================================================= -->

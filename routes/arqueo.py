@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from models import db, Sale, SalePayment, ArqueoCaja, Expense, User
+from models import db, Sale, SalePayment, ArqueoCaja, Expense, User, PuntoTransaction
 from decorators import admin_required
 from datetime import datetime, date
 from decimal import Decimal
@@ -109,6 +109,13 @@ def nuevo():
             db.session.rollback()
             flash('Ocurrió un error al guardar el arqueo de caja.', 'danger')
 
+    # Calcular abonos a Puntos realizados en el día
+    abonos_puntos_registros = PuntoTransaction.query.filter(
+        db.func.date(PuntoTransaction.fecha) == fecha_seleccionada,
+        PuntoTransaction.tipo_movimiento == 'abono'
+    ).order_by(PuntoTransaction.fecha.desc()).all()
+    total_abonos_puntos = sum((Decimal(str(a.monto)) for a in abonos_puntos_registros), Decimal('0.00'))
+
     return render_template(
         'arqueo/form.html',
         fecha=fecha_str,
@@ -117,6 +124,8 @@ def nuevo():
         ventas_del_dia=ventas_del_dia,
         arqueo_existente=arqueo_existente,
         gastos_automaticos=gastos_automaticos,
+        abonos_puntos_registros=abonos_puntos_registros,
+        total_abonos_puntos=total_abonos_puntos,
         active_local=active_local,
         is_admin=is_admin,
         nombre_sede=nombre_sede
