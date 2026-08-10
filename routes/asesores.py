@@ -4,6 +4,7 @@ from models import db, Asesor, Sale, User, obtener_hora_bogota
 from decorators import admin_required
 from datetime import datetime
 from decimal import Decimal
+from sqlalchemy import or_
 
 asesores_bp = Blueprint('asesores_bp', __name__, url_prefix='/asesores')
 
