@@ -51,38 +51,56 @@
     </div>
 
     <!-- UI: Resumen Financiero Dinámico (Tarjetas) -->
-    <div class="col-6 col-md-3 mb-3">
-        <div class="card card-custom h-100" style="border-left: 6px solid var(--brand-blue) !important;">
+    <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="card card-custom h-100" style="border-left: 5px solid var(--brand-blue) !important;">
             <div class="card-body py-3 ps-3">
                 <p class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.75rem;"><i class="fa-solid fa-money-bills me-1"></i> Efectivo</p>
-                <h4 class="fw-bolder m-0" style="color: var(--brand-blue);">${{ (total_efectivo)|cop }}</h4>
+                <h5 class="fw-bolder m-0" style="color: var(--brand-blue);">${{ (total_efectivo)|cop }}</h5>
             </div>
         </div>
     </div>
     
-    <div class="col-6 col-md-3 mb-3">
-        <div class="card card-custom h-100" style="border-left: 6px solid #6f42c1 !important;">
+    <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="card card-custom h-100" style="border-left: 5px solid #6f42c1 !important;">
             <div class="card-body py-3 ps-3">
                 <p class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.75rem;"><i class="fa-solid fa-mobile-button me-1"></i> Nequi</p>
-                <h4 class="fw-bolder m-0" style="color: #6f42c1;">${{ (total_nequi)|cop }}</h4>
+                <h5 class="fw-bolder m-0" style="color: #6f42c1;">${{ (total_nequi)|cop }}</h5>
             </div>
         </div>
     </div>
 
-    <div class="col-6 col-md-3 mb-3">
-        <div class="card card-custom h-100" style="border-left: 6px solid #fd7e14 !important;">
+    <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="card card-custom h-100" style="border-left: 5px solid #fd7e14 !important;">
             <div class="card-body py-3 ps-3">
                 <p class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.75rem;"><i class="fa-solid fa-building-columns me-1"></i> Bancolombia</p>
-                <h4 class="fw-bolder m-0" style="color: #fd7e14;">${{ (total_bancolombia)|cop }}</h4>
+                <h5 class="fw-bolder m-0" style="color: #fd7e14;">${{ (total_bancolombia)|cop }}</h5>
             </div>
         </div>
     </div>
 
-    <div class="col-6 col-md-3 mb-3">
-        <div class="card card-custom h-100" style="border-left: 6px solid #dc3545 !important;">
+    <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="card card-custom h-100" style="border-left: 5px solid #dc3545 !important;">
             <div class="card-body py-3 ps-3">
                 <p class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.75rem;"><i class="fa-solid fa-mobile-screen me-1"></i> Daviplata</p>
-                <h4 class="fw-bolder m-0" style="color: #dc3545;">${{ (total_daviplata)|cop }}</h4>
+                <h5 class="fw-bolder m-0" style="color: #dc3545;">${{ (total_daviplata)|cop }}</h5>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="card card-custom h-100" style="border-left: 5px solid #0056b3 !important;">
+            <div class="card-body py-3 ps-3">
+                <p class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.75rem;"><i class="fa-solid fa-credit-card me-1"></i> Bold</p>
+                <h5 class="fw-bolder m-0" style="color: #0056b3;">${{ (total_bold)|cop }}</h5>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="card card-custom h-100" style="border-left: 5px solid #20c997 !important;">
+            <div class="card-body py-3 ps-3">
+                <p class="text-muted fw-bold text-uppercase mb-1" style="font-size: 0.75rem;"><i class="fa-solid fa-bag-shopping me-1"></i> Addi</p>
+                <h5 class="fw-bolder m-0" style="color: #20c997;">${{ (total_addi)|cop }}</h5>
             </div>
         </div>
     </div>

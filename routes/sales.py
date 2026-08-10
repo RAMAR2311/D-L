@@ -401,6 +401,8 @@ def historial():
     total_nequi = Decimal('0')
     total_bancolombia = Decimal('0')
     total_daviplata = Decimal('0')
+    total_bold = Decimal('0')
+    total_addi = Decimal('0')
     total_transferencia_legacy = Decimal('0')
     total_mixto = 0  # Contador de ventas con pago mixto
 
@@ -415,6 +417,10 @@ def historial():
                     total_bancolombia += pago.monto
                 elif pago.metodo_pago == 'daviplata':
                     total_daviplata += pago.monto
+                elif pago.metodo_pago == 'bold':
+                    total_bold += pago.monto
+                elif pago.metodo_pago == 'addi':
+                    total_addi += pago.monto
                 elif pago.metodo_pago == 'transferencia':
                     total_transferencia_legacy += pago.monto
             if len(v.pagos) > 1:
@@ -428,6 +434,10 @@ def historial():
                 total_bancolombia += v.monto_total
             elif v.metodo_pago == 'daviplata':
                 total_daviplata += v.monto_total
+            elif v.metodo_pago == 'bold':
+                total_bold += v.monto_total
+            elif v.metodo_pago == 'addi':
+                total_addi += v.monto_total
             elif v.metodo_pago == 'transferencia':
                 total_transferencia_legacy += v.monto_total
 
@@ -438,6 +448,8 @@ def historial():
                            total_nequi=total_nequi,
                            total_bancolombia=total_bancolombia,
                            total_daviplata=total_daviplata,
+                           total_bold=total_bold,
+                           total_addi=total_addi,
                            total_transferencia_legacy=total_transferencia_legacy,
                            total_mixto=total_mixto,
                            fecha_inicio=fecha_inicio,
