@@ -207,16 +207,61 @@ class SaleDetail(db.Model):
     sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
     variant_id = db.Column(db.Integer, db.ForeignKey('product_variants.id'), nullable=True)
+    punto_id = db.Column(db.Integer, db.ForeignKey('puntos.id'), nullable=True)
     cantidad_vendida = db.Column(db.Integer, nullable=False)
     precio_venta_final = db.Column(db.Numeric(10, 2), nullable=False)
-    # Campos para productos manuales (prestados de otros locales)
+    # Campos para productos manuales (prestados de otros locales / puntos)
     nombre_manual = db.Column(db.String(200), nullable=True)
     precio_costo_manual = db.Column(db.Numeric(10, 2), nullable=True)
 
     variante = db.relationship('ProductVariant', backref='ventas_rel', lazy=True)
+    punto = db.relationship('Punto', backref='detalles_venta', lazy=True)
 
     def __init__(self, **kwargs):
         super(SaleDetail, self).__init__(**kwargs)
+
+
+class Punto(db.Model):
+    __tablename__ = 'puntos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(150), nullable=False, unique=True)
+    telefono = db.Column(db.String(50), nullable=True)
+    direccion = db.Column(db.String(200), nullable=True)
+    observaciones = db.Column(db.Text, nullable=True)
+    fecha_creacion = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    transacciones = db.relationship('PuntoTransaction', backref='punto', lazy=True, cascade='all, delete-orphan')
+
+    def __init__(self, **kwargs):
+        super(Punto, self).__init__(**kwargs)
+
+    @property
+    def saldo_deuda(self):
+        cargos = sum((t.monto for t in self.transacciones if t.tipo_movimiento == 'cargo'), Decimal('0.00'))
+        abonos = sum((t.monto for t in self.transacciones if t.tipo_movimiento == 'abono'), Decimal('0.00'))
+        return Decimal(str(cargos)) - Decimal(str(abonos))
+
+
+class PuntoTransaction(db.Model):
+    __tablename__ = 'punto_transactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    punto_id = db.Column(db.Integer, db.ForeignKey('puntos.id'), nullable=False)
+    sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    tipo_movimiento = db.Column(db.String(20), nullable=False)  # 'cargo' o 'abono'
+    monto = db.Column(db.Numeric(12, 2), nullable=False)
+    metodo_pago = db.Column(db.String(50), nullable=True, default='efectivo')
+    descripcion = db.Column(db.String(255), nullable=True)
+    fecha = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    usuario = db.relationship('User', backref='punto_transacciones', lazy=True)
+    venta = db.relationship('Sale', backref='punto_transacciones', lazy=True)
+
+    def __init__(self, **kwargs):
+        super(PuntoTransaction, self).__init__(**kwargs)
+
 
 class StockAdjustment(db.Model):
     __tablename__ = 'stock_adjustments'

@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold text-brand-black m-0">
+            <i class="fa-solid fa-store me-2" style="color: var(--mario-red);"></i>Gestión de Puntos (Locales Externos)
+        </h2>
+        <p class="text-muted small m-0">Estados de cuenta de productos consignados/prestados de locales vecinos.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn rounded-pill px-4 fw-bold text-white shadow-sm" style="background-color: var(--mario-red);" data-bs-toggle="modal" data-bs-target="#modalCrearPunto">
+            <i class="fa-solid fa-plus me-1"></i> Registrar Nuevo Punto
+        </button>
+        <a href="{{ url_for('admin_bp.dashboard') }}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="fa-solid fa-arrow-left me-1"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Tarjetas Métricas Globales -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card card-custom p-3 border-start border-4 border-danger shadow-sm">
+            <small class="text-muted fw-bold text-uppercase">Deuda Total Pendiente</small>
+            <h3 class="fw-bolder text-danger m-0">${{ '{:,.0f}'.format(total_deuda_global) }}</h3>
+            <small class="text-muted">Monto total por saldar con locales vecinos</small>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-custom p-3 border-start border-4 border-warning shadow-sm">
+            <small class="text-muted fw-bold text-uppercase">Total Productos Vendidos (Cargos)</small>
+            <h3 class="fw-bolder text-dark m-0">${{ '{:,.0f}'.format(total_cargos_global) }}</h3>
+            <small class="text-muted">Valor de costo acumulado desde Caja POS</small>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-custom p-3 border-start border-4 border-success shadow-sm">
+            <small class="text-muted fw-bold text-uppercase">Total Abonos Realizados</small>
+            <h3 class="fw-bolder text-success m-0">${{ '{:,.0f}'.format(total_abonos_global) }}</h3>
+            <small class="text-muted">Pagos liquidados a los puntos</small>
+        </div>
+    </div>
+</div>
+
+<!-- Grilla de Puntos -->
+<div class="row g-4">
+    {% for item in puntos %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card card-custom h-100 shadow-sm border-0 position-relative">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="fw-bold text-brand-black m-0">
+                            <i class="fa-solid fa-shop me-2 text-primary"></i>{{ item.punto.nombre }}
+                        </h5>
+                        <span class="badge {% if item.saldo_pendiente > 0 %}bg-danger{% else %}bg-success{% endif %} rounded-pill px-3 py-2">
+                            {% if item.saldo_pendiente > 0 %}Con Deuda{% else %}Al Día{% endif %}
+                        </span>
+                    </div>
+
+                    {% if item.punto.telefono %}
+                        <p class="text-muted small mb-1"><i class="fa-solid fa-phone me-1"></i>{{ item.punto.telefono }}</p>
+                    {% endif %}
+
+                    <hr class="my-3 text-muted opacity-25">
+
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">Cargos (Ventas POS):</span>
+                        <span class="fw-semibold text-dark">${{ '{:,.0f}'.format(item.total_cargos) }}</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">Abonos Pagados:</span>
+                        <span class="fw-semibold text-success">${{ '{:,.0f}'.format(item.total_abonos) }}</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded-3 mt-3">
+                        <span class="fw-bold text-dark small">Saldo Pendiente:</span>
+                        <span class="fs-5 fw-bolder {% if item.saldo_pendiente > 0 %}text-danger{% else %}text-success{% endif %}">
+                            ${{ '{:,.0f}'.format(item.saldo_pendiente) }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <a href="{{ url_for('puntos_bp.detalle', id=item.punto.id) }}" class="btn btn-outline-primary w-100 rounded-pill fw-bold">
+                        <i class="fa-solid fa-file-invoice-dollar me-1"></i> Ver Estado de Cuenta / Abonar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12 text-center py-5">
+        <i class="fa-solid fa-store fa-4x text-muted mb-3 opacity-50"></i>
+        <h4 class="text-muted fw-bold">No hay Puntos registrados</h4>
+        <p class="text-muted">Crea un Punto nuevo o vende un producto externo desde la Caja POS para comenzar.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal Crear Punto -->
+<div class="modal fade" id="modalCrearPunto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" action="{{ url_for('puntos_bp.crear') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="modal-header border-0 bg-light">
+                    <h5 class="modal-title fw-bold text-dark"><i class="fa-solid fa-plus-circle me-2 text-danger"></i>Registrar Nuevo Punto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Nombre del Local / Punto *</label>
+                        <input type="text" name="nombre" class="form-control bg-light border-0" placeholder="Ej: Fundas Alex" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Teléfono de Contacto</label>
+                        <input type="text" name="telefono" class="form-control bg-light border-0" placeholder="Ej: 300 123 4567">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Dirección / Ubicación</label>
+                        <input type="text" name="direccion" class="form-control bg-light border-0" placeholder="Ej: Local 105, C.C. Monterrey">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Observaciones</label>
+                        <textarea name="observaciones" class="form-control bg-light border-0" rows="2" placeholder="Notas sobre el acuerdo de consignación..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn text-white rounded-pill px-4 fw-bold" style="background-color: var(--mario-red);">Guardar Punto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

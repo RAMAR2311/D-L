@@ -28,12 +28,15 @@
             {% endif %}
         </div>
 
-        <!-- Buscador de productos -->
-        <div class="mb-4">
-            <div class="input-group input-group-lg shadow-sm rounded-pill border">
+        <!-- Buscador de productos y Botón de Producto Punto -->
+        <div class="mb-4 d-flex gap-2 flex-wrap flex-md-nowrap">
+            <div class="input-group input-group-lg shadow-sm rounded-pill border flex-grow-1">
                 <span class="input-group-text bg-white border-0 ps-4"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
                 <input type="text" id="productSearch" class="form-control border-0 bg-white shadow-none ps-2" placeholder="Buscar producto por nombre o SKU..." style="border-radius: 0 50px 50px 0;">
             </div>
+            <button class="btn text-white fw-bold rounded-pill shadow-sm px-4 d-flex align-items-center justify-content-center gap-2" style="background-color: var(--mario-red); white-space: nowrap;" data-bs-toggle="modal" data-bs-target="#modalProductoPunto">
+                <i class="fa-solid fa-store"></i> + Producto Punto / Externo
+            </button>
         </div>
 
         <!-- Grilla de productos -->
@@ -639,7 +642,12 @@
                 variant_id: item.variant_id,
                 cantidad: item.cantidad,
                 precio_final: item.precio_final,
-                es_obsequio: item.es_obsequio
+                es_obsequio: item.es_obsequio,
+                es_manual: item.es_manual || false,
+                nombre_manual: item.nombre_manual || null,
+                precio_costo: item.precio_costo || 0,
+                punto_id: item.punto_id || null,
+                nombre_punto: item.nombre_punto || null
             })),
             pagos: pagosPayload,
             fecha_venta: document.getElementById('fecha_venta_input') ? document.getElementById('fecha_venta_input').value : null,
@@ -689,5 +697,135 @@
             this.innerHTML = '<i class="fa-solid fa-credit-card me-2"></i> Procesar Cobro';
         }
     });
+
+    function toggleNuevoPuntoInput(selectEl) {
+        const wrapper = document.getElementById('wrapper_nuevo_punto_nombre');
+        if (selectEl.value === '__NUEVO__') {
+            wrapper.style.display = 'block';
+            document.getElementById('modal_punto_nuevo_nombre').focus();
+        } else {
+            wrapper.style.display = 'none';
+        }
+    }
+
+    function addPuntoItemToCart() {
+        const selectPunto = document.getElementById('modal_punto_select');
+        const nuevoPuntoInput = document.getElementById('modal_punto_nuevo_nombre');
+        const productoNombreInput = document.getElementById('modal_punto_producto_nombre');
+        const costoInput = document.getElementById('modal_punto_costo');
+        const precioVentaInput = document.getElementById('modal_punto_precio_venta');
+
+        let puntoId = null;
+        let puntoNombre = '';
+
+        if (selectPunto.value === '__NUEVO__') {
+            puntoNombre = nuevoPuntoInput.value.trim();
+            if (!puntoNombre) {
+                alert('Por favor escribe el nombre del nuevo Punto.');
+                return;
+            }
+        } else if (selectPunto.value) {
+            puntoId = parseInt(selectPunto.value);
+            puntoNombre = selectPunto.options[selectPunto.selectedIndex].text;
+        } else {
+            puntoNombre = nuevoPuntoInput.value.trim();
+        }
+
+        if (!puntoId && !puntoNombre) {
+            alert('Por favor selecciona o ingresa el nombre del Local (Punto).');
+            return;
+        }
+
+        const nombreProd = productoNombreInput.value.trim();
+        if (!nombreProd) {
+            alert('Por favor escribe el nombre del producto.');
+            return;
+        }
+
+        const costo = parseFloat(costoInput.value) || 0;
+        const precioVenta = parseFloat(precioVentaInput.value) || 0;
+
+        if (precioVenta <= 0) {
+            alert('El valor a cobrar debe ser mayor a 0.');
+            return;
+        }
+
+        const cartItem = {
+            product_id: null,
+            variant_id: null,
+            punto_id: puntoId,
+            nombre_punto: puntoNombre,
+            nombre: `[${puntoNombre}] ${nombreProd}`,
+            es_manual: true,
+            nombre_manual: nombreProd,
+            precio_costo: costo,
+            precio_final: precioVenta,
+            cantidad: 1,
+            max_stock: 999
+        };
+
+        carrito.push(cartItem);
+        renderCart();
+
+        // Limpiar campos y cerrar modal
+        productoNombreInput.value = '';
+        costoInput.value = '';
+        precioVentaInput.value = '';
+        nuevoPuntoInput.value = '';
+        selectPunto.selectedIndex = 0;
+        document.getElementById('wrapper_nuevo_punto_nombre').style.display = 'none';
+
+        const modalEl = document.getElementById('modalProductoPunto');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+    }
 </script>
+
+<!-- Modal Producto Punto / Externo -->
+<div class="modal fade text-start" id="modalProductoPunto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 bg-light">
+                <h5 class="modal-title fw-bold text-dark"><i class="fa-solid fa-store me-2" style="color: var(--mario-red);"></i>Agregar Producto Punto / Externo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-dark">1. Seleccionar Local Vecino / Punto *</label>
+                    <select id="modal_punto_select" class="form-select bg-light border-0 fw-semibold" onchange="toggleNuevoPuntoInput(this)">
+                        <option value="">-- Seleccionar Punto Registrado --</option>
+                        {% for p in puntos %}
+                            <option value="{{ p.id }}">{{ p.nombre }}</option>
+                        {% endfor %}
+                        <option value="__NUEVO__">➕ + Registrar Nuevo Punto...</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="wrapper_nuevo_punto_nombre" style="display: none;">
+                    <label class="form-label fw-bold small text-danger">Nombre del Nuevo Punto *</label>
+                    <input type="text" id="modal_punto_nuevo_nombre" class="form-control bg-light border-0" placeholder="Ej: Celulares Don Pedro">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-dark">2. Nombre del Producto *</label>
+                    <input type="text" id="modal_punto_producto_nombre" class="form-control bg-light border-0" placeholder="Ej: Cargador Tipo C Samsung 25W" required>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label fw-bold small text-muted">Costo ($) <small>(Deuda al Punto)</small></label>
+                        <input type="number" id="modal_punto_costo" class="form-control bg-light border-0" placeholder="Ej: 15000" min="0" step="100">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold small text-success">Valor a Cobrar ($) *</label>
+                        <input type="number" id="modal_punto_precio_venta" class="form-control bg-light border-0 fw-bold" placeholder="Ej: 25000" min="1" step="100" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn text-white rounded-pill px-4 fw-bold" style="background-color: var(--mario-red);" onclick="addPuntoItemToCart()">
+                    <i class="fa-solid fa-cart-plus me-1"></i> Agregar al Carrito
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

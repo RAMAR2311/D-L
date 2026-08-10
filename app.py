@@ -65,6 +65,9 @@ def create_app():
     from routes.asesores import asesores_bp
     app.register_blueprint(asesores_bp)
 
+    # Registro de Blueprint Puntos
+    from routes.puntos import puntos_bp
+    app.register_blueprint(puntos_bp)
 
 
     @app.template_filter('cop')

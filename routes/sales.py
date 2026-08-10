@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, flash, redirect, render_template, abort, url_for
 from flask_login import login_required, current_user
-from models import db, Product, ProductVariant, Sale, SaleDetail, SalePayment, Expense, User, obtener_hora_bogota
+from models import db, Product, ProductVariant, Sale, SaleDetail, SalePayment, Expense, User, Punto, PuntoTransaction, obtener_hora_bogota
 from decorators import admin_required
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -92,14 +92,27 @@ def procesar_venta():
                 raise ValueError("La cantidad vendida debe ser mayor a 0.")
 
             if es_manual:
-                # Producto manual (prestado de otro local) — no descuenta stock
+                # Producto manual / externo (Punto) — no descuenta stock de inventario propio
                 nombre_manual = item.get('nombre_manual', 'Producto Externo')
                 precio_costo_manual = Decimal(str(item.get('precio_costo', '0.00')))
+                punto_id_item = item.get('punto_id')
+                nombre_punto_item = item.get('nombre_punto', '').strip()
+
+                punto_obj = None
+                if punto_id_item:
+                    punto_obj = Punto.query.get(int(punto_id_item))
+                elif nombre_punto_item:
+                    punto_obj = Punto.query.filter_by(nombre=nombre_punto_item).first()
+                    if not punto_obj:
+                        punto_obj = Punto(nombre=nombre_punto_item)
+                        db.session.add(punto_obj)
+                        db.session.flush()
 
                 detalle = SaleDetail(
                     sale_id=nueva_venta.id,
                     product_id=None,
                     variant_id=None,
+                    punto_id=punto_obj.id if punto_obj else None,
                     cantidad_vendida=cantidad_vendida,
                     precio_venta_final=precio_venta_final,
                     nombre_manual=nombre_manual,
@@ -108,14 +121,26 @@ def procesar_venta():
                 db.session.add(detalle)
                 monto_total += (precio_venta_final * cantidad_vendida)
 
-                # Crear el gasto automático para descontar el ingreso prestado del balance final
-                if precio_costo_manual > 0:
+                # Si está asociado a un Punto, registrar la deuda (Cargo) en su estado de cuenta
+                if punto_obj and precio_costo_manual > 0:
+                    cargo_punto = PuntoTransaction(
+                        punto_id=punto_obj.id,
+                        sale_id=nueva_venta.id,
+                        usuario_id=current_user.id,
+                        tipo_movimiento='cargo',
+                        monto=(precio_costo_manual * cantidad_vendida),
+                        descripcion=f"Venta POS: {nombre_manual} ({cantidad_vendida} uds)"
+                    )
+                    db.session.add(cargo_punto)
+                elif not punto_obj and precio_costo_manual > 0:
+                    # Retrocompatibilidad si no se seleccionó punto
                     gasto_externo = Expense(
                         usuario_id=current_user.id,
                         tipo_gasto='Gasto Diario',
                         categoria='Pago Prod. Externo',
                         descripcion=f"Pago por producto manual prestado: {nombre_manual}",
                         monto=(precio_costo_manual * cantidad_vendida),
+                        local_id=local_id_venta,
                         fecha_gasto=fecha_venta_obj
                     )
                     db.session.add(gasto_externo)
@@ -561,12 +586,15 @@ def caja_visual():
         asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
 
     productos = Product.query.filter(Product.tipo_inventario == 'tienda').order_by(Product.nombre.asc()).all()
+    puntos = Punto.query.order_by(Punto.nombre.asc()).all()
+
     return render_template(
         'sales/caja_visual.html', 
         productos=productos, 
         hoy=hoy_bogota.strftime('%Y-%m-%d'),
         active_local=active_local,
         is_admin=is_admin,
-        asesores=asesores
+        asesores=asesores,
+        puntos=puntos
     )
 
