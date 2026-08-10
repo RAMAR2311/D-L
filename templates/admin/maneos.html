@@ -250,30 +250,35 @@
     </div>
 </div>
 
-<!-- Script para catálogo rápido de maneos y modal flotante -->
+<!-- Script Data de Catálogo en formato JSON limpio para evitar errores del linter -->
+<script id="maneo_catalog_data" type="application/json">
+[
+    {% for p in productos %}
+    {
+        "id": {{ p.id }},
+        "sku": {{ p.sku|tojson }},
+        "nombre": {{ p.nombre|tojson }},
+        "stock": {{ p.cantidad_stock }},
+        "precio_sugerido": {{ (p.precio_sugerido or 0)|float }},
+        "variantes": [
+            {% if p.variantes %}
+            {% for v in p.variantes %}
+            {
+                "id": {{ v.id }},
+                "nombre": {{ v.nombre_variante|tojson }},
+                "stock": {{ v.cantidad_stock }}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+            {% endif %}
+        ]
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+]
+</script>
+
+<!-- Script JS para catálogo rápido de maneos y modal flotante -->
 <script>
-    const maneoCatalog = [
-        {% for p in productos %}
-        {
-            id: {{ p.id }},
-            sku: {{ p.sku|tojson }},
-            nombre: {{ p.nombre|tojson }},
-            stock: {{ p.cantidad_stock }},
-            precio_sugerido: {{ (p.precio_sugerido or 0)|float }},
-            variantes: [
-                {% if p.variantes %}
-                {% for v in p.variantes %}
-                {
-                    id: {{ v.id }},
-                    nombre: {{ v.nombre_variante|tojson }},
-                    stock: {{ v.cantidad_stock }}
-                }{% if not loop.last %},{% endif %}
-                {% endfor %}
-                {% endif %}
-            ]
-        }{% if not loop.last %},{% endif %}
-        {% endfor %}
-    ];
+    const maneoCatalog = JSON.parse(document.getElementById('maneo_catalog_data').textContent || '[]');
 
     const searchInput = document.getElementById('maneoSearchInput');
     const searchResults = document.getElementById('maneoSearchResults');
