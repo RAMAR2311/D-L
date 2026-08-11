@@ -289,6 +289,8 @@ class StockTransfer(db.Model):
     cantidad = db.Column(db.Integer, nullable=False, default=1)
     usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
+    sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=True)
+    es_facturado = db.Column(db.Boolean, default=False)
     observacion = db.Column(db.String(255), nullable=True)
     fecha_transferencia = db.Column(db.DateTime, default=obtener_hora_bogota)
 
@@ -296,6 +298,7 @@ class StockTransfer(db.Model):
     variante = db.relationship('ProductVariant', backref='traslados', lazy=True)
     usuario = db.relationship('User', backref='traslados_realizados', lazy=True)
     asesor = db.relationship('Asesor', backref='traslados_solicitados', lazy=True)
+    venta = db.relationship('Sale', backref='traslados_asociados', lazy=True)
 
     def __init__(self, **kwargs):
         super(StockTransfer, self).__init__(**kwargs)

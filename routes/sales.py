@@ -181,6 +181,8 @@ def procesar_venta():
                             cantidad=cantidad_vendida,
                             usuario_id=current_user.id,
                             asesor_id=int(asesor_id_traslado) if asesor_id_traslado else asesor_id_val,
+                            sale_id=nueva_venta.id,
+                            es_facturado=True,
                             observacion=observacion_traslado if observacion_traslado else f"Traslado automático al facturar ticket",
                             fecha_transferencia=fecha_venta_obj
                         )
@@ -235,6 +237,8 @@ def procesar_venta():
                             cantidad=cantidad_vendida,
                             usuario_id=current_user.id,
                             asesor_id=int(asesor_id_traslado) if asesor_id_traslado else asesor_id_val,
+                            sale_id=nueva_venta.id,
+                            es_facturado=True,
                             observacion=observacion_traslado if observacion_traslado else f"Traslado automático al facturar ticket",
                             fecha_transferencia=fecha_venta_obj
                         )

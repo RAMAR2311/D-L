@@ -76,12 +76,13 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="bg-light text-muted small text-uppercase">
                     <tr>
-                        <th class="ps-4 py-3" width="14%">Fecha / Hora</th>
-                        <th width="26%">Producto / Subcategoría</th>
-                        <th class="text-center" width="10%">Cant.</th>
-                        <th width="20%">Origen ➔ Destino</th>
-                        <th width="15%">Asesor Solicitante</th>
-                        <th width="15%">Cajero / Usuario</th>
+                        <th class="ps-4 py-3" width="13%">Fecha / Hora</th>
+                        <th width="24%">Producto / Subcategoría</th>
+                        <th class="text-center" width="8%">Cant.</th>
+                        <th width="16%">Origen ➔ Destino</th>
+                        <th width="14%">Asesor Solicitante</th>
+                        <th width="13%">Cajero / Usuario</th>
+                        <th class="text-center" width="12%">Estado / Acción</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -134,10 +135,29 @@
                                 <i class="fa-solid fa-user-gear me-1 text-muted"></i>{{ t.usuario.nombre if t.usuario else 'Sistema' }}
                             </span>
                         </td>
+                        <td class="text-center">
+                            {% if t.es_facturado or t.sale_id %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1" style="font-size:0.75rem;">
+                                    <i class="fa-solid fa-receipt me-1"></i>Facturado
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-dark border border-warning rounded-pill px-3 py-1 me-1" style="font-size:0.75rem;">
+                                    <i class="fa-solid fa-clock me-1"></i>No Facturado
+                                </span>
+                                {% if is_admin %}
+                                    <form method="POST" action="{{ url_for('traslados_bp.eliminar', id=t.id) }}" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar este traslado manual? El stock volverá a la sede de origen (D&L {{ t.local_origen_id }}).');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-0 border-0" title="Eliminar Traslado">
+                                            <i class="fa-solid fa-trash-can text-danger fs-6"></i>
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            {% endif %}
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="text-center py-5 text-muted">
+                        <td colspan="7" class="text-center py-5 text-muted">
                             <i class="fa-solid fa-truck-ramp-box fa-3x mb-3 opacity-50"></i>
                             <h5 class="fw-bold">No hay traslados registrados</h5>
                             <p class="mb-0">Los traslados solicitados desde la Caja POS o entre sedes aparecerán listados aquí automáticamente.</p>

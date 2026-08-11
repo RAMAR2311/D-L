@@ -140,3 +140,36 @@ def solicitar():
             return jsonify({'success': False, 'message': msg}), 500
         flash(msg, 'danger')
         return redirect(url_for('traslados_bp.index'))
+
+@traslados_bp.route('/<int:id>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def eliminar(id):
+    traslado = StockTransfer.query.get_or_404(id)
+
+    # Validar si el traslado fue facturado
+    if traslado.es_facturado or traslado.sale_id:
+        flash('No es posible eliminar este traslado porque ya fue facturado en una venta real.', 'danger')
+        return redirect(url_for('traslados_bp.index'))
+
+    try:
+        # Revertir stock: Devolver la cantidad a la sede de origen y restar a la sede de destino
+        if traslado.variante:
+            setattr(traslado.variante, f'stock_local_{traslado.local_origen_id}', getattr(traslado.variante, f'stock_local_{traslado.local_origen_id}') + traslado.cantidad)
+            setattr(traslado.variante, f'stock_local_{traslado.local_destino_id}', getattr(traslado.variante, f'stock_local_{traslado.local_destino_id}', 0) - traslado.cantidad)
+            traslado.variante.cantidad_stock = traslado.variante.total_stock
+            if traslado.producto:
+                traslado.producto.cantidad_stock = traslado.producto.total_stock
+        elif traslado.producto:
+            setattr(traslado.producto, f'stock_local_{traslado.local_origen_id}', getattr(traslado.producto, f'stock_local_{traslado.local_origen_id}') + traslado.cantidad)
+            setattr(traslado.producto, f'stock_local_{traslado.local_destino_id}', getattr(traslado.producto, f'stock_local_{traslado.local_destino_id}', 0) - traslado.cantidad)
+            traslado.producto.cantidad_stock = traslado.producto.total_stock
+
+        db.session.delete(traslado)
+        db.session.commit()
+        flash(f'Traslado #{id} eliminado exitosamente. El stock ({traslado.cantidad} uds) fue devuelto a D&L {traslado.local_origen_id}.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al intentar eliminar el traslado: {str(e)}', 'danger')
+
+    return redirect(url_for('traslados_bp.index'))
