@@ -306,7 +306,7 @@
 
 <script>
     const csrf_token = "{{ csrf_token() }}";
-    const ACTIVE_LOCAL = {{ active_local }};
+    const ACTIVE_LOCAL = parseInt("{{ active_local }}") || 1;
     let carrito = [];
     let activeProductData = null;
     let activeVariantsData = null;
