@@ -16,34 +16,44 @@ from io import BytesIO
 inventory_bp = Blueprint('inventory_bp', __name__)
 
 def guardar_imagen_subida(file):
-    """Guarda y optimiza una imagen subida, asegurando que exista la carpeta y generando un nombre único."""
-    if not file or file.filename == '':
+    """Guarda y optimiza una imagen subida, asegurando la orientación correcta EXIF y formato compatible."""
+    if not file or not getattr(file, 'filename', None) or file.filename == '':
         return None
 
     upload_folder = current_app.config['UPLOAD_FOLDER']
     os.makedirs(upload_folder, exist_ok=True)
 
     filename_clean = secure_filename(file.filename)
-    if not filename_clean:
-        filename_clean = 'foto.jpg'
+    ext = os.path.splitext(filename_clean)[1].lower()
+    if not ext or ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic']:
+        ext = '.jpg'
 
-    unique_name = f"{uuid.uuid4().hex[:8]}_{filename_clean}"
+    unique_name = f"{uuid.uuid4().hex[:8]}{ext}"
     target_path = os.path.join(upload_folder, unique_name)
 
     if Image:
         try:
+            file.seek(0)
             img = Image.open(file)
-            if img.mode in ("RGBA", "P"):
+            
+            # Corregir orientación EXIF automática (fotos de celulares)
+            try:
+                from PIL import ImageOps
+                img = ImageOps.exif_transpose(img)
+            except Exception:
+                pass
+
+            if img.mode not in ("RGB", "L"):
                 img = img.convert("RGB")
 
-            # Redimensionar fotos pesadas de celulares (máx 1600px)
             img.thumbnail((1600, 1600))
-            img.save(target_path, "JPEG", quality=85, optimize=True)
+            save_format = "PNG" if ext == '.png' else ("WEBP" if ext == '.webp' else "JPEG")
+            img.save(target_path, save_format, quality=85)
             return unique_name
         except Exception as e:
-            print("Pillow optimization exception, falling back to direct save:", e)
+            print("Pillow exception, falling back to direct file save:", e)
 
-    # Fallback de guardado directo si no se puede procesar como JPEG
+    # Fallback de guardado directo
     try:
         file.seek(0)
         file.save(target_path)
@@ -174,19 +184,38 @@ def toggle_product_stock():
         'message': f"Modo {'Descuento Real de Stock' if descontar else 'Facturación Libre (Sin stock)'} guardado."
     })
 
+def procesar_imagen_subida(request):
+    """Procesa la imagen subida desde archivo directo o desde Base64 (compresión de navegador)."""
+    import base64
+    imagen_base64 = request.form.get('imagen_base64')
+    if imagen_base64 and ',' in imagen_base64:
+        try:
+            header, encoded = imagen_base64.split(',', 1)
+            file_bytes = base64.b64decode(encoded)
+            unique_name = f"{uuid.uuid4().hex[:8]}.jpg"
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            os.makedirs(upload_folder, exist_ok=True)
+            target_path = os.path.join(upload_folder, unique_name)
+            with open(target_path, 'wb') as f:
+                f.write(file_bytes)
+            return unique_name
+        except Exception as e:
+            print("Error decodificando imagen_base64:", e)
+
+    if 'imagen' in request.files:
+        file = request.files['imagen']
+        if file and file.filename != '':
+            return guardar_imagen_subida(file)
+
+    return None
+
 @inventory_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
 @admin_or_bodega_required
 def nuevo():
     if request.method == 'POST':
-        # --- Manejo de Imagen ---
-        imagen_filename = None
-        if 'imagen' in request.files:
-            file = request.files['imagen']
-            if file and file.filename != '':
-                imagen_filename = guardar_imagen_subida(file)
-                if not imagen_filename:
-                    flash('No se pudo procesar la imagen seleccionada. Intenta con otra foto.', 'warning')
+        # --- Manejo de Imagen (Base64 o File) ---
+        imagen_filename = procesar_imagen_subida(request)
 
         # La instanciación agrupa todos los parámetros del nuevo producto
         tipo = 'bodega' if current_user.rol == 'bodega' else 'tienda'
@@ -261,8 +290,8 @@ def nuevo():
                 )
                 db.session.add(nueva_v)
 
-            db.session.commit()
-            
+            db.session.flush()
+
             # Crear ajuste inicial automáticamente en el Kardex
             ajuste_inicial = StockAdjustment(
                 product_id=nuevo_prod.id,
@@ -295,13 +324,10 @@ def editar_producto(id):
     if request.method == 'POST':
         stock_total_anterior = producto.total_stock
         
-        # Actualizar Imagen si se sube una nueva
-        if 'imagen' in request.files:
-            file = request.files['imagen']
-            if file and file.filename != '':
-                nueva_img = guardar_imagen_subida(file)
-                if nueva_img:
-                    producto.imagen = nueva_img
+        # Actualizar Imagen si se sube una nueva (Base64 o File)
+        nueva_img = procesar_imagen_subida(request)
+        if nueva_img:
+            producto.imagen = nueva_img
                 
                 
         # Datos básicos

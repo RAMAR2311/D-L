@@ -138,10 +138,13 @@
                     <!-- 6. Imagen y Observaciones -->
                     <div class="col-md-6 mt-3">
                         <label class="form-label fw-bold text-brand-black">Imagen del Producto Maestro</label>
-                        <input type="file" class="form-control bg-light border-0" name="imagen" accept="image/*">
-                        {% if producto and producto.imagen %}
-                            <small class="text-muted d-block mt-2">Imagen actual: <a href="{{ url_for('static', filename='uploads/' ~ producto.imagen) }}" target="_blank">{{ producto.imagen }}</a></small>
-                        {% endif %}
+                        <input type="file" class="form-control bg-light border-0" id="imagen_input" name="imagen" accept="image/*">
+                        <input type="hidden" name="imagen_base64" id="imagen_base64">
+                        
+                        <div id="imagePreviewBox" class="mt-2 {% if not (producto and producto.imagen) %}d-none{% endif %}">
+                            <img id="imagePreview" src="{% if producto and producto.imagen %}{{ url_for('static', filename='uploads/' ~ producto.imagen) }}{% endif %}" class="rounded border shadow-sm" style="max-height: 120px; object-fit: contain;">
+                            <small class="text-success d-block fw-bold mt-1" id="imagePreviewLabel">✓ Imagen cargada</small>
+                        </div>
                     </div>
                     <div class="col-md-6 mt-3">
                         <label class="form-label fw-bold text-brand-black">Observaciones Generales</label>
@@ -185,7 +188,7 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label small fw-bold">P. Sugerido</label>
-                <input type="number" step="1" name="v_sug[]" class="form-control form-control-sm" placeholder="Opcional">
+                <input type="number" step="1" name="v_sug[]" class="form-control form-control-sm" placeholder="0">
             </div>
             <div class="col-md-1 text-end">
                 <button type="button" class="btn btn-sm btn-link text-danger remove-variant" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
@@ -194,31 +197,41 @@
     </div>
 </template>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('variantsContainer');
     const addBtn = document.getElementById('addVariantBtn');
     const template = document.getElementById('variantTemplate');
 
-    addBtn.addEventListener('click', () => {
-        const clone = template.content.cloneNode(true);
-        container.appendChild(clone);
-    });
+    if (addBtn && template && container) {
+        addBtn.addEventListener('click', () => {
+            const clone = template.content.cloneNode(true);
+            container.appendChild(clone);
+        });
 
-    container.addEventListener('click', (e) => {
-        if (e.target.closest('.remove-variant')) {
-            e.target.closest('.variant-row').remove();
-        }
-    });
+        container.addEventListener('click', (e) => {
+            if (e.target.closest('.remove-variant')) {
+                e.target.closest('.variant-row').remove();
+            }
+        });
+    }
 
-    // Compresión automática en el navegador para fotos pesadas de celular
-    const fileInput = document.querySelector('input[name="imagen"]');
+    // Compresión y previsualización de imagen en el cliente (100% compatible con móviles y PWA)
+    const fileInput = document.getElementById('imagen_input');
+    const base64Input = document.getElementById('imagen_base64');
+    const previewBox = document.getElementById('imagePreviewBox');
+    const previewImg = document.getElementById('imagePreview');
+    const previewLabel = document.getElementById('imagePreviewLabel');
+
     if (fileInput) {
         fileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
 
-            if (file.type.startsWith('image/') && file.size > 500 * 1024) {
+            if (file.type.startsWith('image/')) {
                 const reader = new FileReader();
                 reader.onload = function(evt) {
                     const img = new Image();
@@ -243,17 +256,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        canvas.toBlob(function(blob) {
-                            if (blob) {
-                                const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
-                                    type: 'image/jpeg',
-                                    lastModified: Date.now()
-                                });
-                                const container = new DataTransfer();
-                                container.items.add(newFile);
-                                fileInput.files = container.files;
-                            }
-                        }, 'image/jpeg', 0.82);
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                        if (base64Input) base64Input.value = compressedDataUrl;
+                        if (previewImg) previewImg.src = compressedDataUrl;
+                        if (previewBox) previewBox.classList.remove('d-none');
+                        if (previewLabel) previewLabel.innerText = "✓ Foto lista para guardar (Optimizada)";
                     };
                     img.src = evt.target.result;
                 };
