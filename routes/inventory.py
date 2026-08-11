@@ -283,9 +283,9 @@ def nuevo():
                     stock_local_2=vs2,
                     stock_local_3=vs3,
                     cantidad_stock=v_stock_tot,
-                    precio_costo=float(v_costos[i]) if v_costos[i] else nuevo_prod.precio_costo,
-                    precio_minimo=float(v_mins[i]) if v_mins[i] else nuevo_prod.precio_minimo,
-                    precio_sugerido=float(v_sugs[i]) if v_sugs[i] else nuevo_prod.precio_sugerido,
+                    precio_costo=float(v_costos[i]) if (i < len(v_costos) and v_costos[i]) else nuevo_prod.precio_costo,
+                    precio_minimo=float(v_mins[i]) if (i < len(v_mins) and v_mins[i]) else nuevo_prod.precio_minimo,
+                    precio_sugerido=float(v_sugs[i]) if (i < len(v_sugs) and v_sugs[i]) else nuevo_prod.precio_sugerido,
                     descontar_inventario=descontar_val
                 )
                 db.session.add(nueva_v)
@@ -387,9 +387,9 @@ def editar_producto(id):
                 if not (vs1 or vs2 or vs3) and i < len(v_stocks_legacy) and v_stocks_legacy[i]:
                     vs1 = int(v_stocks_legacy[i] or 0)
 
-                costo_v = float(v_costos[i]) if v_costos[i] else producto.precio_costo
-                min_v = float(v_mins[i]) if v_mins[i] else producto.precio_minimo
-                sug_v = float(v_sugs[i]) if v_sugs[i] else producto.precio_sugerido
+                costo_v = float(v_costos[i]) if (i < len(v_costos) and v_costos[i]) else producto.precio_costo
+                min_v = float(v_mins[i]) if (i < len(v_mins) and v_mins[i]) else producto.precio_minimo
+                sug_v = float(v_sugs[i]) if (i < len(v_sugs) and v_sugs[i]) else producto.precio_sugerido
 
                 if vid:
                     # Actualizar existente
