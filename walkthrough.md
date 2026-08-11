@@ -1,31 +1,29 @@
-# Walkthrough: Acceso a Puntos para Vendedores y Desglose de Abonos por Sede
+# Walkthrough: Corrección del Service Worker (`sw.js`) para Subida de Fotos
 
-Hemos implementado el acceso al **Módulo de Puntos (Productos Externos)** para todos los vendedores y cajeros, con registro explícito de la sede que realiza el desembolso y un cuadro interactivo en el Estado de Cuenta con el **desglose de abonos pagados por cada sede (D&L 1, D&L 2, D&L 3)**.
+Se corrigió la configuración del Service Worker PWA (`static/sw.js`) para evitar que el caché de la aplicación interceptara envíos de formularios HTTP POST y la subida de fotos de productos.
 
 ---
 
 ## Cambios Implementados
 
-1. **Acceso Habilitado para Vendedores (`routes/puntos.py` & `templates/base.html`)**:
-   - Se removió la restricción `@admin_required` del módulo de Puntos.
-   - Ahora aparece la opción **`🏠 Puntos (Productos Externos)`** en la barra lateral del menú de vendedores.
-   - Los vendedores de cualquier sede pueden consultar estados de cuenta, registrar nuevos puntos y realizar abonos.
+1. **Exclusión Estricta de Peticiones POST/PUT/DELETE (`static/sw.js`)**:
+   - Se incluyó la validación:
+     ```javascript
+     if (event.request.method !== 'GET') {
+         return; // Pasa directo a la red sin ser interceptado por el Service Worker
+     }
+     ```
+   - Ahora el navegador envía las fotografías pesadas (desde celular y computador) directamente al servidor Flask sin pasar por la capa de caché.
 
-2. **Registro de Sede Pagadora y Cuadre de Arqueo (`models.py`, `routes/puntos.py`, `routes/sales.py`)**:
-   - Se añadió el campo `local_id` a la tabla `punto_transactions`.
-   - Al registrar un abono a favor de un Punto, el cajero selecciona (o se preselecciona su sede actual) la **Sede que realiza el desembolso**.
-   - El sistema registra automáticamente el pago como **Gasto Diario en la caja de esa sede pagadora**, garantizando que su **Arqueo de Caja se descuente y cuadre perfectamente**.
+2. **Exclusión de Rutas Dinámicas de la App**:
+   - Rutas como `/inventory`, `/sales`, `/admin`, `/traslados`, etc. no se guardan en caché local ni interfieren en los envíos de datos.
 
-3. **Nueva Tabla y Tarjeta de Desglose por Sede en Estado de Cuenta (`templates/puntos/detail.html`)**:
-   - **Tarjeta Desglose:** Muestra cuánto dinero ha abonado/pagado cada local: `D&L 1`, `D&L 2` y `D&L 3`.
-   - **Columna SEDE / LOCAL:** En la tabla de *Movimientos / Transacciones* se añadió la columna **`SEDE / LOCAL`** con una insignia distintiva indicando desde qué caja se vendió o desde qué caja se pagó cada abono.
+3. **Actualización de Versión de Caché (`koba-app-v3`)**:
+   - Se incrementó la versión a `koba-app-v3` para invalidar y limpiar automáticamente el Service Worker antiguo en los celulares y computadores de los usuarios.
 
 ---
 
 ## Verificación Realizada
 
-- **Test Automatizado:** Simulación en Python registrando abonos desde un usuario vendedor asignado a D&L 2:
-  - `Puntos index & detail`: **200 OK** para vendedores.
-  - `PuntoTransaction local_id`: Asignado correctamente a **D&L 2**.
-  - Registro de Gasto para Arqueo en D&L 2: **OK**.
-- **Despliegue a Git:** Código subido a GitHub (`RAMAR2311/D-L`).
+- **Endpoint `/sw.js`:** Respuesta **200 OK** verificada.
+- **Git Push:** Cambios subidos correctamente a GitHub (`RAMAR2311/D-L`).
