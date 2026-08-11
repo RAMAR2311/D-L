@@ -254,5 +254,25 @@
             </div>
         </div>
     </div>
+
+    <!-- 9. Tarjeta: TRASLADOS ENTRE SEDES -->
+    <div class="col-md-3">
+        <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                    <i class="fa-solid fa-truck-ramp-box fs-2"></i>
+                </div>
+                <span class="badge bg-success rounded-pill">Traslados</span>
+            </div>
+            <h5 class="text-brand-black fw-bold mb-1">Traslados entre Sedes</h5>
+            <h2 class="fw-bolder text-success mb-1">{{ total_traslados }} <span class="fs-6 fw-normal text-muted">movimientos</span></h2>
+            <p class="text-muted small mb-0"><i class="fa-solid fa-right-left me-1"></i> Auditoría de envíos y recepciones</p>
+            <div class="mt-auto pt-3">
+                <a href="{{ url_for('traslados_bp.index', local=active_local) }}" class="btn btn-success text-white w-100 rounded-pill shadow-sm fw-bold">
+                    <i class="fa-solid fa-truck-ramp-box me-1"></i> Ver Traslados
+                </a>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

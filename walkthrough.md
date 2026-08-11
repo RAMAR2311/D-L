@@ -1,21 +1,26 @@
-# Walkthrough: Columna de Sede / Local en la Vista Central del Historial de Ventas
+# Walkthrough: Corrección de Abonos Exactos en Módulo de PUNTOS
 
-Hemos añadido la columna **SEDE / LOCAL** en el **Historial de Registro de Ventas** cuando te encuentras en la vista **Central (Todos)**.
+Hemos corregido la restricción en el formulario de abonos del **Módulo de PUNTOS (Locales Externos)** que impedía registrar valores exactos (como los $99 del saldo restante).
 
 ---
 
-## Cambio Implementado
+## Causa Identificada
 
-- **Visualización en Vista Central (`templates/sales/historial.html`)**:
-  - Al ingresar al Historial de Ventas seleccionando el botón **Central (Todos)** (`/sales/historial?local=central`), la tabla despliega una nueva columna llamada **`SEDE / LOCAL`** entre *Fecha de Cobro* y *Vendedor Responsable*.
-  - Muestra la sede donde se originó cada transacción con su respectivo identificador visual:
-    - 🏪 **D&L 1** (Badge azul)
-    - 🏪 **D&L 2** (Badge turquesa)
-    - 🏪 **D&L 3** (Badge verde)
+- El campo de texto en la ventana de registro de abono contenía un atributo HTML `step="100"`.
+- Este atributo obligaba al navegador a aceptar únicamente montos múltiplos exactos de $100 pesos (ej. $100, $200, $50,000), rechazando cualquier valor como $99, $50 o $10 y obligando al usuario a ingresar $1 peso de más.
+
+---
+
+## Solución Aplicada
+
+1. **Permisión de Valores Exactos (`templates/puntos/detail.html`)**:
+   - Se ajustó el atributo a `step="1"`, permitiendo ingresar cualquier valor entero exacto en pesos (ej. $99, $1, $50).
+2. **Conservación de Registros**:
+   - Cuando el saldo pendiente llega a `$0 (Al Día)`, el Punto **permanece registrado en el directorio** con la etiqueta verde `$0 (Al Día)`, conservando todo su historial contable de cargos y abonos intacto.
 
 ---
 
 ## Verificación Realizada
 
-- **Test Automatizado:** Ejecutado test de renderizado con `active_local = 'central'`. Respuesta: **200 OK**.
+- **Test Automatizado:** Ejecutado test de abono por la suma exacta de $99. Resultado: **Abonar exact amount test: OK**.
 - **Despliegue a Git:** Cambios subidos correctamente al repositorio GitHub (`RAMAR2311/D-L`).

@@ -158,7 +158,14 @@ def dashboard():
     total_arqueos = query_arqueos.count()
     ultimo_arqueo = query_arqueos.order_by(ArqueoCaja.fecha_creacion.desc()).first()
 
-    # Métricas Informativas de Inventario
+    # Métricas Informativas de Inventario y Traslados
+    from models import StockTransfer
+    query_traslados = StockTransfer.query
+    if active_local != 'central':
+        local_num = int(active_local)
+        query_traslados = query_traslados.filter(or_(StockTransfer.local_origen_id == local_num, StockTransfer.local_destino_id == local_num))
+    total_traslados = query_traslados.count()
+
     todos_prods = Product.query.filter_by(tipo_inventario='tienda').all()
     total_productos = len(todos_prods)
     productos_bajo_stock = sum(1 for p in todos_prods if p.get_stock_local(active_local) <= 3)
@@ -177,7 +184,8 @@ def dashboard():
         ultimo_arqueo=ultimo_arqueo,
         total_productos=total_productos,
         productos_bajo_stock=productos_bajo_stock,
-        maneos_activos=maneos_activos
+        maneos_activos=maneos_activos,
+        total_traslados=total_traslados
     )
 
 @admin_bp.route('/maneos')
