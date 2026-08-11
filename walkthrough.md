@@ -1,29 +1,35 @@
-# Walkthrough: Eliminación de Traslados No Facturados para Administradores
+# Walkthrough: Solución al Error de Subida de Fotos en "Editar Producto Maestro"
 
-Se implementó la funcionalidad para que únicamente los **Administradores** puedan eliminar registros de traslados de mercancía, garantizando la restricción estricta de que **no se permite eliminar traslados que ya hayan sido facturados** en una venta real.
+Se analizaron y corrigieron **dos causas raíz** que impedían la subida y actualización de fotos de productos maestros al ingresar al formulario de edición.
+
+---
+
+## Análisis de Causas Raíz
+
+1. **Inclusión de Scripts en la Plantilla Base (`templates/base.html`)**:
+   - En la plantilla `templates/inventory/form.html`, el código JavaScript encargado de la **compresión client-side y generación de la imagen optimizada Base64** estaba dentro de un bloque `{% block scripts %}`.
+   - Sin embargo, la plantilla principal `base.html` no tenía definido `{% block scripts %}{% endblock %}` al final del archivo.
+   - Como resultado, **Jinja omitía el script de compresión de imágenes al editar un producto**, obligando al navegador a enviar la foto pesada sin comprimir y provocando que el servidor o la red rechazaran la carga.
+
+2. **IndexError en la Lectura de Precios de Variantes (`routes/inventory.py`)**:
+   - Al guardar la edición del producto, el backend intentaba leer `v_costos[i]` y `v_mins[i]` sin verificar la longitud del arreglo. Como las variantes no envían esos campos en el formulario, Python arrojaba un error `IndexError: list index out of range`, deshaciendo la transacción (`db.session.rollback()`) y mostrando una alerta de error.
 
 ---
 
 ## Cambios Implementados
 
-1. **Restricción y Control de Eliminación (`routes/traslados.py`)**:
-   - Se añadió el endpoint `@traslados_bp.route('/<int:id>/eliminar', methods=['POST'])` exclusivo para administradores (`@admin_required`).
-   - **Si el traslado ya fue facturado (`es_facturado = True` o `sale_id != None`)**: El sistema bloquea la acción y muestra la alerta: *"No es posible eliminar este traslado porque ya fue facturado en una venta real."*
-   - **Si el traslado NO fue facturado**: El sistema elimina el registro y **devuelve automáticamente la cantidad de mercancía a la sede de origen**, restándola de la sede de destino.
+1. **Inclusión de `{% block scripts %}` en `templates/base.html`**:
+   - Se añadió la etiqueta `{% block scripts %}{% endblock %}` al final de `base.html` para garantizar que la compresión e inserción Base64 se ejecute en la vista de edición.
 
-2. **Diferenciación de Estado en la Tabla (`templates/traslados/index.html`)**:
-   - Se agregó la columna **`ESTADO / ACCIÓN`** en el historial del módulo de traslados:
-     - 🟢 **Badge `Facturado`:** Para aquellos traslados asociados a tickets de venta facturados. No muestra botón de eliminar.
-     - 🟡 **Badge `No Facturado`:** Para traslados manuales o pendientes. Muestra el botón 🗑️ **`Eliminar`** únicamente para Administradores.
-
-3. **Modelo de Datos (`models.py`)**:
-   - Se añadieron las columnas `sale_id` y `es_facturado` al modelo `StockTransfer`.
+2. **Validación de Límites en Arreglos de Variantes (`routes/inventory.py`)**:
+   - Se actualizó la lectura de `costo_v`, `min_v` y `sug_v` con validación de longitud de lista (`i < len(...)`).
 
 ---
 
 ## Verificación Realizada
 
-- **Test Automatizado:**
-  - Intento de eliminar traslado con `es_facturado=True`: **Bloqueado exitosamente** (permanece intacto en BD).
-  - Intento de eliminar traslado manual con `es_facturado=False`: **Eliminado con éxito** y stock revertido al origen.
+- **Test Automatizado:** Edición exitosa de producto maestro enviando imagen Base64:
+  - Estado HTTP: `302 FOUND` (Redirección limpia a `/inventory`).
+  - `db.session.commit()`: Exitoso.
+  - Actualización de imagen: **1e2d9d4d.jpg** guardada correctamente.
 - **Despliegue a Git:** Código subido a GitHub (`RAMAR2311/D-L`).
