@@ -16,21 +16,6 @@ def index():
     if active_local not in ['central', '1', '2', '3']:
         active_local = 'central'
 
-    # Autopoblar asesores iniciales si la tabla está vacía (como en la imagen adjunta)
-    if Asesor.query.count() == 0:
-        iniciales = [
-            {'nombre': 'Bryan Andres', 'local_id': 1},
-            {'nombre': 'Estefania', 'local_id': 1},
-            {'nombre': 'Jorge Toro', 'local_id': 2},
-            {'nombre': 'Laura Narvaez', 'local_id': 2},
-            {'nombre': 'Leonardo Sarmiento', 'local_id': 3},
-            {'nombre': 'Maria Camila', 'local_id': 3},
-            {'nombre': 'Valentina Tovar', 'local_id': 1}
-        ]
-        for a in iniciales:
-            db.session.add(Asesor(nombre=a['nombre'], local_id=a['local_id'], estado='Activo'))
-        db.session.commit()
-
     query = Asesor.query
     if active_local != 'central':
         query = query.filter(or_(Asesor.local_id == int(active_local), Asesor.local_id == 0))
@@ -133,12 +118,14 @@ def eliminar(id):
     nombre = asesor.nombre
 
     try:
+        # Desenlazar ventas asociadas a este asesor para evitar error de clave foránea
+        Sale.query.filter_by(asesor_id=id).update({'asesor_id': None})
         db.session.delete(asesor)
         db.session.commit()
-        flash(f'Asesor "{nombre}" eliminado.', 'success')
+        flash(f'Asesor "{nombre}" eliminado exitosamente.', 'success')
     except Exception as e:
         db.session.rollback()
-        flash('Error al eliminar el asesor.', 'danger')
+        flash(f'Error al eliminar el asesor: {str(e)}', 'danger')
 
     return redirect(url_for('asesores_bp.index'))
 
