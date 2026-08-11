@@ -129,7 +129,8 @@ def procesar_venta():
                         usuario_id=current_user.id,
                         tipo_movimiento='cargo',
                         monto=(precio_costo_manual * cantidad_vendida),
-                        descripcion=f"Venta POS: {nombre_manual} ({cantidad_vendida} uds)"
+                        local_id=local_id_venta,
+                        descripcion=f"Venta POS D&L {local_id_venta}: {nombre_manual} ({cantidad_vendida} uds)"
                     )
                     db.session.add(cargo_punto)
                 elif not punto_obj and precio_costo_manual > 0:

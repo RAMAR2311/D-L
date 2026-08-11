@@ -254,6 +254,7 @@ class PuntoTransaction(db.Model):
     monto = db.Column(db.Numeric(12, 2), nullable=False)
     metodo_pago = db.Column(db.String(50), nullable=True, default='efectivo')
     descripcion = db.Column(db.String(255), nullable=True)
+    local_id = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
     fecha = db.Column(db.DateTime, default=obtener_hora_bogota)
 
     usuario = db.relationship('User', backref='punto_transacciones', lazy=True)

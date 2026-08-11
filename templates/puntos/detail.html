@@ -19,7 +19,7 @@
 </div>
 
 <!-- Resumen del Estado de Cuenta -->
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-3">
     <div class="col-md-4">
         <div class="card card-custom p-3 border-start border-4 border-warning shadow-sm">
             <small class="text-muted fw-bold text-uppercase">Total Productos Vendidos (Cargos)</small>
@@ -42,6 +42,31 @@
     </div>
 </div>
 
+<!-- Tarjeta de Desglose de Abonos por Sede Pagadora -->
+<div class="card card-custom p-3 mb-4 bg-light border-0 shadow-sm">
+    <small class="text-muted fw-bold text-uppercase d-block mb-2"><i class="fa-solid fa-building-columns me-1"></i> Desglose de Abonos Desembolsados por Sede</small>
+    <div class="row g-2 text-center">
+        <div class="col-4">
+            <div class="p-2 bg-white rounded shadow-sm border">
+                <small class="text-muted fw-bold d-block">🏪 D&L 1</small>
+                <span class="fw-bolder text-primary fs-6">${{ '{:,.0f}'.format(abonos_l1) }}</span>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="p-2 bg-white rounded shadow-sm border">
+                <small class="text-muted fw-bold d-block">🏪 D&L 2</small>
+                <span class="fw-bolder text-info fs-6">${{ '{:,.0f}'.format(abonos_l2) }}</span>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="p-2 bg-white rounded shadow-sm border">
+                <small class="text-muted fw-bold d-block">🏪 D&L 3</small>
+                <span class="fw-bolder text-success fs-6">${{ '{:,.0f}'.format(abonos_l3) }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Tabla de Movimientos del Estado de Cuenta -->
 <div class="card card-custom p-0 overflow-hidden">
     <div class="card-header bg-light py-3 border-0">
@@ -55,6 +80,7 @@
                 <tr>
                     <th class="ps-4">FECHA Y HORA</th>
                     <th>TIPO DE MOVIMIENTO</th>
+                    <th class="text-center">SEDE / LOCAL</th>
                     <th>DESCRIPCIÓN / PRODUCTO</th>
                     <th class="text-center">MÉTODO DE PAGO</th>
                     <th class="text-end pe-4">MONTO</th>
@@ -73,6 +99,18 @@
                             <span class="badge bg-success rounded-pill px-3 py-2">
                                 <i class="fa-solid fa-arrow-up me-1"></i> Abono Realizado
                             </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% set loc = t.local_id or 1 %}
+                        {% if loc == 1 %}
+                            <span class="badge bg-primary text-white rounded-pill px-3 py-1">D&L 1</span>
+                        {% elif loc == 2 %}
+                            <span class="badge bg-info text-white rounded-pill px-3 py-1">D&L 2</span>
+                        {% elif loc == 3 %}
+                            <span class="badge bg-success text-white rounded-pill px-3 py-1">D&L 3</span>
+                        {% else %}
+                            <span class="badge bg-secondary text-white rounded-pill px-3 py-1">D&L {{ loc }}</span>
                         {% endif %}
                     </td>
                     <td class="fw-semibold text-brand-black">
