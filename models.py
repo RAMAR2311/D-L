@@ -277,6 +277,28 @@ class StockAdjustment(db.Model):
     def __init__(self, **kwargs):
         super(StockAdjustment, self).__init__(**kwargs)
 
+class StockTransfer(db.Model):
+    __tablename__ = 'stock_transfers'
+
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    variant_id = db.Column(db.Integer, db.ForeignKey('product_variants.id'), nullable=True)
+    local_origen_id = db.Column(db.Integer, nullable=False)  # 1, 2, 3
+    local_destino_id = db.Column(db.Integer, nullable=False) # 1, 2, 3
+    cantidad = db.Column(db.Integer, nullable=False, default=1)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
+    observacion = db.Column(db.String(255), nullable=True)
+    fecha_transferencia = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    producto = db.relationship('Product', backref='traslados', lazy=True)
+    variante = db.relationship('ProductVariant', backref='traslados', lazy=True)
+    usuario = db.relationship('User', backref='traslados_realizados', lazy=True)
+    asesor = db.relationship('Asesor', backref='traslados_solicitados', lazy=True)
+
+    def __init__(self, **kwargs):
+        super(StockTransfer, self).__init__(**kwargs)
+
 class ArqueoCaja(db.Model):
     __tablename__ = 'arqueo_caja'
     

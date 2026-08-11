@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Header Principal -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold text-brand-black mb-1">
+                <i class="fa-solid fa-truck-ramp-box me-2" style="color: var(--brand-blue);"></i>Traslados de Inventario Entre Sedes
+            </h2>
+            <p class="text-muted mb-0 small">Historial y auditoría de movimiento de mercancía entre D&L CENTRAL, D&L 1, D&L 2 y D&L 3</p>
+        </div>
+
+        {% if is_admin %}
+        <!-- Filtro Multi-Sede Exclusivo para Administrador -->
+        <div class="bg-white p-1 rounded-pill shadow-sm border d-flex gap-1">
+            <a href="{{ url_for('traslados_bp.index', local='central') }}" class="btn btn-sm rounded-pill px-3 fw-bold {% if active_local == 'central' %}btn-dark text-white{% else %}btn-light text-muted{% endif %}">
+                <i class="fa-solid fa-globe me-1"></i> D&L CENTRAL
+            </a>
+            <a href="{{ url_for('traslados_bp.index', local='1') }}" class="btn btn-sm rounded-pill px-3 fw-bold {% if active_local == '1' %}btn-primary text-white{% else %}btn-light text-muted{% endif %}">
+                🏪 D&L 1
+            </a>
+            <a href="{{ url_for('traslados_bp.index', local='2') }}" class="btn btn-sm rounded-pill px-3 fw-bold {% if active_local == '2' %}btn-info text-white{% else %}btn-light text-muted{% endif %}">
+                🏪 D&L 2
+            </a>
+            <a href="{{ url_for('traslados_bp.index', local='3') }}" class="btn btn-sm rounded-pill px-3 fw-bold {% if active_local == '3' %}btn-success text-white{% else %}btn-light text-muted{% endif %}">
+                🏪 D&L 3
+            </a>
+        </div>
+        {% else %}
+        <span class="badge bg-primary rounded-pill fs-6 px-3 py-2">
+            <i class="fa-solid fa-shop me-1"></i> {{ nombre_sede }}
+        </span>
+        {% endif %}
+    </div>
+
+    <!-- TARJETAS DE KPIS GLOBALES -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card card-custom h-100 p-4 border-start border-4 border-primary shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small fw-bold text-uppercase">Total Operaciones de Traslado</span>
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-2 text-primary">
+                        <i class="fa-solid fa-right-left fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="fw-bolder text-dark mb-0">{{ total_traslados }}</h2>
+                <small class="text-muted" style="font-size: 0.75rem;">Movimientos registrados en {{ nombre_sede }}</small>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card card-custom h-100 p-4 border-start border-4 border-success shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small fw-bold text-uppercase">Total Unidades Movilizadas</span>
+                    <div class="rounded-circle bg-success bg-opacity-10 p-2 text-success">
+                        <i class="fa-solid fa-boxes-stacked fs-4"></i>
+                    </div>
+                </div>
+                <h2 class="fw-bolder text-success mb-0">{{ total_unidades }} unids</h2>
+                <small class="text-muted" style="font-size: 0.75rem;">Cantidad total de productos transferidos</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLA DE TRASLADOS -->
+    <div class="card card-custom p-0 overflow-hidden shadow-sm border-0 bg-white">
+        <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-brand-black mb-0">
+                <i class="fa-solid fa-list-check text-primary me-2"></i>Historial de Traslados de Mercancía
+            </h5>
+            <span class="badge bg-primary rounded-pill px-3 py-1">{{ traslados|length }} registros</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4 py-3" width="14%">Fecha / Hora</th>
+                        <th width="26%">Producto / Subcategoría</th>
+                        <th class="text-center" width="10%">Cant.</th>
+                        <th width="20%">Origen ➔ Destino</th>
+                        <th width="15%">Asesor Solicitante</th>
+                        <th width="15%">Cajero / Usuario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in traslados %}
+                    <tr>
+                        <td class="ps-4">
+                            <span class="fw-semibold text-dark d-block" style="font-size: 0.85rem;">{{ t.fecha_transferencia.strftime('%d/%m/%Y') }}</span>
+                            <small class="text-muted"><i class="fa-regular fa-clock me-1"></i>{{ t.fecha_transferencia.strftime('%H:%M') }}</small>
+                        </td>
+                        <td>
+                            <span class="fw-bold text-dark fs-6 d-block">{{ t.producto.nombre }}</span>
+                            {% if t.variante %}
+                                <span class="badge bg-light text-primary border rounded-pill px-2 py-1 mt-1" style="font-size: 0.72rem;">
+                                    <i class="fa-solid fa-tags me-1"></i>{{ t.variante.nombre_variante }}
+                                </span>
+                            {% endif %}
+                            {% if t.observacion %}
+                                <small class="text-muted d-block fst-italic mt-1" style="font-size: 0.72rem;">
+                                    <i class="fa-regular fa-comment me-1"></i>{{ t.observacion }}
+                                </small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary fs-6 fw-bold px-3 py-1">
+                                {{ t.cantidad }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="badge bg-secondary text-white rounded-pill px-2 py-1" style="font-size:0.75rem;">
+                                    D&L {{ t.local_origen_id }}
+                                </span>
+                                <i class="fa-solid fa-arrow-right text-muted small px-1"></i>
+                                <span class="badge bg-success text-white rounded-pill px-2 py-1" style="font-size:0.75rem;">
+                                    D&L {{ t.local_destino_id }}
+                                </span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if t.asesor %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info px-2 py-1 fw-bold">
+                                    <i class="fa-solid fa-user-check me-1"></i>{{ t.asesor.nombre }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted small fst-italic">Sin asesor especificado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="small fw-semibold text-dark d-block">
+                                <i class="fa-solid fa-user-gear me-1 text-muted"></i>{{ t.usuario.nombre if t.usuario else 'Sistema' }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-truck-ramp-box fa-3x mb-3 opacity-50"></i>
+                            <h5 class="fw-bold">No hay traslados registrados</h5>
+                            <p class="mb-0">Los traslados solicitados desde la Caja POS o entre sedes aparecerán listados aquí automáticamente.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

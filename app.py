@@ -50,11 +50,16 @@ def create_app():
     from routes.arqueo import arqueo_bp
     from routes.gastos import gastos_bp
     
+    from routes.puntos import puntos_bp
+    from routes.traslados import traslados_bp
+
     app.register_blueprint(sales_bp, url_prefix='/sales')
     app.register_blueprint(inventory_bp, url_prefix='/inventory')
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(arqueo_bp, url_prefix='/arqueo')
     app.register_blueprint(gastos_bp, url_prefix='/gastos')
+    app.register_blueprint(puntos_bp, url_prefix='/puntos')
+    app.register_blueprint(traslados_bp, url_prefix='/traslados')
     
     # Registro de Blueprint Admin
     from routes.admin import admin_bp
@@ -71,10 +76,6 @@ def create_app():
     # Registro de Blueprint Asesores
     from routes.asesores import asesores_bp
     app.register_blueprint(asesores_bp)
-
-    # Registro de Blueprint Puntos
-    from routes.puntos import puntos_bp
-    app.register_blueprint(puntos_bp)
 
 
     @app.template_filter('cop')
