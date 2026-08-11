@@ -1,4 +1,10 @@
 import os
+import uuid
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
 from werkzeug.utils import secure_filename
 from flask import current_app, Blueprint, render_template, request, redirect, url_for, flash, abort, send_file, jsonify
 from flask_login import login_required, current_user
@@ -8,6 +14,43 @@ import pandas as pd
 from io import BytesIO
 
 inventory_bp = Blueprint('inventory_bp', __name__)
+
+def guardar_imagen_subida(file):
+    """Guarda y optimiza una imagen subida, asegurando que exista la carpeta y generando un nombre único."""
+    if not file or file.filename == '':
+        return None
+
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+    os.makedirs(upload_folder, exist_ok=True)
+
+    filename_clean = secure_filename(file.filename)
+    if not filename_clean:
+        filename_clean = 'foto.jpg'
+
+    unique_name = f"{uuid.uuid4().hex[:8]}_{filename_clean}"
+    target_path = os.path.join(upload_folder, unique_name)
+
+    if Image:
+        try:
+            img = Image.open(file)
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+
+            # Redimensionar fotos pesadas de celulares (máx 1600px)
+            img.thumbnail((1600, 1600))
+            img.save(target_path, "JPEG", quality=85, optimize=True)
+            return unique_name
+        except Exception as e:
+            print("Pillow optimization exception, falling back to direct save:", e)
+
+    # Fallback de guardado directo si no se puede procesar como JPEG
+    try:
+        file.seek(0)
+        file.save(target_path)
+        return unique_name
+    except Exception as e:
+        print("Error al guardar archivo en fallback:", e)
+        return None
 
 @inventory_bp.route('/', methods=['GET'])
 @login_required
@@ -141,13 +184,9 @@ def nuevo():
         if 'imagen' in request.files:
             file = request.files['imagen']
             if file and file.filename != '':
-                filename = secure_filename(file.filename)
-                try:
-                    file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
-                    imagen_filename = filename
-                except OSError as e:
-                    flash(f'Error al guardar la imagen (Revisa permisos o la ruta en el VPS): {str(e)}', 'danger')
-                    return redirect(url_for('inventory_bp.nuevo'))
+                imagen_filename = guardar_imagen_subida(file)
+                if not imagen_filename:
+                    flash('No se pudo procesar la imagen seleccionada. Intenta con otra foto.', 'warning')
 
         # La instanciación agrupa todos los parámetros del nuevo producto
         tipo = 'bodega' if current_user.rol == 'bodega' else 'tienda'
@@ -257,23 +296,12 @@ def editar_producto(id):
         stock_total_anterior = producto.total_stock
         
         # Actualizar Imagen si se sube una nueva
-        print("DEBUG: Processing POST request for /editar/" + str(id))
         if 'imagen' in request.files:
             file = request.files['imagen']
-            print("DEBUG: 'imagen' found in request.files. filename:", file.filename)
             if file and file.filename != '':
-                filename = secure_filename(file.filename)
-                print("DEBUG: secure_filename is:", filename)
-                try:
-                    file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
-                    print("DEBUG: file saved successfully to:", os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
-                    producto.imagen = filename
-                except OSError as e:
-                    print("DEBUG: OSError saving file:", e)
-                    flash(f'Error al guardar la imagen (Revisa permisos o la ruta en el VPS): {str(e)}', 'danger')
-                    return redirect(url_for('inventory_bp.editar_producto', id=id))
-        else:
-            print("DEBUG: 'imagen' NOT found in request.files")
+                nueva_img = guardar_imagen_subida(file)
+                if nueva_img:
+                    producto.imagen = nueva_img
                 
                 
         # Datos básicos

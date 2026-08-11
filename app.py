@@ -22,6 +22,13 @@ def create_app():
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
+    app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32 MB límite de subida
+
+    @app.errorhandler(413)
+    def request_entity_too_large(error):
+        from flask import flash, redirect, request
+        flash('El archivo enviado es demasiado grande (máximo 32MB).', 'danger')
+        return redirect(request.referrer or url_for('inventory_bp.index'))
 
     # Inicializar Extensiones
     db.init_app(app)
