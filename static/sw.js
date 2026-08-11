@@ -1,4 +1,4 @@
-const CACHE_NAME = 'koba-app-v1';
+const CACHE_NAME = 'koba-app-v3';
 const ASSETS_TO_CACHE = [
     '/',
     '/static/manifest.json',
@@ -10,12 +10,11 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => {
-                return cache.addAll(ASSETS_TO_CACHE);
-            })
-            .then(() => self.skipWaiting())
+            .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+            .catch((err) => console.log('SW install cache error ignored:', err))
     );
 });
 
@@ -34,22 +33,47 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Para las peticiones de navegación o de API, usamos estrategia Network First
+    // Si la petición NO es GET (ej. POST/PUT/DELETE para guardar productos, subir fotos, facturar),
+    // el Service Worker NUNCA debe interceptarla. Pasa directo a la red.
+    if (event.request.method !== 'GET') {
+        return;
+    }
+
+    const url = new URL(event.request.url);
+
+    // No interceptar peticiones a esquemas no-http/https
+    if (!url.protocol.startsWith('http')) {
+        return;
+    }
+
+    // No interceptar ni almacenar en caché rutas dinámicas ni formularios de la aplicación
+    const isDynamicRoute = url.pathname.startsWith('/inventory') ||
+                          url.pathname.startsWith('/admin') ||
+                          url.pathname.startsWith('/sales') ||
+                          url.pathname.startsWith('/traslados') ||
+                          url.pathname.startsWith('/puntos') ||
+                          url.pathname.startsWith('/gastos') ||
+                          url.pathname.startsWith('/proveedores') ||
+                          url.pathname.startsWith('/bodega') ||
+                          url.pathname.startsWith('/asesores') ||
+                          url.pathname.startsWith('/arqueo');
+
+    if (isDynamicRoute) {
+        return;
+    }
+
     event.respondWith(
         fetch(event.request)
             .then((response) => {
-                // Hacemos una copia para guardar en caché
-                const responseClone = response.clone();
-                caches.open(CACHE_NAME).then((cache) => {
-                    // Evitamos guardar en caché POST/PUT o extensiones raras si es necesario
-                    if(event.request.method === 'GET' && !event.request.url.includes('/api/')){
+                if (response && response.status === 200 && response.type === 'basic') {
+                    const responseClone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
                         cache.put(event.request, responseClone);
-                    }
-                });
+                    });
+                }
                 return response;
             })
             .catch(() => {
-                // Fallback a caché si no hay red
                 return caches.match(event.request);
             })
     );

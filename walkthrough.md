@@ -1,31 +1,31 @@
-# Walkthrough: Ejecución de Traslados Diferida al Momento del Cobro y Asesor Obligatorio
+# Walkthrough: Acceso a Puntos para Vendedores y Desglose de Abonos por Sede
 
-Hemos ajustado la lógica de traslados de mercancía para que **se ejecuten únicamente cuando la factura se cobra efectivamente** en la Caja POS y el campo **Asesor Solicitante sea 100% obligatorio**.
+Hemos implementado el acceso al **Módulo de Puntos (Productos Externos)** para todos los vendedores y cajeros, con registro explícito de la sede que realiza el desembolso y un cuadro interactivo en el Estado de Cuenta con el **desglose de abonos pagados por cada sede (D&L 1, D&L 2, D&L 3)**.
 
 ---
 
 ## Cambios Implementados
 
-1. **Asesor Solicitante Obligatorio (`templates/sales/caja_visual.html`)**:
-   - En el modal de solicitud de traslado (`#modalTrasladoPOS`), el campo **Asesor Solicitante** ahora es **requerido (`required`)**.
-   - El sistema no permite agregar el producto al carrito sin antes seleccionar el Asesor comercial responsable de pedir la mercancía.
+1. **Acceso Habilitado para Vendedores (`routes/puntos.py` & `templates/base.html`)**:
+   - Se removió la restricción `@admin_required` del módulo de Puntos.
+   - Ahora aparece la opción **`🏠 Puntos (Productos Externos)`** en la barra lateral del menú de vendedores.
+   - Los vendedores de cualquier sede pueden consultar estados de cuenta, registrar nuevos puntos y realizar abonos.
 
-2. **Diferimiento y Acoplamiento al Cobro (`routes/sales.py` & `caja_visual.html`)**:
-   - Al hacer clic en **`Agregar al Carrito (Traslado Pendiente)`**, el producto se carga al carrito de ventas mostrando un distintivo azul: `🚚 Traslado desde D&L X (Asesor: [Nombre])`.
-   - **No se altera el inventario ni se crea ningún registro de traslado de forma prematura**.
-   - Si el cliente cancela la compra o decide no llevar el producto, se vacía el carrito y **no queda ningún registro ni alteración de stock**.
-   - Al presionar **`Completar Venta / Cobrar`**, el backend procesa en una sola transacción atómica:
-     1. Descuento de stock en la sede origen.
-     2. Transferencia al local de venta.
-     3. Creación del registro en el **Módulo de Traslados** asignando el **Asesor Solicitante**.
-     4. Generación del ticket de venta.
+2. **Registro de Sede Pagadora y Cuadre de Arqueo (`models.py`, `routes/puntos.py`, `routes/sales.py`)**:
+   - Se añadió el campo `local_id` a la tabla `punto_transactions`.
+   - Al registrar un abono a favor de un Punto, el cajero selecciona (o se preselecciona su sede actual) la **Sede que realiza el desembolso**.
+   - El sistema registra automáticamente el pago como **Gasto Diario en la caja de esa sede pagadora**, garantizando que su **Arqueo de Caja se descuente y cuadre perfectamente**.
+
+3. **Nueva Tabla y Tarjeta de Desglose por Sede en Estado de Cuenta (`templates/puntos/detail.html`)**:
+   - **Tarjeta Desglose:** Muestra cuánto dinero ha abonado/pagado cada local: `D&L 1`, `D&L 2` y `D&L 3`.
+   - **Columna SEDE / LOCAL:** En la tabla de *Movimientos / Transacciones* se añadió la columna **`SEDE / LOCAL`** con una insignia distintiva indicando desde qué caja se vendió o desde qué caja se pagó cada abono.
 
 ---
 
 ## Verificación Realizada
 
-- **Test Automatizado:** Simulación completa en Python enviando un ticket de venta con traslado diferido desde D&L 2 a D&L 1 con Asesor asignado:
-  - Stock Origen (D&L 2): `5 ➔ 4`
-  - Stock Destino (D&L 1): `0 ➔ 1` (consumido en el ticket)
-  - `StockTransfer` ID generado asignando a **Bryan Andres** (Asesor): **OK**.
-- **Despliegue a Git:** Código compilado y subido correctamente al repositorio GitHub (`RAMAR2311/D-L`).
+- **Test Automatizado:** Simulación en Python registrando abonos desde un usuario vendedor asignado a D&L 2:
+  - `Puntos index & detail`: **200 OK** para vendedores.
+  - `PuntoTransaction local_id`: Asignado correctamente a **D&L 2**.
+  - Registro de Gasto para Arqueo en D&L 2: **OK**.
+- **Despliegue a Git:** Código subido a GitHub (`RAMAR2311/D-L`).
