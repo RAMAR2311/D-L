@@ -277,9 +277,9 @@
                             <input type="number" id="traslado_cantidad" name="cantidad" class="form-control bg-light border-0 fw-bold" value="1" min="1" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold small text-muted">Asesor Solicitante</label>
-                            <select id="traslado_asesor_id" name="asesor_id" class="form-select bg-light border-0">
-                                <option value="">-- Seleccionar Asesor --</option>
+                            <label class="form-label fw-bold small text-muted">Asesor Solicitante *</label>
+                            <select id="traslado_asesor_id" name="asesor_id" class="form-select bg-light border-0 fw-semibold" required>
+                                <option value="">-- Seleccionar Asesor (Obligatorio) --</option>
                                 {% for a in asesores %}
                                     <option value="{{ a.id }}">{{ a.nombre }}</option>
                                 {% endfor %}
@@ -296,7 +296,7 @@
                 <div class="modal-footer border-0 bg-light">
                     <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" id="btnConfirmarTrasladoPOS">
-                        <i class="fa-solid fa-check me-1"></i> Confirmar y Agregar al Carrito
+                        <i class="fa-solid fa-cart-plus me-1"></i> Agregar al Carrito (Traslado Pendiente)
                     </button>
                 </div>
             </form>
@@ -475,58 +475,65 @@
         new bootstrap.Modal(document.getElementById('modalTrasladoPOS')).show();
     }
 
-    async function procesarTrasladoPOS(event) {
+    function procesarTrasladoPOS(event) {
         event.preventDefault();
-        const btn = document.getElementById('btnConfirmarTrasladoPOS');
-        btn.disabled = true;
-        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin me-1"></i> Procesando...`;
         
-        const form = document.getElementById('formTrasladoPOS');
-        const formData = new FormData(form);
-        formData.append('csrf_token', csrf_token);
+        const asesorSelect = document.getElementById('traslado_asesor_id');
+        const asesorId = asesorSelect.value;
+        const asesorNombre = asesorSelect.options[asesorSelect.selectedIndex] ? asesorSelect.options[asesorSelect.selectedIndex].text : '';
         
-        try {
-            const response = await fetch('/traslados/solicitar', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-            const result = await response.json();
-            
-            btn.disabled = false;
-            btn.innerHTML = `<i class="fa-solid fa-check me-1"></i> Confirmar y Agregar al Carrito`;
-            
-            if (result.success) {
-                bootstrap.Modal.getInstance(document.getElementById('modalTrasladoPOS')).hide();
-                
-                const cantidadMovida = parseInt(document.getElementById('traslado_cantidad').value) || 1;
-                
-                if (pendingTrasladoItem) {
-                    const { pData, vData } = pendingTrasladoItem;
-                    if (vData) {
-                        vData.stock = (vData.stock || 0) + cantidadMovida;
-                        const debeDescontar = (vData.descontar_inventario !== undefined) ? vData.descontar_inventario : pData.descontar_inventario;
-                        addToCart(pData.id, vData.id, pData.nombre, pData.sku, vData.precio_sugerido, vData.stock, vData.nombre, debeDescontar);
-                    } else {
-                        pData.cantidad_stock = (pData.cantidad_stock || 0) + cantidadMovida;
-                        addToCart(pData.id, null, pData.nombre, pData.sku, pData.precio_sugerido, pData.cantidad_stock, null, pData.descontar_inventario);
-                    }
-                }
-                alert(result.message);
-            } else {
-                alert(result.message || 'Error al procesar el traslado.');
-            }
-        } catch (e) {
-            btn.disabled = false;
-            btn.innerHTML = `<i class="fa-solid fa-check me-1"></i> Confirmar y Agregar al Carrito`;
-            alert('Ocurrió un error al enviar la solicitud de traslado.');
+        if (!asesorId) {
+            alert('Debes seleccionar obligatoriamente el Asesor que solicita el traslado.');
+            return;
         }
+        
+        const localOrigenSelect = document.getElementById('traslado_local_origen_id');
+        const localOrigenId = parseInt(localOrigenSelect.value);
+        const cantidad = parseInt(document.getElementById('traslado_cantidad').value) || 1;
+        const observacion = document.getElementById('traslado_observacion').value || '';
+        
+        if (!pendingTrasladoItem) return;
+        
+        const { pData, vData } = pendingTrasladoItem;
+        const productId = pData.id;
+        const variantId = vData ? vData.id : null;
+        const nombreMostrar = vData ? `${pData.nombre} - ${vData.nombre}` : pData.nombre;
+        const precio = vData ? vData.precio_sugerido : pData.precio_sugerido;
+        const sku = pData.sku;
+        const debeDescontar = vData ? ((vData.descontar_inventario !== undefined) ? vData.descontar_inventario : pData.descontar_inventario) : pData.descontar_inventario;
+        
+        let existingIndex = carrito.findIndex(i => i.product_id === productId && i.variant_id === variantId && i.es_traslado && i.local_origen_id === localOrigenId);
+        
+        if (existingIndex > -1) {
+            carrito[existingIndex].cantidad += cantidad;
+        } else {
+            carrito.push({
+                product_id: productId,
+                variant_id: variantId,
+                nombre: nombreMostrar,
+                sku: sku,
+                precio_final: precio,
+                precio_sugerido: precio,
+                cantidad: cantidad,
+                max_stock: 99999,
+                descontar_inventario: debeDescontar,
+                es_obsequio: false,
+                // Flags de traslado diferido
+                es_traslado: true,
+                local_origen_id: localOrigenId,
+                asesor_id_traslado: parseInt(asesorId),
+                asesor_nombre_traslado: asesorNombre,
+                observacion_traslado: observacion
+            });
+        }
+        
+        renderCart();
+        bootstrap.Modal.getInstance(document.getElementById('modalTrasladoPOS')).hide();
+        alert(`¡Producto agregado al carrito con traslado pendiente desde D&L ${localOrigenId}! El traslado se efectuará únicamente al cobrar la factura.`);
     }
 
     function addToCart(productId, variantId, nombre, sku, precio, maxStock, variantName = null, descontarInventario = false) {
-        let existingIndex = carrito.findIndex(i => i.product_id === productId && i.variant_id === variantId);
+        let existingIndex = carrito.findIndex(i => i.product_id === productId && i.variant_id === variantId && !i.es_traslado);
         
         if (existingIndex > -1) {
             if (carrito[existingIndex].descontar_inventario && carrito[existingIndex].cantidad + 1 > maxStock) {
@@ -559,7 +566,7 @@
     function updateCartItem(index, qty) {
         let val = parseInt(qty);
         if (isNaN(val) || val < 1) val = 1;
-        if (carrito[index].descontar_inventario && val > carrito[index].max_stock) {
+        if (!carrito[index].es_traslado && carrito[index].descontar_inventario && val > carrito[index].max_stock) {
             alert('Stock insuficiente.');
             val = carrito[index].max_stock;
         }
@@ -627,6 +634,7 @@
                         ${item.nombre}
                         <small class="text-muted d-block fw-normal" style="font-size: 0.75rem;">${item.sku}</small>
                         ${item.es_obsequio ? '<span class="badge bg-success bg-opacity-10 text-success mt-1"><i class="fa-solid fa-gift me-1"></i>Obsequio</span>' : ''}
+                        ${item.es_traslado ? `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill mt-1 d-inline-block" style="font-size: 0.72rem;"><i class="fa-solid fa-truck-ramp-box me-1"></i>Traslado D&L ${item.local_origen_id} (${item.asesor_nombre_traslado || 'Asesor'})</span>` : ''}
                     </div>
                     <div>
                         {% if current_user.rol == 'admin' %}
@@ -835,7 +843,11 @@
                 nombre_manual: item.nombre_manual || null,
                 precio_costo: item.precio_costo || 0,
                 punto_id: item.punto_id || null,
-                nombre_punto: item.nombre_punto || null
+                nombre_punto: item.nombre_punto || null,
+                es_traslado: item.es_traslado || false,
+                local_origen_id: item.local_origen_id || null,
+                asesor_id_traslado: item.asesor_id_traslado || null,
+                observacion_traslado: item.observacion_traslado || null
             })),
             pagos: pagosPayload,
             fecha_venta: document.getElementById('fecha_venta_input') ? document.getElementById('fecha_venta_input').value : null,

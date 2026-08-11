@@ -151,11 +151,40 @@ def procesar_venta():
                 if not producto:
                     raise ValueError(f"El producto con ID {product_id} no existe.")
 
+                es_traslado = item.get('es_traslado', False)
+                local_origen_id = item.get('local_origen_id')
+                asesor_id_traslado = item.get('asesor_id_traslado')
+                observacion_traslado = item.get('observacion_traslado', '')
+
                 if variant_id:
                     variante = ProductVariant.query.with_for_update().get(variant_id)
                     if not variante:
                         raise ValueError(f"La variante con ID {variant_id} no existe.")
                     
+                    # Manejo de Traslado previo si el item fue solicitado desde otra sede
+                    if es_traslado and local_origen_id:
+                        loc_origen_num = int(local_origen_id)
+                        stock_origen = variante.get_stock_local(str(loc_origen_num))
+                        if cantidad_vendida > stock_origen:
+                            raise ValueError(f"Stock insuficiente en D&L {loc_origen_num} para trasladar '{variante.nombre_variante}' de '{producto.nombre}'. Disponible: {stock_origen}.")
+                        
+                        setattr(variante, f'stock_local_{loc_origen_num}', getattr(variante, f'stock_local_{loc_origen_num}') - cantidad_vendida)
+                        setattr(variante, f'stock_local_{local_id_venta}', getattr(variante, f'stock_local_{local_id_venta}', 0) + cantidad_vendida)
+
+                        from models import StockTransfer
+                        nuevo_traslado = StockTransfer(
+                            product_id=producto.id,
+                            variant_id=variante.id,
+                            local_origen_id=loc_origen_num,
+                            local_destino_id=local_id_venta,
+                            cantidad=cantidad_vendida,
+                            usuario_id=current_user.id,
+                            asesor_id=int(asesor_id_traslado) if asesor_id_traslado else asesor_id_val,
+                            observacion=observacion_traslado if observacion_traslado else f"Traslado automático al facturar ticket",
+                            fecha_transferencia=fecha_venta_obj
+                        )
+                        db.session.add(nuevo_traslado)
+
                     precio_limite_autorizado = variante.precio_costo if current_user.rol == 'admin' else variante.precio_minimo
                     debe_descontar = variante.descontar_inventario if (hasattr(variante, 'descontar_inventario') and variante.descontar_inventario) else producto.descontar_inventario
 
@@ -186,6 +215,30 @@ def procesar_venta():
                         )
                         db.session.add(ajuste)
                 else:
+                    # Manejo de Traslado previo si el item fue solicitado desde otra sede
+                    if es_traslado and local_origen_id:
+                        loc_origen_num = int(local_origen_id)
+                        stock_origen = producto.get_stock_local(str(loc_origen_num))
+                        if cantidad_vendida > stock_origen:
+                            raise ValueError(f"Stock insuficiente en D&L {loc_origen_num} para trasladar '{producto.nombre}'. Disponible: {stock_origen}.")
+                        
+                        setattr(producto, f'stock_local_{loc_origen_num}', getattr(producto, f'stock_local_{loc_origen_num}') - cantidad_vendida)
+                        setattr(producto, f'stock_local_{local_id_venta}', getattr(producto, f'stock_local_{local_id_venta}', 0) + cantidad_vendida)
+
+                        from models import StockTransfer
+                        nuevo_traslado = StockTransfer(
+                            product_id=producto.id,
+                            variant_id=None,
+                            local_origen_id=loc_origen_num,
+                            local_destino_id=local_id_venta,
+                            cantidad=cantidad_vendida,
+                            usuario_id=current_user.id,
+                            asesor_id=int(asesor_id_traslado) if asesor_id_traslado else asesor_id_val,
+                            observacion=observacion_traslado if observacion_traslado else f"Traslado automático al facturar ticket",
+                            fecha_transferencia=fecha_venta_obj
+                        )
+                        db.session.add(nuevo_traslado)
+
                     precio_limite_autorizado = producto.precio_costo if current_user.rol == 'admin' else producto.precio_minimo
                     debe_descontar = producto.descontar_inventario
 
