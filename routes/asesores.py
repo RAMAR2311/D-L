@@ -117,9 +117,13 @@ def eliminar(id):
     asesor = Asesor.query.get_or_404(id)
     nombre = asesor.nombre
 
+    # Verificar si el asesor tiene ventas asociadas en la base de datos
+    ventas_count = Sale.query.filter_by(asesor_id=id).count()
+    if ventas_count > 0:
+        flash(f'El asesor "{nombre}" no se puede eliminar porque tiene {ventas_count} venta(s) registrada(s) en el historial. Te recomendamos cambiar su estado a INACTIVO.', 'warning')
+        return redirect(url_for('asesores_bp.index'))
+
     try:
-        # Desenlazar ventas asociadas a este asesor para evitar error de clave foránea
-        Sale.query.filter_by(asesor_id=id).update({'asesor_id': None})
         db.session.delete(asesor)
         db.session.commit()
         flash(f'Asesor "{nombre}" eliminado exitosamente.', 'success')
