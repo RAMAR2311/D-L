@@ -1,31 +1,29 @@
-# Walkthrough: Solución Definitiva para la Subida de Fotos de Productos en Celular y PC
+# Walkthrough: Eliminación de Traslados No Facturados para Administradores
 
-Hemos implementado una solución integral que elimina los fallos al subir fotos pesadas de productos desde teléfonos celulares (iOS / Android) y computadores.
-
----
-
-## Causa Raíz Detectada
-1. Las fotos de celulares modernos superan a menudo los **10MB a 20MB** de resolución, haciendo que el servidor web de Hostinger (Nginx) rechace la petición con un error `413 Request Entity Too Large` o tiempo de espera agotado.
-2. La API experimental `DataTransfer()` en navegadores móviles (Safari iOS y WebView PWA) fallaba en segundo plano al intentar reescribir los archivos del `<input type="file">`, perdiendo el archivo antes de enviar el formulario.
+Se implementó la funcionalidad para que únicamente los **Administradores** puedan eliminar registros de traslados de mercancía, garantizando la restricción estricta de que **no se permite eliminar traslados que ya hayan sido facturados** en una venta real.
 
 ---
 
-## Solución Implementada
+## Cambios Implementados
 
-1. **Compresión e Inserción Base64 en el Cliente (`templates/inventory/form.html`)**:
-   - Al seleccionar una foto desde la cámara o galería, un script HTML5 Canvas **redimensiona la imagen a 1200px máx** en milisegundos en el mismo dispositivo (reduciendo fotos de 15MB a un ligero paquete JPEG de ~150KB).
-   - Inserta los datos directamente en un campo oculto `imagen_base64`, evitando el uso de `DataTransfer()` y garantizando compatibilidad 100% en Safari, Chrome, iPhone y Android.
-   - Muestra una **previsualización en vivo** con una etiqueta verde de confirmación: `✓ Foto lista para guardar (Optimizada)`.
+1. **Restricción y Control de Eliminación (`routes/traslados.py`)**:
+   - Se añadió el endpoint `@traslados_bp.route('/<int:id>/eliminar', methods=['POST'])` exclusivo para administradores (`@admin_required`).
+   - **Si el traslado ya fue facturado (`es_facturado = True` o `sale_id != None`)**: El sistema bloquea la acción y muestra la alerta: *"No es posible eliminar este traslado porque ya fue facturado en una venta real."*
+   - **Si el traslado NO fue facturado**: El sistema elimina el registro y **devuelve automáticamente la cantidad de mercancía a la sede de origen**, restándola de la sede de destino.
 
-2. **Procesador de Imagen en el Backend (`routes/inventory.py`)**:
-   - `procesar_imagen_subida(request)` recibe y decodifica la imagen Base64 o el archivo tradicional sin problemas.
-   - Aplica la auto-rotación **EXIF (`ImageOps.exif_transpose`)** para que las fotos tomadas en vertical u horizontal desde celulares no salgan volteadas.
+2. **Diferenciación de Estado en la Tabla (`templates/traslados/index.html`)**:
+   - Se agregó la columna **`ESTADO / ACCIÓN`** en el historial del módulo de traslados:
+     - 🟢 **Badge `Facturado`:** Para aquellos traslados asociados a tickets de venta facturados. No muestra botón de eliminar.
+     - 🟡 **Badge `No Facturado`:** Para traslados manuales o pendientes. Muestra el botón 🗑️ **`Eliminar`** únicamente para Administradores.
+
+3. **Modelo de Datos (`models.py`)**:
+   - Se añadieron las columnas `sale_id` y `es_facturado` al modelo `StockTransfer`.
 
 ---
 
 ## Verificación Realizada
 
-- **Test Automatizado:** Creación de producto con carga simulada de imagen Base64:
-  - Respuesta HTTP: `302 FOUND` (Redirección a Inventario con éxito).
-  - Foto decodificada y guardada en `static/uploads/`: **OK**.
-- **Despliegue a Git:** Código subido exitosamente a GitHub (`RAMAR2311/D-L`).
+- **Test Automatizado:**
+  - Intento de eliminar traslado con `es_facturado=True`: **Bloqueado exitosamente** (permanece intacto en BD).
+  - Intento de eliminar traslado manual con `es_facturado=False`: **Eliminado con éxito** y stock revertido al origen.
+- **Despliegue a Git:** Código subido a GitHub (`RAMAR2311/D-L`).
