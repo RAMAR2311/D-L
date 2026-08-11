@@ -157,6 +157,9 @@
                 <tr>
                     <th width="120">N° TIPO</th>
                     <th>FECHA DE COBRO</th>
+                    {% if active_local == 'central' %}
+                        <th class="text-center">SEDE / LOCAL</th>
+                    {% endif %}
                     <th>VENDEDOR RESPONSABLE</th>
                     <th class="text-center">VÍA DE PAGO</th>
                     <th class="text-end">IMPORTE CERRADO</th>
@@ -168,6 +171,20 @@
                 <tr>
                     <td class="fw-bold text-brand-black align-middle">Ticket #{{ "%05d"|format(venta.id) }}</td>
                     <td class="align-middle text-muted"><i class="fa-regular fa-calendar text-brand-pink me-1"></i> {{ venta.fecha_venta.strftime('%Y-%m-%d a las %H:%M') }}</td>
+                    {% if active_local == 'central' %}
+                    <td class="text-center align-middle">
+                        {% set loc = venta.local_id or 1 %}
+                        {% if loc == 1 %}
+                            <span class="badge bg-primary text-white rounded-pill px-3 py-2 fw-bold"><i class="fa-solid fa-shop me-1"></i>D&L 1</span>
+                        {% elif loc == 2 %}
+                            <span class="badge bg-info text-white rounded-pill px-3 py-2 fw-bold"><i class="fa-solid fa-shop me-1"></i>D&L 2</span>
+                        {% elif loc == 3 %}
+                            <span class="badge bg-success text-white rounded-pill px-3 py-2 fw-bold"><i class="fa-solid fa-shop me-1"></i>D&L 3</span>
+                        {% else %}
+                            <span class="badge bg-secondary text-white rounded-pill px-3 py-2 fw-bold"><i class="fa-solid fa-shop me-1"></i>D&L {{ loc }}</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                     <td class="align-middle fw-semibold text-brand-black">
                         <i class="fa-solid fa-user-circle text-muted me-1"></i> {{ venta.vendedor.nombre }}
                     </td>
