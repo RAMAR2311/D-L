@@ -1,6 +1,45 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    .product-card {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, border-color 0.15s ease;
+        border: 2px solid transparent !important;
+    }
+    .product-card:active, .product-card.card-tapped {
+        transform: scale(0.94) !important;
+        box-shadow: 0 0 14px rgba(25, 135, 84, 0.5) !important;
+        border-color: #198754 !important;
+    }
+    .product-card-container {
+        touch-action: manipulation;
+    }
+    #pos_quick_toast {
+        position: fixed;
+        top: 25px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-20px);
+        z-index: 9999;
+        background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+        color: #ffffff;
+        font-weight: 700;
+        padding: 12px 24px;
+        border-radius: 50px;
+        box-shadow: 0 8px 25px rgba(25, 135, 84, 0.4);
+        font-size: 0.95rem;
+        opacity: 0;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+    }
+    #pos_quick_toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+</style>
 <div class="row h-100 g-4">
     <!-- Panel Izquierdo: Catálogo de Productos -->
     <div class="col-lg-8 d-flex flex-column h-100">
@@ -66,7 +105,7 @@
                     <div class="position-relative bg-light rounded-top overflow-hidden">
                         <div class="ratio ratio-1x1">
                             {% if p.imagen %}
-                                <img src="{{ url_for('static', filename='uploads/' + p.imagen) }}" alt="{{ p.nombre }}" style="object-fit: cover; width: 100%; height: 100%;">
+                                <img src="{{ url_for('static', filename='uploads/' + p.imagen) }}" alt="{{ p.nombre }}" loading="lazy" style="object-fit: cover; width: 100%; height: 100%;">
                             {% else %}
                                 <div class="d-flex flex-column align-items-center justify-content-center text-muted small">
                                     <i class="fa-solid fa-image fa-2x mb-2 text-black-50"></i>
@@ -112,8 +151,11 @@
     </div>
 
     <!-- Panel Derecho: Carrito -->
-    <div class="col-lg-4">
+    <div class="col-lg-4" id="cartSection">
         <div class="card card-custom p-4 position-sticky" style="top: 100px; height: 100%;">
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-3 d-lg-none w-100 rounded-pill fw-bold" onclick="document.getElementById('productsGrid').scrollIntoView({ behavior: 'smooth' });">
+                <i class="fa-solid fa-arrow-up me-1"></i> ⬆️ Seguir Agregando Productos
+            </button>
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold m-0"><i class="fa-solid fa-cart-shopping text-brand-blue me-2"></i> Balance</h5>
                 <span class="badge bg-secondary rounded-pill" id="total_items">0 items</span>
@@ -157,7 +199,7 @@
                         <p class="text-muted mb-0" style="font-size: 0.72rem;" id="toggle_factura_label">La venta generará un ticket impreso</p>
                     </div>
                     <div class="form-check form-switch ms-3 mb-0">
-                        <input class="form-check-input" type="checkbox" id="toggle_imprimir_factura" checked style="cursor: pointer; width: 3rem; height: 1.5rem;">
+                        <input class="form-check-input" type="checkbox" id="toggle_imprimir_factura" style="cursor: pointer; width: 3rem; height: 1.5rem;">
                     </div>
                 </div>
             </div>
@@ -334,10 +376,10 @@
             facturaLabel.textContent = 'La venta generará un ticket impreso';
             facturaIcon.style.color = '#198754';
         } else {
-            facturaWrapper.style.border = '2px solid #dc3545';
-            facturaWrapper.style.background = 'linear-gradient(135deg, #f8d7da 0%, #f1aeb5 100%)';
-            facturaLabel.textContent = 'La venta NO generará ticket (modo silencioso)';
-            facturaIcon.style.color = '#dc3545';
+            facturaWrapper.style.border = '2px solid #dee2e6';
+            facturaWrapper.style.background = 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)';
+            facturaLabel.textContent = 'No se emitirá ticket impreso';
+            facturaIcon.style.color = '#6c757d';
         }
     }
     toggleFactura.addEventListener('change', actualizarEstadoFactura);
@@ -360,7 +402,44 @@
         });
     });
 
+    let lastTapTimestamp = 0;
+
+    function mostrarToastNotificacion(mensaje) {
+        let toast = document.getElementById('pos_quick_toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'pos_quick_toast';
+            document.body.appendChild(toast);
+        }
+        toast.innerHTML = `<i class="fa-solid fa-circle-check me-2"></i> ${mensaje}`;
+        toast.classList.add('show');
+        
+        if (navigator.vibrate) {
+            try { navigator.vibrate(35); } catch(e) {}
+        }
+
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, 1300);
+    }
+
+    function mostrarAnimacionToqueTarjeta(el) {
+        if (!el) return;
+        el.classList.add('card-tapped');
+        setTimeout(() => el.classList.remove('card-tapped'), 250);
+    }
+
     function handleProductClick(el) {
+        const now = Date.now();
+        if (now - lastTapTimestamp < 350) {
+            // Ignorar toques accidentales ultra rápidos en pantallas táctiles
+            return;
+        }
+        lastTapTimestamp = now;
+
+        mostrarAnimacionToqueTarjeta(el);
+
         const pData = JSON.parse(el.dataset.product);
         const vData = JSON.parse(el.dataset.variants);
 
@@ -561,6 +640,14 @@
             });
         }
         renderCart();
+        let nombreMensaje = variantName ? `${nombre} (${variantName})` : nombre;
+        mostrarToastNotificacion(`+1 ${nombreMensaje} agregado al carrito`);
+
+        if (window.innerWidth < 992) {
+            setTimeout(() => {
+                scrollToCartSection();
+            }, 120);
+        }
     }
 
     function updateCartItem(index, qty) {
@@ -664,8 +751,30 @@
         totalAmountEl.innerText = formatoCOP(granTotal);
         totalItemsEl.innerText = `${totalItems} items`;
 
+        // Actualizar barra flotante móvil de cobro
+        const mobileBar = document.getElementById('mobile_sticky_cart_bar');
+        const mobileTotal = document.getElementById('mobile_bar_total');
+        const mobileItems = document.getElementById('mobile_bar_items');
+
+        if (mobileBar) {
+            if (carrito.length > 0) {
+                mobileBar.style.display = 'block';
+                mobileTotal.innerText = formatoCOP(granTotal);
+                mobileItems.innerText = `${totalItems} producto${totalItems !== 1 ? 's' : ''}`;
+            } else {
+                mobileBar.style.display = 'none';
+            }
+        }
+
         if (document.getElementById('toggle_pago_mixto').checked) {
             actualizarSaldoRestante();
+        }
+    }
+
+    function scrollToCartSection() {
+        const cartEl = document.getElementById('cartSection');
+        if (cartEl) {
+            cartEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }
 
@@ -1026,6 +1135,19 @@
                 </button>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Barra Flotante Móvil de Cobro Rápido -->
+<div id="mobile_sticky_cart_bar" class="d-lg-none" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 1040; background: rgba(255,255,255,0.97); backdrop-filter: blur(10px); border-top: 2px solid #198754; padding: 12px 18px; display: none; box-shadow: 0 -6px 25px rgba(0,0,0,0.18);">
+    <div class="d-flex align-items-center justify-content-between">
+        <div>
+            <span class="fw-bolder text-dark d-block fs-5" id="mobile_bar_total">$0</span>
+            <small class="text-muted fw-bold" id="mobile_bar_items">0 productos</small>
+        </div>
+        <button type="button" class="btn btn-success fw-bold rounded-pill px-4 py-2 shadow-sm d-flex align-items-center gap-2" onclick="scrollToCartSection()">
+            <i class="fa-solid fa-receipt me-1"></i> Ir a Facturar <i class="fa-solid fa-chevron-down"></i>
+        </button>
     </div>
 </div>
 {% endblock %}

@@ -5,7 +5,7 @@ from decorators import admin_required
 from decimal import Decimal
 from datetime import datetime, timedelta
 from sqlalchemy import or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 sales_bp = Blueprint('sales_bp', __name__)
 
@@ -435,8 +435,13 @@ def historial():
     if active_local not in ['central', '1', '2', '3']:
         active_local = 'central'
     
-    # Optimización: eager loading (evita N+1 con joinedload)
-    query = Sale.query.options(joinedload(Sale.vendedor))
+    # Optimización: eager loading (evita N+1 con joinedload y selectinload)
+    query = Sale.query.options(
+        joinedload(Sale.vendedor),
+        selectinload(Sale.detalles).selectinload(SaleDetail.producto),
+        selectinload(Sale.detalles).selectinload(SaleDetail.variante),
+        selectinload(Sale.pagos)
+    )
     if active_local != 'central':
         local_num = int(active_local)
         query = query.filter(Sale.local_id == local_num)

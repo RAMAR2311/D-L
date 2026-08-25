@@ -125,15 +125,15 @@ if __name__ == '__main__':
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         
         # Verificamos e instanciamos al Administrador si no existe
-        if not User.query.filter_by(email='admin@koba.com').first():
+        if not User.query.filter_by(email='admin@dl.com').first() and not User.query.filter_by(email='admin@koba.com').first():
             master_admin = User(
                 nombre='Administrador Principal',
-                email='admin@koba.com',
+                email='admin@dl.com',
                 password_hash=generate_password_hash('Admin123'),
                 rol='admin' # Rol dictaminado por los requerimientos
             )
             db.session.add(master_admin)
             db.session.commit()
-            print("🚀 [INFO] Usuario maestro 'admin@koba.com' fue creado automáticamente.")
+            print("🚀 [INFO] Usuario maestro 'admin@dl.com' fue creado automáticamente.")
             
     app.run(debug=True)

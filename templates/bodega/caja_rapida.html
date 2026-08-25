@@ -34,7 +34,7 @@
                      onclick="handleProductClick(this)">
                     <div class="ratio ratio-1x1 bg-light rounded-top d-flex align-items-center justify-content-center overflow-hidden">
                         {% if p.imagen %}
-                            <img src="{{ url_for('static', filename='uploads/' + p.imagen) }}" alt="{{ p.nombre }}" style="object-fit: cover; width: 100%; height: 100%;">
+                            <img src="{{ url_for('static', filename='uploads/' + p.imagen) }}" alt="{{ p.nombre }}" loading="lazy" style="object-fit: cover; width: 100%; height: 100%;">
                         {% else %}
                             <span class="text-muted small text-center pt-4"><i class="fa-solid fa-image fa-2x mb-2 text-black-50"></i><br>Sin Imagen</span>
                         {% endif %}
@@ -61,8 +61,11 @@
     </div>
 
     <!-- Panel Derecho: Carrito -->
-    <div class="col-lg-4">
+    <div class="col-lg-4" id="cartSection">
         <div class="card border-0 shadow-sm h-100 bg-white d-flex flex-column">
+            <button type="button" class="btn btn-outline-secondary btn-sm m-3 d-lg-none rounded-pill fw-bold" onclick="document.getElementById('productsGrid').scrollIntoView({ behavior: 'smooth' });">
+                <i class="fa-solid fa-arrow-up me-1"></i> ⬆️ Seguir Agregando Productos
+            </button>
             <div class="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center">
                 <h5 class="fw-bold m-0"><i class="fa-solid fa-cart-shopping text-brand-blue me-2"></i> Caja Rápida</h5>
                 <span class="badge bg-secondary rounded-pill" id="itemCount">0 items</span>
@@ -158,10 +161,44 @@
 </div>
 
 <style>
-    .product-card { transition: transform 0.2s, box-shadow 0.2s; border: 2px solid transparent !important; }
-    .product-card:hover { transform: translateY(-5px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; border-color: var(--brand-pink) !important; }
+    .product-card {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, border-color 0.15s ease;
+        border: 2px solid transparent !important;
+    }
+    .product-card:active, .product-card.card-tapped {
+        transform: scale(0.94) !important;
+        box-shadow: 0 0 14px rgba(25, 135, 84, 0.5) !important;
+        border-color: #198754 !important;
+    }
+    .product-card-container { touch-action: manipulation; }
     .cursor-pointer { cursor: pointer; }
     .cart-item-qty { width: 50px; text-align: center; border: 1px solid #dee2e6; border-radius: 4px; padding: 2px; }
+    
+    #pos_quick_toast {
+        position: fixed;
+        top: 25px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-20px);
+        z-index: 9999;
+        background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+        color: #ffffff;
+        font-weight: 700;
+        padding: 12px 24px;
+        border-radius: 50px;
+        box-shadow: 0 8px 25px rgba(25, 135, 84, 0.4);
+        font-size: 0.95rem;
+        opacity: 0;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+    }
+    #pos_quick_toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 </style>
 
 <script>
@@ -170,6 +207,33 @@
     let currentTotal = 0;
     let activeProductData = null;
     let activeVariantsData = null;
+    let lastTapTimestamp = 0;
+
+    function mostrarToastNotificacion(mensaje) {
+        let toast = document.getElementById('pos_quick_toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'pos_quick_toast';
+            document.body.appendChild(toast);
+        }
+        toast.innerHTML = `<i class="fa-solid fa-circle-check me-2"></i> ${mensaje}`;
+        toast.classList.add('show');
+        
+        if (navigator.vibrate) {
+            try { navigator.vibrate(35); } catch(e) {}
+        }
+
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, 1300);
+    }
+
+    function mostrarAnimacionToqueTarjeta(el) {
+        if (!el) return;
+        el.classList.add('card-tapped');
+        setTimeout(() => el.classList.remove('card-tapped'), 250);
+    }
 
     // Inicializar fecha
     document.addEventListener('DOMContentLoaded', () => {
@@ -215,6 +279,14 @@
     });
 
     function handleProductClick(el) {
+        const now = Date.now();
+        if (now - lastTapTimestamp < 350) {
+            return;
+        }
+        lastTapTimestamp = now;
+
+        mostrarAnimacionToqueTarjeta(el);
+
         const pData = JSON.parse(el.dataset.product);
         const vData = JSON.parse(el.dataset.variants);
 
@@ -286,6 +358,14 @@
             });
         }
         renderCart();
+        let nombreMensaje = variantName ? `${nombre} (${variantName})` : nombre;
+        mostrarToastNotificacion(`+1 ${nombreMensaje} agregado al carrito`);
+
+        if (window.innerWidth < 992) {
+            setTimeout(() => {
+                scrollToCartSection();
+            }, 120);
+        }
     }
 
     function updateCartItem(index, qty) {
@@ -402,6 +482,28 @@
         totalAmountEl.innerText = `$${formatCOP(currentTotal)}`;
         countBadge.innerText = `${itemsCount} items`;
         document.getElementById('totalAmountInput').value = currentTotal;
+
+        // Actualizar barra flotante móvil de cobro
+        const mobileBar = document.getElementById('mobile_sticky_cart_bar');
+        const mobileTotal = document.getElementById('mobile_bar_total');
+        const mobileItems = document.getElementById('mobile_bar_items');
+
+        if (mobileBar) {
+            if (carrito.length > 0) {
+                mobileBar.style.display = 'block';
+                mobileTotal.innerText = `$${formatCOP(currentTotal)}`;
+                mobileItems.innerText = `${itemsCount} producto${itemsCount !== 1 ? 's' : ''}`;
+            } else {
+                mobileBar.style.display = 'none';
+            }
+        }
+    }
+
+    function scrollToCartSection() {
+        const cartEl = document.getElementById('cartSection');
+        if (cartEl) {
+            cartEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
 
     function setFullAbono() {
@@ -426,8 +528,20 @@
 
         // Convertir cart a JSON para el hidden input
         document.getElementById('cartDataInput').value = JSON.stringify(carrito);
-        
         form.submit();
     }
 </script>
+
+<!-- Barra Flotante Móvil de Cobro Rápido -->
+<div id="mobile_sticky_cart_bar" class="d-lg-none" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 1040; background: rgba(255,255,255,0.97); backdrop-filter: blur(10px); border-top: 2px solid #198754; padding: 12px 18px; display: none; box-shadow: 0 -6px 25px rgba(0,0,0,0.18);">
+    <div class="d-flex align-items-center justify-content-between">
+        <div>
+            <span class="fw-bolder text-dark d-block fs-5" id="mobile_bar_total">$0</span>
+            <small class="text-muted fw-bold" id="mobile_bar_items">0 productos</small>
+        </div>
+        <button type="button" class="btn btn-success fw-bold rounded-pill px-4 py-2 shadow-sm d-flex align-items-center gap-2" onclick="scrollToCartSection()">
+            <i class="fa-solid fa-receipt me-1"></i> Ir a Facturar <i class="fa-solid fa-chevron-down"></i>
+        </button>
+    </div>
+</div>
 {% endblock %}
