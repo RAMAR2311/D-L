@@ -520,26 +520,45 @@ def historial():
                            active_local=active_local)
 
 
-# Endpoint Visor de Ventas del Día para Cajeros (Solo lectura, se resetea cada día)
 @sales_bp.route('/ventas_hoy', methods=['GET'])
 @login_required
 def ventas_hoy():
-    # Obtener la fecha de hoy
+    # Obtener la fecha de hoy en Bogotá
     hoy_bogota = obtener_hora_bogota().date()
-    # Para la consulta requerimos abarcar desde las 00:00:00 hasta las 23:59:59
-    inicio_dt = datetime.combine(hoy_bogota, datetime.min.time())
-    fin_dt = datetime.combine(hoy_bogota, datetime.max.time())
+    hoy_str = hoy_bogota.strftime('%Y-%m-%d')
     
-    # Filtrar ventas de este día para el local asignado al usuario
+    fecha_inicio = request.args.get('fecha_inicio', hoy_str)
+    fecha_fin = request.args.get('fecha_fin', hoy_str)
+    
+    try:
+        inicio_dt = datetime.strptime(fecha_inicio, '%Y-%m-%d')
+    except (ValueError, TypeError):
+        fecha_inicio = hoy_str
+        inicio_dt = datetime.strptime(fecha_inicio, '%Y-%m-%d')
+        
+    try:
+        fin_dt = datetime.strptime(fecha_fin, '%Y-%m-%d')
+    except (ValueError, TypeError):
+        fecha_fin = hoy_str
+        fin_dt = datetime.strptime(fecha_fin, '%Y-%m-%d')
+        
+    fin_dt_end = fin_dt + timedelta(days=1)
+    
+    # Filtrar ventas de este rango únicamente para el local asignado al usuario
     local_id_cajero = current_user.local_asignado or 1
     
-    ventas = Sale.query.options(joinedload(Sale.vendedor)).filter(
+    ventas = Sale.query.options(
+        joinedload(Sale.vendedor),
+        selectinload(Sale.detalles).selectinload(SaleDetail.producto),
+        selectinload(Sale.detalles).selectinload(SaleDetail.variante),
+        selectinload(Sale.pagos)
+    ).filter(
         Sale.fecha_venta >= inicio_dt,
-        Sale.fecha_venta <= fin_dt,
+        Sale.fecha_venta < fin_dt_end,
         Sale.local_id == local_id_cajero
     ).order_by(Sale.fecha_venta.desc()).all()
     
-    # Acumuladores de las ventas de hoy
+    # Acumuladores de las ventas
     total_efectivo = Decimal('0')
     total_transferencias = Decimal('0')
     total_mixto = 0
@@ -564,7 +583,9 @@ def ventas_hoy():
                            total_efectivo=total_efectivo,
                            total_transferencias=total_transferencias,
                            total_mixto=total_mixto,
-                           hoy=hoy_bogota.strftime('%Y-%m-%d'))
+                           fecha_inicio=fecha_inicio,
+                           fecha_fin=fecha_fin,
+                           hoy=hoy_str)
 
 
 # Endpoint para Anular/Eliminar Venta Histórica

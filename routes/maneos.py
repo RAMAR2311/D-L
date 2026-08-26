@@ -45,10 +45,6 @@ def prestar():
             flash("Variante inválida.", "danger")
             return redirect(url_for('maneos_bp.index'))
             
-        if variante.cantidad_stock < cantidad:
-            flash(f"Stock insuficiente. Solo hay {variante.cantidad_stock} unidades disponibles de esta subcategoría.", "danger")
-            return redirect(url_for('maneos_bp.index'))
-            
         # Descontar Inventario Variante
         stock_anterior = variante.cantidad_stock
         variante.cantidad_stock -= cantidad
@@ -65,10 +61,6 @@ def prestar():
         )
         db.session.add(ajuste)
     else:
-        if producto.cantidad_stock < cantidad:
-            flash(f"Stock insuficiente. Solo hay {producto.cantidad_stock} unidades disponibles.", "danger")
-            return redirect(url_for('maneos_bp.index'))
-            
         # Descontar Inventario Base
         stock_anterior = producto.cantidad_stock
         producto.cantidad_stock -= cantidad

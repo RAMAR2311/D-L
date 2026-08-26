@@ -227,14 +227,6 @@ def maneos_prestar():
         if not variante or variante.product_id != producto.id:
             flash('La subcategoría seleccionada no pertenece a este producto.', 'danger')
             return redirect(url_for('admin_bp.maneos'))
-        
-        if variante.cantidad_stock < cantidad:
-            flash(f'Stock insuficiente en la subcategoría "{variante.nombre_variante}" para prestar {cantidad} uds. (Stock actual: {variante.cantidad_stock}).', 'danger')
-            return redirect(url_for('admin_bp.maneos'))
-    else:
-        if producto.cantidad_stock < cantidad:
-            flash(f'Stock insuficiente para prestar {cantidad} unids. (Stock actual: {producto.cantidad_stock}).', 'danger')
-            return redirect(url_for('admin_bp.maneos'))
 
     try:
         # Descontar stock de la variante o del producto base
