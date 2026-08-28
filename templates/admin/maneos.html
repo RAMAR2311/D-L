@@ -184,6 +184,9 @@
                                                             <option value="addi">🛍️ Ingresará a Medio Digital (Addi)</option>
                                                         </select>
                                                     </div>
+                                                    <div>
+                                                        <small class="text-muted d-block mt-1">Precio Punto permitido: ${{ "{:,.0f}".format(m.producto.precio_minimo) }}</small>
+                                                    </div>
                                                     
                                                     <small class="text-muted mt-3 d-block">Nota: Si cobras menos de {{ m.cantidad }}, el sistema devolverá automáticamente el resto de unidades al inventario.</small>
                                                 </div>
@@ -260,13 +263,15 @@
         "nombre": {{ p.nombre|tojson }},
         "stock": {{ p.cantidad_stock }},
         "precio_sugerido": {{ (p.precio_sugerido or 0)|float }},
+        "precio_minimo": {{ (p.precio_minimo or 0)|float }},
         "variantes": [
             {% if p.variantes %}
             {% for v in p.variantes %}
             {
                 "id": {{ v.id }},
                 "nombre": {{ v.nombre_variante|tojson }},
-                "stock": {{ v.cantidad_stock }}
+                "stock": {{ v.cantidad_stock }},
+                "precio_minimo": {{ (v.precio_minimo or p.precio_minimo or 0)|float }}
             }{% if not loop.last %},{% endif %}
             {% endfor %}
             {% endif %}
@@ -363,7 +368,8 @@
         document.getElementById('modal_maneo_nombre_producto').textContent = prod.nombre || 'Producto';
         document.getElementById('modal_maneo_sku_producto').textContent = `SKU: ${prod.sku || 'N/A'}`;
         document.getElementById('modal_maneo_cantidad').value = 1;
-        document.getElementById('modal_maneo_valor_unidad').value = prod.precio_sugerido ? Math.round(prod.precio_sugerido) : '';
+        // Ahora se usa precio_minimo por defecto para los maneos
+        document.getElementById('modal_maneo_valor_unidad').value = prod.precio_minimo ? Math.round(prod.precio_minimo) : '';
         document.getElementById('modal_maneo_local_vecino').value = '';
 
         const variantWrapper = document.getElementById('modal_maneo_variant_wrapper');
@@ -378,7 +384,7 @@
             variantSelect.innerHTML = '<option value="">— Seleccionar subcategoría / variante —</option>';
             prod.variantes.forEach(v => {
                 const stockText = v.stock > 0 ? `(Stock: ${v.stock})` : '(Sin stock)';
-                variantSelect.innerHTML += `<option value="${v.id}" data-stock="${v.stock}">${v.nombre} ${stockText}</option>`;
+                variantSelect.innerHTML += `<option value="${v.id}" data-stock="${v.stock}" data-preciominimo="${v.precio_minimo}">${v.nombre} ${stockText}</option>`;
             });
             variantWrapper.style.display = 'block';
         } else {
@@ -402,6 +408,9 @@
         const selectedOpt = select.options[select.selectedIndex];
         if (select.value && selectedOpt.dataset.stock) {
             stockInfo.innerHTML = `<i class="fa-solid fa-cubes text-primary me-1"></i> Stock en subcategoría: <strong>${selectedOpt.dataset.stock}</strong> uds`;
+            if (selectedOpt.dataset.preciominimo && selectedOpt.dataset.preciominimo !== "undefined") {
+                document.getElementById('modal_maneo_valor_unidad').value = Math.round(parseFloat(selectedOpt.dataset.preciominimo));
+            }
         } else {
             stockInfo.textContent = '';
         }

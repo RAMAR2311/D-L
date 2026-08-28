@@ -172,6 +172,11 @@
                     <td class="align-middle py-3">
                         <div class="d-flex flex-column gap-1 text-start">
                             <span class="text-muted fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.5px;">TICKET #{{ "%05d"|format(venta.id) }}</span>
+                            {% if venta.punto_transacciones %}
+                            <span class="badge bg-warning text-dark border border-warning rounded-pill px-2 py-0.5 mt-1 align-self-start" style="font-size: 0.65rem; font-weight: 700;">
+                                <i class="fa-solid fa-store me-1"></i>Punto Externo
+                            </span>
+                            {% endif %}
                             <div class="lh-sm">
                                 {% for det in venta.detalles %}
                                     <div class="d-flex align-items-center flex-wrap gap-1 my-1">
@@ -340,7 +345,7 @@
                             {% endif %}
                         </div>
                         
-                        <button type="button" class="btn btn-sm btn-outline-primary mt-2 fw-bold" onclick="agregarPagoRow({{ venta.id }})">
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2 fw-bold" onclick="agregarPagoRow('{{ venta.id }}')">
                             <i class="fa-solid fa-plus me-1"></i> Añadir pago mixto
                         </button>
                         

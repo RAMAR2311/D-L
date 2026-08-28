@@ -53,21 +53,44 @@
   </div>
 </div>
 
-<!-- Selector Interactivo de Sede / Filtro para Administrador -->
-<div class="card card-custom p-2 mb-4 border-0 shadow-sm bg-white">
-    <div class="nav nav-pills nav-justified gap-2" role="tablist">
-        <a href="{{ url_for('admin_bp.dashboard', local='central') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == 'central' %}active bg-dark text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-cubes me-2"></i>1. Vista General (Central)
-        </a>
-        <a href="{{ url_for('admin_bp.dashboard', local='1') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '1' %}active bg-primary text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-shop me-2"></i>2. D&L 1
-        </a>
-        <a href="{{ url_for('admin_bp.dashboard', local='2') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '2' %}active bg-info text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-shop me-2"></i>3. D&L 2
-        </a>
-        <a href="{{ url_for('admin_bp.dashboard', local='3') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '3' %}active bg-success text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
-            <i class="fa-solid fa-shop me-2"></i>4. D&L 3
-        </a>
+<!-- Filtros del Dashboard (Sede y Periodo) -->
+<div class="card card-custom p-3 mb-4 border-0 shadow-sm bg-white">
+    <!-- Fila 1: Filtro de Sede -->
+    <div class="mb-3">
+        <label class="fw-bold text-muted small mb-2 text-uppercase"><i class="fa-solid fa-store me-1"></i> Sede / Local</label>
+        <div class="nav nav-pills nav-justified gap-2">
+            <a href="{{ url_for('admin_bp.dashboard', local='central', periodo=periodo) }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == 'central' %}active bg-dark text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                <i class="fa-solid fa-cubes me-1 d-none d-md-inline"></i>Central
+            </a>
+            <a href="{{ url_for('admin_bp.dashboard', local='1', periodo=periodo) }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '1' %}active bg-primary text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                <i class="fa-solid fa-shop me-1 d-none d-md-inline"></i>D&L 1
+            </a>
+            <a href="{{ url_for('admin_bp.dashboard', local='2', periodo=periodo) }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '2' %}active bg-info text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                <i class="fa-solid fa-shop me-1 d-none d-md-inline"></i>D&L 2
+            </a>
+            <a href="{{ url_for('admin_bp.dashboard', local='3', periodo=periodo) }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if active_local == '3' %}active bg-success text-white shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                <i class="fa-solid fa-shop me-1 d-none d-md-inline"></i>D&L 3
+            </a>
+        </div>
+    </div>
+
+    <!-- Fila 2: Filtro de Periodo de Tiempo -->
+    <div>
+        <label class="fw-bold text-muted small mb-2 text-uppercase"><i class="fa-solid fa-calendar-day me-1"></i> Periodo de Análisis</label>
+        <div class="nav nav-pills nav-justified gap-2">
+            <a href="{{ url_for('admin_bp.dashboard', local=active_local, periodo='diario') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if periodo == 'diario' %}active bg-warning text-dark shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                Diario (Hoy)
+            </a>
+            <a href="{{ url_for('admin_bp.dashboard', local=active_local, periodo='semanal') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if periodo == 'semanal' %}active bg-warning text-dark shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                Semanal
+            </a>
+            <a href="{{ url_for('admin_bp.dashboard', local=active_local, periodo='quincenal') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if periodo == 'quincenal' %}active bg-warning text-dark shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                Quincenal
+            </a>
+            <a href="{{ url_for('admin_bp.dashboard', local=active_local, periodo='mensual') }}" class="nav-link rounded-pill py-2 px-3 fw-bold border {% if periodo == 'mensual' %}active bg-warning text-dark shadow-sm{% else %}bg-light text-dark hover-light{% endif %}">
+                Mensual
+            </a>
+        </div>
     </div>
 </div>
 

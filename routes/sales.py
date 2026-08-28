@@ -447,7 +447,8 @@ def historial():
         joinedload(Sale.vendedor),
         selectinload(Sale.detalles).selectinload(SaleDetail.producto),
         selectinload(Sale.detalles).selectinload(SaleDetail.variante),
-        selectinload(Sale.pagos)
+        selectinload(Sale.pagos),
+        selectinload(Sale.punto_transacciones)
     )
     if active_local != 'central':
         local_num = int(active_local)

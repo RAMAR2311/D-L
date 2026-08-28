@@ -32,7 +32,7 @@
                                     </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small text-muted mb-1 fw-bold">P. Mínimo (Opcional)</label>
+                                    <label class="form-label small text-muted mb-1 fw-bold">P. Punto (Opcional)</label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text bg-light text-muted border-end-0">$</span>
                                         <input type="number" step="1" name="precio_minimo" class="form-control border-start-0 ps-0" placeholder="{{ "%.0f"|format(p.precio_minimo) }}">
@@ -93,7 +93,7 @@
                                         </div>
                                     </div>
                                     <div class="col-4">
-                                        <label class="form-label text-muted mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">P. MÍNIMO DEV.</label>
+                                        <label class="form-label text-muted mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">P. PUNTO DEV.</label>
                                         <div class="input-group input-group-sm">
                                             <span class="input-group-text bg-transparent border-end-0 text-muted px-2">$</span>
                                             <input type="number" step="1" name="precio_minimo[]" class="form-control border-start-0 ps-0 text-secondary" value="{{ "%.0f"|format(v.precio_minimo|float) if v.precio_minimo else "%.0f"|format(p.precio_minimo|float) }}">

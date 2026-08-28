@@ -129,12 +129,17 @@
                         {% if t.tipo_movimiento == 'cargo' %}+{% else %}-{% endif %}${{ '{:,.0f}'.format(t.monto) }}
                     </td>
                     <td class="text-center pe-4">
-                        <form action="{{ url_for('puntos_bp.eliminar_transaccion', t_id=t.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta transacción? Esta acción afectará el saldo.');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1" title="Eliminar movimiento">
-                                <i class="fa-solid fa-trash"></i>
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button class="btn btn-sm btn-outline-primary px-2 py-1" data-bs-toggle="modal" data-bs-target="#modalEditarTransaccion{{ t.id }}" title="Editar movimiento">
+                                <i class="fa-solid fa-pen"></i>
                             </button>
-                        </form>
+                            <form action="{{ url_for('puntos_bp.eliminar_transaccion', t_id=t.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta transacción? Esta acción afectará el saldo.');" class="m-0">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1" title="Eliminar movimiento">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
@@ -207,4 +212,53 @@
         </div>
     </div>
 </div>
+
+<!-- Modales de Edición de Transacciones (Fuera de la tabla para PWA) -->
+{% for t in transacciones %}
+<div class="modal fade" id="modalEditarTransaccion{{ t.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" action="{{ url_for('puntos_bp.editar_transaccion', t_id=t.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="modal-header border-0 bg-light">
+                    <h5 class="modal-title fw-bold text-primary">
+                        <i class="fa-solid fa-pen-to-square me-2"></i>Editar Transacción
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Descripción / Nota</label>
+                        <input type="text" name="descripcion" class="form-control bg-light border-0" value="{{ t.descripcion or '' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Monto ($) *</label>
+                        <input type="number" name="monto" class="form-control form-control-lg bg-light border-0 fw-bold" min="1" step="1" value="{{ t.monto|int }}" required>
+                    </div>
+
+                    {% if t.tipo_movimiento == 'abono' %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Método de Pago *</label>
+                        <select name="metodo_pago" class="form-select bg-light border-0">
+                            <option value="efectivo" {% if t.metodo_pago == 'efectivo' %}selected{% endif %}>💵 Efectivo (Caja)</option>
+                            <option value="nequi" {% if t.metodo_pago == 'nequi' %}selected{% endif %}>📱 Nequi</option>
+                            <option value="bancolombia" {% if t.metodo_pago == 'bancolombia' %}selected{% endif %}>🏦 Bancolombia</option>
+                            <option value="daviplata" {% if t.metodo_pago == 'daviplata' %}selected{% endif %}>📱 Daviplata</option>
+                            <option value="bold" {% if t.metodo_pago == 'bold' %}selected{% endif %}>💳 Bold</option>
+                            <option value="addi" {% if t.metodo_pago == 'addi' %}selected{% endif %}>🛍️ Addi</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary text-white rounded-pill px-4 fw-bold">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
 {% endblock %}

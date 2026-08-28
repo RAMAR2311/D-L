@@ -195,3 +195,32 @@ def eliminar_transaccion(t_id):
         flash('Error al intentar eliminar la transacción.', 'danger')
         
     return redirect(url_for('puntos_bp.detalle', id=punto_id))
+
+@puntos_bp.route('/transaccion/<int:t_id>/editar', methods=['POST'])
+@login_required
+def editar_transaccion(t_id):
+    transaccion = PuntoTransaction.query.get_or_404(t_id)
+    punto_id = transaccion.punto_id
+    
+    descripcion = request.form.get('descripcion', '').strip()
+    metodo_pago = request.form.get('metodo_pago', 'efectivo')
+    
+    monto_str = request.form.get('monto')
+    if monto_str:
+        try:
+            transaccion.monto = Decimal(monto_str.replace(',', '').strip())
+        except:
+            pass
+            
+    transaccion.descripcion = descripcion
+    if transaccion.tipo_movimiento == 'abono':
+        transaccion.metodo_pago = metodo_pago
+        
+    try:
+        db.session.commit()
+        flash('Transacción actualizada exitosamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error al intentar actualizar la transacción.', 'danger')
+        
+    return redirect(url_for('puntos_bp.detalle', id=punto_id))

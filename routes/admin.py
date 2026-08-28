@@ -6,6 +6,7 @@ from sqlalchemy import or_
 from werkzeug.security import generate_password_hash
 from decorators import admin_required
 from decimal import Decimal
+from datetime import timedelta
 
 admin_bp = Blueprint('admin_bp', __name__)
 
@@ -116,14 +117,29 @@ def dashboard():
     if active_local not in ['central', '1', '2', '3']:
         active_local = 'central'
 
+    periodo = request.args.get('periodo', 'diario').lower()
+    if periodo not in ['diario', 'semanal', 'quincenal', 'mensual']:
+        periodo = 'diario'
+
     hoy = obtener_hora_bogota()
-    if hoy.day <= 15:
-        inicio_quincena = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    if periodo == 'diario':
+        inicio_periodo = hoy.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif periodo == 'semanal':
+        # Inicio de la semana actual (Lunes)
+        inicio_periodo = (hoy - timedelta(days=hoy.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    elif periodo == 'mensual':
+        # Inicio del mes actual
+        inicio_periodo = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else:
-        inicio_quincena = hoy.replace(day=16, hour=0, minute=0, second=0, microsecond=0)
+        # quincenal (default)
+        if hoy.day <= 15:
+            inicio_periodo = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:
+            inicio_periodo = hoy.replace(day=16, hour=0, minute=0, second=0, microsecond=0)
 
     # 1. Métrica Caja POS (Ventas por Local o General)
-    query_sales = Sale.query.filter(Sale.fecha_venta >= inicio_quincena)
+    query_sales = Sale.query.filter(Sale.fecha_venta >= inicio_periodo)
     if active_local != 'central':
         local_num = int(active_local)
         query_sales = query_sales.filter(Sale.local_id == local_num)
@@ -133,7 +149,7 @@ def dashboard():
     conteo_ventas = len(ventas_list)
 
     # 2. Métrica Gastos por Local o General
-    query_expenses = Expense.query.filter(Expense.fecha_gasto >= inicio_quincena)
+    query_expenses = Expense.query.filter(Expense.fecha_gasto >= inicio_periodo)
     if active_local != 'central':
         local_num = int(active_local)
         query_expenses = query_expenses.filter(or_(Expense.local_id == local_num, User.local_asignado == local_num)).outerjoin(User, Expense.usuario_id == User.id)
@@ -174,6 +190,7 @@ def dashboard():
     return render_template(
         'admin/dashboard.html',
         active_local=active_local,
+        periodo=periodo,
         total_ventas=total_ventas,
         conteo_ventas=conteo_ventas,
         total_gastos=total_gastos,
