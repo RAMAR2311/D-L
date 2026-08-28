@@ -135,10 +135,16 @@
                                 </span>
                             {% endif %}
                         </td>
-                        <td class="text-center pe-4">
+                        <td class="text-center pe-4 d-flex justify-content-center gap-2">
                             <a href="{{ url_for('puntos_bp.detalle', id=p.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold">
                                 <i class="fa-solid fa-file-invoice-dollar me-1"></i>Estado
                             </a>
+                            <form action="{{ url_for('puntos_bp.eliminar_punto', id=p.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este Punto y TODAS sus transacciones asociadas? Esta acción es irreversible.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold">
+                                    <i class="fa-solid fa-trash me-1"></i>Eliminar
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% else %}

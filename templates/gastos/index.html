@@ -193,50 +193,6 @@
                     {% endif %}
                 </tr>
 
-                {% if current_user.rol == 'admin' %}
-                <!-- Modal de Confirmación para Eliminar Gasto -->
-                <div class="modal fade" id="modalEliminarGasto{{ gasto.id }}" tabindex="-1" aria-labelledby="modalEliminarGastoLabel{{ gasto.id }}" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content border-0 shadow rounded-4 overflow-hidden">
-                            <div class="modal-header bg-danger text-white border-0">
-                                <h5 class="modal-title fw-bold" id="modalEliminarGastoLabel{{ gasto.id }}">
-                                    <i class="fa-solid fa-triangle-exclamation me-2"></i> Confirmar Eliminación
-                                </h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body p-4">
-                                <p class="mb-2">¿Estás seguro de que deseas eliminar este gasto?</p>
-                                <div class="bg-light rounded-3 p-3 mb-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="text-muted small">Categoría</span>
-                                        <span class="fw-bold">{{ gasto.categoria }}</span>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="text-muted small">Monto</span>
-                                        <span class="fw-bolder text-danger">${{ (gasto.monto)|cop }}</span>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span class="text-muted small">Descripción</span>
-                                        <span class="small">{{ gasto.descripcion or '—' }}</span>
-                                    </div>
-                                </div>
-                                <div class="alert alert-warning border-0 rounded-3 mb-0">
-                                    <i class="fa-solid fa-info-circle me-1"></i> Esta acción <strong>no se puede deshacer</strong> y afectará los reportes financieros.
-                                </div>
-                            </div>
-                            <div class="modal-footer border-0 pt-0">
-                                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
-                                <form action="{{ url_for('gastos_bp.eliminar_gasto', id=gasto.id) }}" method="POST" class="d-inline">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                    <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold">
-                                        <i class="fa-solid fa-trash-can me-1"></i> Sí, Eliminar
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
 
                 {% else %}
                 <tr>
@@ -250,6 +206,54 @@
         </table>
     </div>
 </div>
+
+{% if current_user.rol == 'admin' %}
+    {% for gasto in gastos %}
+    <!-- Modal de Confirmación para Eliminar Gasto -->
+    <div class="modal fade" id="modalEliminarGasto{{ gasto.id }}" tabindex="-1" aria-labelledby="modalEliminarGastoLabel{{ gasto.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow rounded-4 overflow-hidden">
+                <div class="modal-header bg-danger text-white border-0">
+                    <h5 class="modal-title fw-bold" id="modalEliminarGastoLabel{{ gasto.id }}">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i> Confirmar Eliminación
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="mb-2">¿Estás seguro de que deseas eliminar este gasto?</p>
+                    <div class="bg-light rounded-3 p-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-muted small">Categoría</span>
+                            <span class="fw-bold">{{ gasto.categoria }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-muted small">Monto</span>
+                            <span class="fw-bolder text-danger">${{ (gasto.monto)|cop }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Descripción</span>
+                            <span class="small">{{ gasto.descripcion or '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning border-0 rounded-3 mb-0">
+                        <i class="fa-solid fa-info-circle me-1"></i> Esta acción <strong>no se puede deshacer</strong> y afectará los reportes financieros.
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <form action="{{ url_for('gastos_bp.eliminar_gasto', id=gasto.id) }}" method="POST" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold">
+                            <i class="fa-solid fa-trash-can me-1"></i> Sí, Eliminar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% endif %}
+
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

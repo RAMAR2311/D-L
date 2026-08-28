@@ -389,12 +389,28 @@
         return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(valor);
     }
 
+    const normalizeText = (text) => {
+        if (!text) return "";
+        return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    };
+
     document.getElementById('productSearch').addEventListener('keyup', function(e) {
-        const query = e.target.value.toLowerCase();
+        const query = normalizeText(e.target.value).trim();
+        const words = query.split(/\s+/).filter(w => w.length > 0);
+        
         document.querySelectorAll('.product-card-container').forEach(card => {
-            const name = card.dataset.name;
-            const sku = card.dataset.sku;
-            if (name.includes(query) || sku.includes(query)) {
+            const name = normalizeText(card.dataset.name);
+            const sku = normalizeText(card.dataset.sku);
+            
+            if (words.length === 0) {
+                card.style.display = 'block';
+                return;
+            }
+
+            // Verifica que TODAS las palabras buscadas estén contenidas en el nombre o SKU
+            const isMatch = words.every(word => name.includes(word) || sku.includes(word));
+            
+            if (isMatch) {
                 card.style.display = 'block';
             } else {
                 card.style.display = 'none';

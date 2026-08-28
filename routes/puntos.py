@@ -161,3 +161,37 @@ def api_lista_puntos():
     puntos_list = Punto.query.order_by(Punto.nombre.asc()).all()
     data = [{'id': p.id, 'nombre': p.nombre} for p in puntos_list]
     return jsonify(data)
+
+@puntos_bp.route('/<int:id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_punto(id):
+    punto = Punto.query.get_or_404(id)
+    try:
+        # Eliminar las transacciones asociadas primero para evitar problemas de FK si no hay cascade
+        transacciones = PuntoTransaction.query.filter_by(punto_id=punto.id).all()
+        for t in transacciones:
+            db.session.delete(t)
+        
+        db.session.delete(punto)
+        db.session.commit()
+        flash(f'Punto "{punto.nombre}" eliminado exitosamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error al intentar eliminar el Punto.', 'danger')
+        
+    return redirect(url_for('puntos_bp.index'))
+
+@puntos_bp.route('/transaccion/<int:t_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_transaccion(t_id):
+    transaccion = PuntoTransaction.query.get_or_404(t_id)
+    punto_id = transaccion.punto_id
+    try:
+        db.session.delete(transaccion)
+        db.session.commit()
+        flash('Transacción eliminada exitosamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error al intentar eliminar la transacción.', 'danger')
+        
+    return redirect(url_for('puntos_bp.detalle', id=punto_id))

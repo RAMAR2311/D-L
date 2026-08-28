@@ -249,8 +249,11 @@
                             <a href="{{ url_for('sales_bp.imprimir_ticket', sale_id=venta.id) }}" target="_blank" class="btn btn-pink btn-sm rounded-pill px-3 fw-bold shadow-sm w-100">
                                 <i class="fa-solid fa-receipt me-1"></i> Ver Recibo
                             </a>
-                            
                             {% if current_user.rol == 'admin' %}
+                            <button type="button" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm w-100 text-dark" data-bs-toggle="modal" data-bs-target="#modalEditarPago{{ venta.id }}">
+                                <i class="fa-solid fa-pen-to-square me-1"></i> Editar Pago
+                            </button>
+
                             <form action="{{ url_for('sales_bp.eliminar_venta', sale_id=venta.id) }}" method="POST" onsubmit="return confirm('ATENCIÓN: ¿Está seguro de anular esta venta? Esta acción NO se puede deshacer y retornará el stock de los productos vendidos.');" class="m-0 p-0">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                 <button type="submit" class="btn btn-danger btn-sm rounded-pill px-3 fw-bold shadow-sm w-100">
@@ -275,6 +278,108 @@
         </table>
     </div>
 </div>
+
+{% if current_user.rol == 'admin' %}
+    {% for venta in ventas %}
+    <!-- Modal Editar Pago -->
+    <div class="modal fade" id="modalEditarPago{{ venta.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow rounded-4">
+                <form action="{{ url_for('sales_bp.editar_pago', sale_id=venta.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="modal-header bg-warning text-dark border-0">
+                        <h5 class="modal-title fw-bold">
+                            <i class="fa-solid fa-pen-to-square me-2"></i> Editar Método de Pago
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <p class="mb-3 text-muted small">
+                            Ticket #{{ "%05d"|format(venta.id) }}<br>
+                            Monto Total de la venta a cubrir: <strong class="text-dark">${{ (venta.monto_total)|cop }}</strong>
+                        </p>
+                        
+                        <div id="pagos-container-{{ venta.id }}">
+                            {% if venta.pagos %}
+                                {% for pago in venta.pagos %}
+                                <div class="row g-2 mb-2 pago-row">
+                                    <div class="col-5">
+                                        <select name="metodo_pago[]" class="form-select bg-light border-0" required>
+                                            <option value="efectivo" {% if pago.metodo_pago == 'efectivo' %}selected{% endif %}>Efectivo (Caja)</option>
+                                            <option value="nequi" {% if pago.metodo_pago == 'nequi' %}selected{% endif %}>Nequi</option>
+                                            <option value="daviplata" {% if pago.metodo_pago == 'daviplata' %}selected{% endif %}>Daviplata</option>
+                                            <option value="bancolombia" {% if pago.metodo_pago == 'bancolombia' %}selected{% endif %}>Bancolombia</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-5">
+                                        <input type="number" step="1" min="0" name="monto_pago[]" class="form-control bg-light border-0" value="{{ pago.monto|int }}" required>
+                                    </div>
+                                    <div class="col-2 text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-pago" onclick="this.closest('.pago-row').remove()"><i class="fa-solid fa-minus"></i></button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <!-- Retrocompatibilidad para ventas antiguas sin detalle de pago -->
+                                <div class="row g-2 mb-2 pago-row">
+                                    <div class="col-5">
+                                        <select name="metodo_pago[]" class="form-select bg-light border-0" required>
+                                            <option value="efectivo" {% if venta.metodo_pago == 'efectivo' %}selected{% endif %}>Efectivo (Caja)</option>
+                                            <option value="nequi" {% if venta.metodo_pago == 'nequi' %}selected{% endif %}>Nequi</option>
+                                            <option value="daviplata" {% if venta.metodo_pago == 'daviplata' %}selected{% endif %}>Daviplata</option>
+                                            <option value="bancolombia" {% if venta.metodo_pago == 'bancolombia' %}selected{% endif %}>Bancolombia</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-5">
+                                        <input type="number" step="1" min="0" name="monto_pago[]" class="form-control bg-light border-0" value="{{ venta.monto_total|int }}" required>
+                                    </div>
+                                    <div class="col-2 text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-pago" onclick="this.closest('.pago-row').remove()"><i class="fa-solid fa-minus"></i></button>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2 fw-bold" onclick="agregarPagoRow({{ venta.id }})">
+                            <i class="fa-solid fa-plus me-1"></i> Añadir pago mixto
+                        </button>
+                        
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-warning rounded-pill px-4 fw-bold text-dark">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+    <script>
+        function agregarPagoRow(ventaId) {
+            const container = document.getElementById(`pagos-container-${ventaId}`);
+            const div = document.createElement('div');
+            div.className = 'row g-2 mb-2 pago-row';
+            div.innerHTML = `
+                <div class="col-5">
+                    <select name="metodo_pago[]" class="form-select bg-light border-0" required>
+                        <option value="efectivo">Efectivo (Caja)</option>
+                        <option value="nequi">Nequi</option>
+                        <option value="daviplata">Daviplata</option>
+                        <option value="bancolombia">Bancolombia</option>
+                    </select>
+                </div>
+                <div class="col-5">
+                    <input type="number" step="1" min="0" name="monto_pago[]" class="form-control bg-light border-0" placeholder="Monto $" required>
+                </div>
+                <div class="col-2 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-pago" onclick="this.closest('.pago-row').remove()"><i class="fa-solid fa-minus"></i></button>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+    </script>
+{% endif %}
 
 <style>
 /* ====== Estilos Exclusivos para PDF/Impresión del Reporte de Ventas ====== */

@@ -4,7 +4,7 @@ from models import db, Product, ProductVariant, Sale, SaleDetail, SalePayment, E
 from decorators import admin_required
 from decimal import Decimal
 from datetime import datetime, timedelta
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import joinedload, selectinload
 
 sales_bp = Blueprint('sales_bp', __name__)
@@ -352,11 +352,18 @@ def api_search_products():
     else:
         local_code = str(current_user.local_asignado or '1')
     
-    productos = Product.query.filter_by(tipo_inventario='tienda').filter(
-        or_(
-            Product.sku.ilike(f'%{query}%'),
-            Product.nombre.ilike(f'%{query}%')
+    words = query.split()
+    filters = []
+    for word in words:
+        filters.append(
+            or_(
+                Product.sku.ilike(f'%{word}%'),
+                Product.nombre.ilike(f'%{word}%')
+            )
         )
+        
+    productos = Product.query.filter_by(tipo_inventario='tienda').filter(
+        and_(*filters)
     ).limit(15).all()
     
     results = []
@@ -632,6 +639,12 @@ def eliminar_venta(sale_id):
                     )
                     db.session.add(ajuste)
                     
+        # Eliminar Transacciones de Punto (Deudas) generadas por esta venta
+        from models import PuntoTransaction
+        transacciones_punto = PuntoTransaction.query.filter_by(sale_id=venta.id).all()
+        for transaccion in transacciones_punto:
+            db.session.delete(transaccion)
+            
         # Eliminar Venta y Detalles (Cascada)
         db.session.delete(venta)
         db.session.commit()
@@ -642,6 +655,66 @@ def eliminar_venta(sale_id):
         flash('Ocurrió un error al anular la venta.', 'danger')
         
     return redirect(url_for('sales_bp.historial'))
+
+# Endpoint para editar el método de pago de una venta (Solo Admin)
+@sales_bp.route('/editar_pago/<int:sale_id>', methods=['POST'])
+@login_required
+@admin_required
+def editar_pago(sale_id):
+    venta = Sale.query.get_or_404(sale_id)
+    
+    metodos = request.form.getlist('metodo_pago[]')
+    montos = request.form.getlist('monto_pago[]')
+    
+    if not metodos or not montos or len(metodos) != len(montos):
+        flash('Datos de pago inválidos.', 'danger')
+        return redirect(url_for('sales_bp.historial'))
+        
+    total_pagos = Decimal('0')
+    pagos_validos = []
+    
+    for metodo, monto_str in zip(metodos, montos):
+        try:
+            monto_val = Decimal(monto_str.replace(',', '').strip())
+            if monto_val > 0:
+                total_pagos += monto_val
+                pagos_validos.append({'metodo': metodo, 'monto': monto_val})
+        except:
+            continue
+            
+    if total_pagos != venta.monto_total:
+        flash(f'El total de pagos (${total_pagos:,.0f}) no coincide con el total de la venta (${venta.monto_total:,.0f}).', 'danger')
+        return redirect(url_for('sales_bp.historial'))
+        
+    try:
+        from models import SalePayment
+        # Eliminar pagos anteriores
+        for pago_ant in venta.pagos:
+            db.session.delete(pago_ant)
+            
+        # Crear nuevos pagos
+        for pago_info in pagos_validos:
+            nuevo_pago = SalePayment(
+                sale_id=venta.id,
+                metodo_pago=pago_info['metodo'],
+                monto=pago_info['monto']
+            )
+            db.session.add(nuevo_pago)
+            
+        # Actualizar metodo_pago principal en la venta
+        if len(pagos_validos) > 1:
+            venta.metodo_pago = 'mixto'
+        elif len(pagos_validos) == 1:
+            venta.metodo_pago = pagos_validos[0]['metodo']
+            
+        db.session.commit()
+        flash('Método de pago actualizado exitosamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Ocurrió un error al actualizar los pagos.', 'danger')
+        
+    return redirect(url_for('sales_bp.historial'))
+
 
 # Endpoint Catálogo Estricto de solo vista para Operarios (Vista Global Multisede)
 @sales_bp.route('/catalogo', methods=['GET'])

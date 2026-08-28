@@ -139,6 +139,7 @@ def nuevo():
         ventas_del_dia=ventas_del_dia,
         arqueo_existente=arqueo_existente,
         gastos_automaticos=gastos_automaticos,
+        gastos_diarios_registros=gastos_diarios_registros,
         abonos_puntos_registros=abonos_puntos_registros,
         total_abonos_puntos=total_abonos_puntos,
         desglose_digital=desglose_digital,
