@@ -37,13 +37,50 @@
             <table class="table table-borderless table-sm fw-semibold text-secondary fs-6 mb-5">
                 <tbody>
                     <tr>
-                        <td width="70%">Ventas Validadas en Efectivo</td>
-                        <td width="30%" class="text-end">${{ (datos.ventas_efectivo)|cop }}</td>
+                        <td width="70%" class="py-2"><i class="fa-solid fa-money-bill-wave text-success me-2"></i>Ventas Validadas en Efectivo</td>
+                        <td width="30%" class="text-end py-2 text-dark fw-bold">${{ (datos.ventas_efectivo)|cop }}</td>
+                    </tr>
+
+                    <tr class="border-top border-light bg-light bg-opacity-50">
+                        <td colspan="2" class="pt-3 pb-1 text-dark fw-bold">
+                            <i class="fa-solid fa-mobile-screen-button text-primary me-2"></i>Ventas por Medios Digitales y Transferencias (Desglosado):
+                        </td>
                     </tr>
                     <tr>
-                        <td>Ventas por Transferencias Informadas</td>
-                        <td class="text-end">${{ (datos.ventas_transferencia)|cop }}</td>
+                        <td class="ps-4 py-1 text-muted"><i class="fa-solid fa-angle-right me-2 text-info"></i>Nequi</td>
+                        <td class="text-end py-1">${{ (datos.ventas_nequi)|cop }}</td>
                     </tr>
+                    <tr>
+                        <td class="ps-4 py-1 text-muted"><i class="fa-solid fa-angle-right me-2 text-info"></i>Bancolombia</td>
+                        <td class="text-end py-1">${{ (datos.ventas_bancolombia)|cop }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4 py-1 text-muted"><i class="fa-solid fa-angle-right me-2 text-info"></i>Daviplata</td>
+                        <td class="text-end py-1">${{ (datos.ventas_daviplata)|cop }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4 py-1 text-muted"><i class="fa-solid fa-angle-right me-2 text-info"></i>Bold (Datáfono)</td>
+                        <td class="text-end py-1">${{ (datos.ventas_bold)|cop }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4 py-1 text-muted"><i class="fa-solid fa-angle-right me-2 text-info"></i>Addi</td>
+                        <td class="text-end py-1">${{ (datos.ventas_addi)|cop }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4 py-1 text-muted"><i class="fa-solid fa-angle-right me-2 text-info"></i>Transferencia Bancaria General</td>
+                        <td class="text-end py-1">${{ (datos.ventas_transferencia)|cop }}</td>
+                    </tr>
+                    {% if datos.ventas_otros > 0 %}
+                    <tr>
+                        <td class="ps-4 py-1 text-muted"><i class="fa-solid fa-angle-right me-2 text-info"></i>Otros Medios Digitales</td>
+                        <td class="text-end py-1">${{ (datos.ventas_otros)|cop }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr class="fw-bold text-dark border-bottom border-light">
+                        <td class="ps-4 py-2">Subtotal Medios Digitales y Transferencias</td>
+                        <td class="text-end py-2 text-primary">${{ (datos.ventas_digitales)|cop }}</td>
+                    </tr>
+
                     <tr class="border-top text-brand-black fw-bolder bg-light">
                         <td class="p-3">Σ TOTAL INGRESOS (VENTAS)</td>
                         <td class="text-end p-3 text-success fs-5">${{ (datos.total_ingresos)|cop }}</td>
@@ -60,8 +97,12 @@
                         <td width="30%" class="text-danger text-end">-${{ (datos.costos_directos)|cop }}</td>
                     </tr>
                     <tr>
-                        <td>Gastos Diarios / Operacionales (Salidas de Caja)</td>
+                        <td>Gastos Diarios / Operacionales (Salidas Generales de Caja)</td>
                         <td class="text-danger text-end">-${{ (datos.gastos_operacionales)|cop }}</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-location-dot me-1 text-primary"></i>Abonos Realizados a Puntos Externos / Socios</td>
+                        <td class="text-danger text-end">-${{ (datos.abonos_puntos)|cop }}</td>
                     </tr>
                     <tr>
                         <td>Costos Indirectos Permanentes</td>

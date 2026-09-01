@@ -496,12 +496,53 @@ def balance_financiero():
         query_sales = query_sales.join(User, Sale.vendedor_id == User.id).filter(User.local_asignado == local_num)
     
     ventas_query = query_sales.all()
-    ventas_efectivo = sum(v.monto_total for v in ventas_query if v.metodo_pago == 'efectivo')
-    ventas_transferencia = sum(v.monto_total for v in ventas_query if v.metodo_pago in ['transferencia', 'nequi', 'bancolombia', 'daviplata'])
-    total_ingresos = ventas_efectivo + ventas_transferencia
+    
+    from decimal import Decimal
+    desglose_pagos = {
+        'efectivo': Decimal('0.00'),
+        'nequi': Decimal('0.00'),
+        'bancolombia': Decimal('0.00'),
+        'daviplata': Decimal('0.00'),
+        'bold': Decimal('0.00'),
+        'addi': Decimal('0.00'),
+        'transferencia': Decimal('0.00'),
+        'otros': Decimal('0.00')
+    }
+
+    for v in ventas_query:
+        if v.pagos and len(v.pagos) > 0:
+            for pago in v.pagos:
+                metodo = (pago.metodo_pago or 'efectivo').lower().strip()
+                if metodo in ['bold', 'bolt']:
+                    metodo = 'bold'
+                monto = Decimal(str(pago.monto or 0))
+                if metodo in desglose_pagos:
+                    desglose_pagos[metodo] += monto
+                else:
+                    desglose_pagos['otros'] += monto
+        else:
+            metodo = (v.metodo_pago or 'efectivo').lower().strip()
+            if metodo in ['bold', 'bolt']:
+                metodo = 'bold'
+            monto = Decimal(str(v.monto_total or 0))
+            if metodo in desglose_pagos:
+                desglose_pagos[metodo] += monto
+            else:
+                desglose_pagos['otros'] += monto
+
+    ventas_efectivo = desglose_pagos['efectivo']
+    ventas_digitales = (
+        desglose_pagos['nequi'] +
+        desglose_pagos['bancolombia'] +
+        desglose_pagos['daviplata'] +
+        desglose_pagos['bold'] +
+        desglose_pagos['addi'] +
+        desglose_pagos['transferencia'] +
+        desglose_pagos['otros']
+    )
+    total_ingresos = ventas_efectivo + ventas_digitales
 
     # 2. Costo de Mercancía Vendida (COGS) por Local o General
-    from decimal import Decimal
     query_detalles = SaleDetail.query.join(Sale).filter(
         Sale.fecha_venta >= inicio_dt,
         Sale.fecha_venta < fin_dt_query
@@ -529,7 +570,7 @@ def balance_financiero():
             if p:
                 costos_directos += (p.precio_costo or 0) * d.cantidad_vendida
 
-    # 3. Costos Indirectos y Gastos Operativos por Local o General
+    # 3. Costos Indirectos, Abonos a Puntos y Gastos Operativos por Local o General
     from sqlalchemy import or_
     query_expenses = Expense.query.filter(Expense.fecha_gasto >= inicio_dt, Expense.fecha_gasto < fin_dt_query)
     if active_local != 'central':
@@ -539,19 +580,34 @@ def balance_financiero():
         )
         
     gastos_query = query_expenses.all()
+
+    def es_abono_punto(gasto):
+        cat = (gasto.categoria or '').strip().lower()
+        return cat in ['punto', 'abono a punto/local'] or 'abono a punto' in cat
+
     costos_indirectos = sum(g.monto for g in gastos_query if g.tipo_gasto == 'Costo Indirecto')
-    gastos_operacionales = sum(g.monto for g in gastos_query if g.tipo_gasto == 'Gasto Diario')
+    abonos_puntos = sum(g.monto for g in gastos_query if es_abono_punto(g))
+    gastos_operacionales = sum(g.monto for g in gastos_query if g.tipo_gasto == 'Gasto Diario' and not es_abono_punto(g))
     
-    total_salidas = float(costos_directos) + float(costos_indirectos) + float(gastos_operacionales)
+    total_salidas = float(costos_directos) + float(costos_indirectos) + float(gastos_operacionales) + float(abonos_puntos)
     balance_neto = float(total_ingresos) - total_salidas
 
     datos_financieros = {
         'ventas_efectivo': float(ventas_efectivo),
-        'ventas_transferencia': float(ventas_transferencia),
+        'ventas_nequi': float(desglose_pagos['nequi']),
+        'ventas_bancolombia': float(desglose_pagos['bancolombia']),
+        'ventas_daviplata': float(desglose_pagos['daviplata']),
+        'ventas_bold': float(desglose_pagos['bold']),
+        'ventas_addi': float(desglose_pagos['addi']),
+        'ventas_transferencia': float(desglose_pagos['transferencia']),
+        'ventas_otros': float(desglose_pagos['otros']),
+        'ventas_digitales': float(ventas_digitales),
+        'ventas_transferencia_total': float(ventas_digitales),
         'total_ingresos': float(total_ingresos),
         'costos_directos': float(costos_directos),
         'costos_indirectos': float(costos_indirectos),
         'gastos_operacionales': float(gastos_operacionales),
+        'abonos_puntos': float(abonos_puntos),
         'total_salidas': total_salidas,
         'balance_neto': balance_neto
     }

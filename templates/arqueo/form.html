@@ -249,6 +249,39 @@
                     <span class="badge bg-danger rounded-pill px-3 py-1 fs-6">${{ gastos_automaticos|cop }}</span>
                 </div>
 
+                <!-- Desglose Por Categorías del Día -->
+                {% if desglose_gastos_cat %}
+                <div class="p-3 bg-light bg-opacity-50 border-bottom">
+                    <small class="text-muted fw-bold text-uppercase d-block mb-2" style="font-size: 0.75rem;">
+                        <i class="fa-solid fa-tags me-1 text-primary"></i>Desglose por Categoría de Gasto:
+                    </small>
+                    <div class="row g-2">
+                        {% for cat_nombre, cat_monto in desglose_gastos_cat.items() %}
+                        <div class="col-6 col-md-4 col-lg-3">
+                            <div class="p-2 border rounded bg-white shadow-sm d-flex justify-content-between align-items-center">
+                                <span class="small fw-bold text-dark text-truncate" title="{{ cat_nombre }}">
+                                    {% if cat_nombre.lower() == 'cadena' %}
+                                        🔗 Cadena
+                                    {% elif 'punto' in cat_nombre.lower() %}
+                                        📍 {{ cat_nombre }}
+                                    {% elif cat_nombre.lower() == 'arriendo' %}
+                                        🏢 Arriendo
+                                    {% elif 'servicio' in cat_nombre.lower() %}
+                                        💡 {{ cat_nombre }}
+                                    {% elif 'nómina' in cat_nombre.lower() or 'nomina' in cat_nombre.lower() %}
+                                        👥 {{ cat_nombre }}
+                                    {% else %}
+                                        🏷️ {{ cat_nombre }}
+                                    {% endif %}
+                                </span>
+                                <span class="fw-bold text-danger small ms-2">${{ cat_monto|cop }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="bg-light text-muted small text-uppercase">
@@ -264,7 +297,15 @@
                             {% for g in gastos_diarios_registros %}
                             <tr>
                                 <td class="ps-3 text-muted small"><i class="fa-regular fa-clock me-1"></i>{{ g.fecha_gasto.strftime('%H:%M') }}</td>
-                                <td class="fw-bold text-dark"><i class="fa-solid fa-tags me-1 text-primary"></i>{{ g.categoria }}</td>
+                                <td class="fw-bold text-dark">
+                                    {% if g.categoria.lower() == 'cadena' %}
+                                        <span class="badge bg-secondary text-white rounded-pill"><i class="fa-solid fa-link me-1"></i>Cadena</span>
+                                    {% elif 'punto' in g.categoria.lower() %}
+                                        <span class="badge bg-primary text-white rounded-pill"><i class="fa-solid fa-location-dot me-1"></i>{{ g.categoria }}</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark border rounded-pill"><i class="fa-solid fa-tag me-1 text-muted"></i>{{ g.categoria }}</span>
+                                    {% endif %}
+                                </td>
                                 <td class="small text-muted">{{ g.descripcion or 'Gasto reportado' }}</td>
                                 <td>
                                     <span class="badge bg-light text-dark border rounded-pill px-2 py-1">

@@ -92,6 +92,12 @@ def nuevo():
     ).all()
     gastos_automaticos = sum((Decimal(str(g.monto)) for g in gastos_diarios_registros), Decimal('0.00'))
 
+    # Desglose de gastos por categoría
+    desglose_gastos_cat = {}
+    for g in gastos_diarios_registros:
+        cat = (g.categoria or 'General').strip()
+        desglose_gastos_cat[cat] = desglose_gastos_cat.get(cat, Decimal('0.00')) + Decimal(str(g.monto))
+
     # Verificar si ya existe un arqueo para esa fecha y ese local
     arqueo_existente = ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, local_id=local_id_num).first()
 
@@ -124,10 +130,11 @@ def nuevo():
             db.session.rollback()
             flash('Ocurrió un error al guardar el arqueo de caja.', 'danger')
 
-    # Calcular abonos a Puntos realizados en el día
+    # Calcular abonos a Puntos realizados en el día exclusivamente para el local seleccionado
     abonos_puntos_registros = PuntoTransaction.query.filter(
         db.func.date(PuntoTransaction.fecha) == fecha_seleccionada,
-        PuntoTransaction.tipo_movimiento == 'abono'
+        PuntoTransaction.tipo_movimiento == 'abono',
+        PuntoTransaction.local_id == local_id_num
     ).order_by(PuntoTransaction.fecha.desc()).all()
     total_abonos_puntos = sum((Decimal(str(a.monto)) for a in abonos_puntos_registros), Decimal('0.00'))
 
@@ -140,6 +147,7 @@ def nuevo():
         arqueo_existente=arqueo_existente,
         gastos_automaticos=gastos_automaticos,
         gastos_diarios_registros=gastos_diarios_registros,
+        desglose_gastos_cat=desglose_gastos_cat,
         abonos_puntos_registros=abonos_puntos_registros,
         total_abonos_puntos=total_abonos_puntos,
         desglose_digital=desglose_digital,
@@ -234,6 +242,11 @@ def reporte():
         gastos_query_periodo = gastos_query_periodo.filter(Expense.local_id == local_num)
     gastos_periodo = gastos_query_periodo.order_by(Expense.fecha_gasto.asc()).all()
 
+    desglose_gastos_cat = {}
+    for g in gastos_periodo:
+        cat = (g.categoria or 'General').strip()
+        desglose_gastos_cat[cat] = desglose_gastos_cat.get(cat, Decimal('0.00')) + Decimal(str(g.monto))
+
     fecha_generacion = obtener_hora_bogota().strftime('%Y-%m-%d %H:%M')
 
     return render_template(
@@ -245,6 +258,7 @@ def reporte():
         fecha_generacion=fecha_generacion,
         ventas_periodo=ventas_periodo,
         gastos_periodo=gastos_periodo,
+        desglose_gastos_cat=desglose_gastos_cat,
         active_local=active_local,
         is_admin=is_admin,
         nombre_sede=nombre_sede

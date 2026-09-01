@@ -85,20 +85,37 @@
                 </select>
             </div>
             <div class="{% if is_admin %}col-md-3{% else %}col-md-3{% endif %}">
-                <label class="form-label fw-bold text-brand-black">Categoría</label>
-                <!-- Usamos datalist para permitir escribir o seleccionar opciones -->
-                <input type="text" name="categoria" list="categoriasComunes" class="form-control bg-light border-0" autocomplete="off" placeholder="Ej: Arriendo, Aseo..." required>
-                <datalist id="categoriasComunes">
-                    <option value="Arriendo">
-                    <option value="Servicios Públicos">
-                    <option value="Nómina">
-                    <option value="Internet / Teléfono">
-                    <option value="Aseo y Mantenimiento">
-                    <option value="Alimentación">
-                    <option value="Transporte / Fletes">
-                    <option value="Caja Menor">
-                    <option value="Insumos Varios">
-                </datalist>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label fw-bold text-brand-black mb-0">Categoría</label>
+                    <button type="button" id="btnToggleCustomCat" class="btn btn-link btn-sm p-0 text-decoration-none small fw-bold" style="font-size: 0.78rem; color: var(--brand-blue);">
+                        <i class="fa-solid fa-plus-circle me-1"></i>Otra categoría
+                    </button>
+                </div>
+                
+                <!-- Categorías predefinidas fijas (Cadena, etc.) -->
+                <select name="categoria" id="selectCategoria" class="form-select bg-light border-0" required>
+                    <option value="" selected disabled>Seleccionar categoría...</option>
+                    <option value="Cadena">🔗 Cadena</option>
+                    <option value="Arriendo">🏢 Arriendo</option>
+                    <option value="Servicios Públicos">💡 Servicios Públicos</option>
+                    <option value="Nómina">👥 Nómina / Salarios</option>
+                    <option value="Aseo y Mantenimiento">🧹 Aseo y Mantenimiento</option>
+                    <option value="Transporte / Fletes">🚚 Transporte / Fletes</option>
+                    <option value="Alimentación">🍲 Alimentación</option>
+                    <option value="Caja Menor">📦 Caja Menor</option>
+                    <option value="Insumos Varios">🛠️ Insumos Varios</option>
+                    <option value="__custom__">➕ Escribir otra categoría...</option>
+                </select>
+
+                <!-- Input para escribir otra categoría en el momento -->
+                <div id="wrapperCustomCat" class="d-none">
+                    <div class="input-group">
+                        <input type="text" id="inputCustomCat" class="form-control bg-light border-0" placeholder="Escribe la categoría..." autocomplete="off">
+                        <button type="button" id="btnCancelCustomCat" class="btn btn-outline-secondary btn-sm" title="Volver a la lista de categorías">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="{% if is_admin %}col-md-4{% else %}col-md-6{% endif %} border-start ps-4">
                 <label class="form-label fw-bold text-brand-black">División de Pagos (Monto y Método)</label>
@@ -259,31 +276,93 @@
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('gastos-lineas-container');
     
-    container.addEventListener('click', function(e) {
-        if (e.target.closest('.btn-add-linea')) {
-            const nuevaLinea = document.createElement('div');
-            nuevaLinea.className = 'row g-2 align-items-center mb-2 linea-gasto';
-            nuevaLinea.innerHTML = `
-                <div class="col-5">
-                    <input type="number" step="1" min="0" name="monto[]" class="form-control bg-light border-0" placeholder="Monto $" required>
-                </div>
-                <div class="col-5">
-                    <select name="metodo_pago[]" class="form-select bg-light border-0" required>
-                        <option value="efectivo" selected>Efectivo (Caja)</option>
-                        <option value="nequi">Nequi</option>
-                        <option value="daviplata">Daviplata</option>
-                        <option value="bancolombia">Bancolombia</option>
-                    </select>
-                </div>
-                <div class="col-2 text-end">
-                    <button type="button" class="btn btn-sm btn-outline-danger rounded-circle btn-remove-linea"><i class="fa-solid fa-minus"></i></button>
-                </div>
-            `;
-            container.appendChild(nuevaLinea);
-        } else if (e.target.closest('.btn-remove-linea')) {
-            e.target.closest('.linea-gasto').remove();
+    if (container) {
+        container.addEventListener('click', function(e) {
+            if (e.target.closest('.btn-add-linea')) {
+                const nuevaLinea = document.createElement('div');
+                nuevaLinea.className = 'row g-2 align-items-center mb-2 linea-gasto';
+                nuevaLinea.innerHTML = `
+                    <div class="col-5">
+                        <input type="number" step="1" min="0" name="monto[]" class="form-control bg-light border-0" placeholder="Monto $" required>
+                    </div>
+                    <div class="col-5">
+                        <select name="metodo_pago[]" class="form-select bg-light border-0" required>
+                            <option value="efectivo" selected>Efectivo (Caja)</option>
+                            <option value="nequi">Nequi</option>
+                            <option value="daviplata">Daviplata</option>
+                            <option value="bancolombia">Bancolombia</option>
+                            <option value="bold">Bold</option>
+                            <option value="addi">Addi</option>
+                        </select>
+                    </div>
+                    <div class="col-2 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-circle btn-remove-linea"><i class="fa-solid fa-minus"></i></button>
+                    </div>
+                `;
+                container.appendChild(nuevaLinea);
+            } else if (e.target.closest('.btn-remove-linea')) {
+                e.target.closest('.linea-gasto').remove();
+            }
+        });
+    }
+
+    // Lógica para alternar entre categoría fija y personalizada
+    const selectCat = document.getElementById('selectCategoria');
+    const wrapperCustom = document.getElementById('wrapperCustomCat');
+    const inputCustom = document.getElementById('inputCustomCat');
+    const btnToggleCustom = document.getElementById('btnToggleCustomCat');
+    const btnCancelCustom = document.getElementById('btnCancelCustomCat');
+
+    function activarCategoriaCustom() {
+        if (!selectCat || !wrapperCustom || !inputCustom) return;
+        selectCat.classList.add('d-none');
+        selectCat.removeAttribute('name');
+        selectCat.removeAttribute('required');
+        
+        wrapperCustom.classList.remove('d-none');
+        inputCustom.setAttribute('name', 'categoria');
+        inputCustom.setAttribute('required', 'required');
+        inputCustom.focus();
+
+        if (btnToggleCustom) btnToggleCustom.classList.add('d-none');
+    }
+
+    function activarCategoriaSelect() {
+        if (!selectCat || !wrapperCustom || !inputCustom) return;
+        wrapperCustom.classList.add('d-none');
+        inputCustom.removeAttribute('name');
+        inputCustom.removeAttribute('required');
+        inputCustom.value = '';
+
+        selectCat.classList.remove('d-none');
+        selectCat.setAttribute('name', 'categoria');
+        selectCat.setAttribute('required', 'required');
+        if (selectCat.value === '__custom__') {
+            selectCat.value = '';
         }
-    });
+
+        if (btnToggleCustom) btnToggleCustom.classList.remove('d-none');
+    }
+
+    if (selectCat) {
+        selectCat.addEventListener('change', function() {
+            if (this.value === '__custom__') {
+                activarCategoriaCustom();
+            }
+        });
+    }
+
+    if (btnToggleCustom) {
+        btnToggleCustom.addEventListener('click', function() {
+            activarCategoriaCustom();
+        });
+    }
+
+    if (btnCancelCustom) {
+        btnCancelCustom.addEventListener('click', function() {
+            activarCategoriaSelect();
+        });
+    }
 });
 </script>
 {% endblock %}

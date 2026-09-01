@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from models import db, Punto, PuntoTransaction, Expense, obtener_hora_bogota
 from decimal import Decimal
+from datetime import datetime
 
 puntos_bp = Blueprint('puntos_bp', __name__, url_prefix='/puntos')
 
@@ -88,6 +89,8 @@ def detalle(id):
     abonos_l2 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 2), Decimal('0.00'))
     abonos_l3 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 3), Decimal('0.00'))
 
+    hoy_str = obtener_hora_bogota().strftime('%Y-%m-%d')
+
     return render_template(
         'puntos/detail.html',
         punto=punto,
@@ -97,13 +100,24 @@ def detalle(id):
         saldo_pendiente=saldo_pendiente,
         abonos_l1=abonos_l1,
         abonos_l2=abonos_l2,
-        abonos_l3=abonos_l3
+        abonos_l3=abonos_l3,
+        hoy=hoy_str
     )
 
 @puntos_bp.route('/<int:id>/abonar', methods=['POST'])
 @login_required
 def abonar(id):
     punto = Punto.query.get_or_404(id)
+
+    # Validar que el punto tenga saldo pendiente mayor a 0
+    transacciones_existentes = PuntoTransaction.query.filter_by(punto_id=punto.id).all()
+    cargos = sum((t.monto for t in transacciones_existentes if t.tipo_movimiento == 'cargo'), Decimal('0.00'))
+    abonos = sum((t.monto for t in transacciones_existentes if t.tipo_movimiento == 'abono'), Decimal('0.00'))
+    saldo_pendiente = cargos - abonos
+
+    if saldo_pendiente <= 0:
+        flash(f'El punto "{punto.nombre}" ya se encuentra al día ($0 saldo pendiente). No es posible registrar abonos.', 'warning')
+        return redirect(url_for('puntos_bp.detalle', id=punto.id))
 
     try:
         monto = Decimal(str(request.form.get('monto', '0')).replace(',', '').strip())
@@ -121,8 +135,21 @@ def abonar(id):
         flash('El monto del abono debe ser mayor a 0.', 'danger')
         return redirect(url_for('puntos_bp.detalle', id=punto.id))
 
+    # Obtener la fecha del abono elegida por el usuario
+    fecha_abono_str = request.form.get('fecha_abono')
+    if fecha_abono_str:
+        try:
+            hora_actual = obtener_hora_bogota().time()
+            fecha_dt = datetime.strptime(fecha_abono_str, '%Y-%m-%d').replace(
+                hour=hora_actual.hour, minute=hora_actual.minute, second=hora_actual.second
+            )
+        except ValueError:
+            fecha_dt = obtener_hora_bogota()
+    else:
+        fecha_dt = obtener_hora_bogota()
+
     try:
-        # 1. Crear transacción de Abono al Punto con local_id
+        # 1. Crear transacción de Abono al Punto con local_id y fecha personalizada
         transaccion_abono = PuntoTransaction(
             punto_id=punto.id,
             usuario_id=current_user.id,
@@ -130,7 +157,8 @@ def abonar(id):
             monto=monto,
             metodo_pago=metodo_pago,
             local_id=local_id_abono,
-            descripcion=descripcion if descripcion else f'Abono a {punto.nombre} desde D&L {local_id_abono}'
+            descripcion=descripcion if descripcion else f'Abono a {punto.nombre} desde D&L {local_id_abono}',
+            fecha=fecha_dt
         )
         db.session.add(transaccion_abono)
 
@@ -143,12 +171,12 @@ def abonar(id):
             monto=monto,
             metodo_pago=metodo_pago,
             local_id=local_id_abono,
-            fecha_gasto=obtener_hora_bogota()
+            fecha_gasto=fecha_dt
         )
         db.session.add(nuevo_gasto)
 
         db.session.commit()
-        flash(f'Abono de ${monto:,.0f} registrado exitosamente desde D&L {local_id_abono} a favor de "{punto.nombre}".', 'success')
+        flash(f'Abono de ${monto:,.0f} registrado exitosamente con fecha {fecha_dt.strftime("%d/%m/%Y")} a favor de "{punto.nombre}".', 'success')
     except Exception as e:
         db.session.rollback()
         flash('Error al intentar registrar el abono.', 'danger')
