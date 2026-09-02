@@ -285,12 +285,12 @@ def create_app():
                     <h3 class="fw-bold text-dark mb-1">Confirmar Pago Servidor</h3>
                     <p class="text-muted small mb-3">Mensualidad <strong>Servidor Zenic</strong> - <strong>{nombre_mes} {anio}</strong></p>
                     
-                    {f'<div class="alert alert-danger border-2 border-dark rounded-3 py-2 fw-semibold mb-3 small">{error_msg}</div>' if error_msg else ''}
+                    {f'<div class="alert alert-danger border-2 border-dark rounded-3 py-2 fw-semibold mb-3 small">{html.escape(error_msg)}</div>' if error_msg else ''}
 
                     <p class="text-secondary small mb-4">Ingresa el <strong>PIN Secreto del Proveedor</strong> para autorizar y registrar este pago en el sistema:</p>
 
                     <form method="POST" action="">
-                        <input type="hidden" name="token" value="{token}">
+                        <input type="hidden" name="token" value="{html.escape(token)}">
                         <div class="mb-4">
                             <input type="password" name="pin" class="form-control form-control-lg text-center fw-bold border-2 border-dark rounded-3" placeholder="••••" maxlength="10" required autofocus autocomplete="off" style="letter-spacing: 4px; font-size: 1.5rem;">
                         </div>
@@ -305,7 +305,8 @@ def create_app():
         except BadSignature:
             return "<h2 style='color:red; font-family:sans-serif; text-align:center; margin-top:50px;'>El enlace de confirmación es inválido o ha expirado.</h2>", 403
         except Exception as e:
-            return f"<h2 style='color:red; font-family:sans-serif; text-align:center; margin-top:50px;'>Error al procesar la confirmación: {str(e)}</h2>", 500
+            import html
+            return f"<h2 style='color:red; font-family:sans-serif; text-align:center; margin-top:50px;'>Error al procesar la confirmación: {html.escape(str(e))}</h2>", 500
 
     @app.route('/')
     def index():
