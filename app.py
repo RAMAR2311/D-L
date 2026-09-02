@@ -116,10 +116,11 @@ def create_app():
             nombres_meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
             nombre_mes = nombres_meses[mes_actual] if 1 <= mes_actual <= 12 else str(mes_actual)
 
-            # Mensaje encoded para WhatsApp
-            msg_txt = f"Hola, adjunto el comprobante de pago de la mensualidad del servidor Zenic para {nombre_mes} {anio_actual}.\n\nPara confirmar mi pago en el sistema con 1 solo clic, toca aquí:\n{url_confirmacion}"
-            whatsapp_url = f"https://wa.me/573115643557?text={urllib.parse.quote(msg_txt)}"
+            monto_servidor = os.environ.get('VALOR_MENSUALIDAD_SERVIDOR', '100.000')
 
+            # Mensaje encoded para WhatsApp
+            msg_txt = f"Hola, adjunto el comprobante de pago de la mensualidad del servidor Zenic (${monto_servidor} COP) para {nombre_mes} {anio_actual}.\n\nPara confirmar mi pago en el sistema con 1 solo clic, toca aquí:\n{url_confirmacion}"
+            whatsapp_url = f"https://wa.me/573115643557?text={urllib.parse.quote(msg_txt)}"
 
             dias_para_el_15 = 15 - dia_actual
             dias_gabela = (20 - dia_actual + 1) if (16 <= dia_actual <= 20) else 0
@@ -147,6 +148,7 @@ def create_app():
                     'estado': estado,
                     'mes_nombre': nombre_mes,
                     'anio': anio_actual,
+                    'monto': monto_servidor,
                     'dias_restantes': dias_para_el_15,
                     'dias_vencido': abs(dias_para_el_15),
                     'dias_gabela': dias_gabela,
@@ -155,6 +157,7 @@ def create_app():
                     'nequi_num': '3505422186'
                 }
             }
+
 
         except Exception:
             return {'pago_servidor': {'estado': 'pagado'}}

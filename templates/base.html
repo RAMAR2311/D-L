@@ -352,10 +352,19 @@
                             Vencimiento: 15 de {{ pago_servidor.mes_nombre }} {{ pago_servidor.anio }}
                         </span>
                     </div>
-                    
-                    <p class="text-secondary small text-center mb-4">
+
+                    <!-- Cuadro con el Valor de la Mensualidad -->
+                    <div class="card card-custom p-3 text-center mb-3 bg-white">
+                        <span class="text-muted small fw-bold font-title text-uppercase">Valor Mensualidad Servidor</span>
+                        <div class="fs-2 fw-bold text-dark font-title my-1" style="color: var(--mario-red) !important;">
+                            ${{ pago_servidor.monto }} <span class="fs-6 text-muted font-monospace">COP</span>
+                        </div>
+                    </div>
+
+                    <p class="text-secondary small text-center mb-3">
                         Por favor realiza tu transferencia a cualquiera de los siguientes medios y envía tu comprobante por WhatsApp:
                     </p>
+
 
                     <!-- Tarjetas de Cuentas -->
                     <div class="row g-3 mb-4">
