@@ -28,32 +28,42 @@
     {% endif %}
 </div>
 
-<!-- Tarjetas de Resumen Financiero -->
-<div class="row g-4 mb-4">
-    <div class="col-md-6">
-        <div class="card card-custom h-100 p-4 border-0 shadow-sm" style="border-left: 5px solid var(--brand-blue) !important;">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="text-brand-black fw-bold mb-0">Total Gastos Diarios (Mes)</h5>
-                <i class="fa-solid fa-cart-shopping fs-2" style="color: var(--brand-blue);"></i>
+<!-- Tarjetas de Resumen Financiero por Período -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card card-custom h-100 p-3 border-0 shadow-sm" style="border-left: 5px solid var(--brand-blue) !important;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="text-brand-black fw-bold mb-0">Gastos Diarios (Período)</h6>
+                <i class="fa-solid fa-cart-shopping fs-4" style="color: var(--brand-blue);"></i>
             </div>
-            <h2 class="fw-bolder m-0">${{ (total_diarios)|cop }}</h2>
-            <p class="text-muted small mt-2 m-0">Operativos en {{ active_local|upper }}: comida, transportes, aseo.</p>
+            <h3 class="fw-bolder m-0">${{ (total_diarios)|cop }}</h3>
+            <small class="text-muted mt-1 d-block" style="font-size: 0.72rem;">Operativos en {{ active_local|upper }}: comida, transportes, aseo.</small>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card card-custom h-100 p-4 border-0 shadow-sm" style="border-left: 5px solid var(--brand-pink) !important;">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="text-brand-black fw-bold mb-0">Total Costos Indirectos (Mes)</h5>
-                <i class="fa-solid fa-building-columns fs-2" style="color: var(--brand-pink);"></i>
+    <div class="col-md-4">
+        <div class="card card-custom h-100 p-3 border-0 shadow-sm" style="border-left: 5px solid var(--brand-pink) !important;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="text-brand-black fw-bold mb-0">Costos Indirectos (Período)</h6>
+                <i class="fa-solid fa-building-columns fs-4" style="color: var(--brand-pink);"></i>
             </div>
-            <h2 class="fw-bolder m-0">${{ (total_indirectos)|cop }}</h2>
-            <p class="text-muted small mt-2 m-0">Fijos en {{ active_local|upper }}: arriendo, servicios.</p>
+            <h3 class="fw-bolder m-0">${{ (total_indirectos)|cop }}</h3>
+            <small class="text-muted mt-1 d-block" style="font-size: 0.72rem;">Fijos en {{ active_local|upper }}: arriendo, servicios.</small>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-custom h-100 p-3 border-0 shadow-sm bg-light" style="border-left: 5px solid #198754 !important;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="text-brand-black fw-bold mb-0">Total Salidas Filtradas</h6>
+                <i class="fa-solid fa-wallet fs-4 text-success"></i>
+            </div>
+            <h3 class="fw-bolder text-success m-0">${{ (total_general)|cop }}</h3>
+            <small class="text-muted mt-1 d-block" style="font-size: 0.72rem;">Suma del período seleccionado ({{ fecha_inicio }} al {{ fecha_fin }}).</small>
         </div>
     </div>
 </div>
 
 <!-- Formulario para Registrar Nuevo Gasto -->
-<div class="card card-custom p-4 mb-5 shadow-sm border-0">
+<div class="card card-custom p-4 mb-4 shadow-sm border-0">
     <h5 class="text-brand-black fw-bold mb-4"><i class="fa-solid fa-money-bill-transfer text-brand-blue me-2"></i>Registrar Salida de Dinero</h5>
     <form method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -98,24 +108,13 @@
                     <option value="Cadena">🔗 Cadena</option>
                     <option value="Arriendo">🏢 Arriendo</option>
                     <option value="Servicios Públicos">💡 Servicios Públicos</option>
-                    <option value="Nómina">👥 Nómina / Salarios</option>
+                    <option value="General">🏷️ General</option>
+                    <option value="Transportes / Domicilios">🚚 Transportes / Domicilios</option>
+                    <option value="Alimentación">🍔 Alimentación</option>
                     <option value="Aseo y Mantenimiento">🧹 Aseo y Mantenimiento</option>
-                    <option value="Transporte / Fletes">🚚 Transporte / Fletes</option>
-                    <option value="Alimentación">🍲 Alimentación</option>
-                    <option value="Caja Menor">📦 Caja Menor</option>
-                    <option value="Insumos Varios">🛠️ Insumos Varios</option>
-                    <option value="__custom__">➕ Escribir otra categoría...</option>
+                    <option value="Papelería / Empaques">📦 Papelería / Empaques</option>
                 </select>
-
-                <!-- Input para escribir otra categoría en el momento -->
-                <div id="wrapperCustomCat" class="d-none">
-                    <div class="input-group">
-                        <input type="text" id="inputCustomCat" class="form-control bg-light border-0" placeholder="Escribe la categoría..." autocomplete="off">
-                        <button type="button" id="btnCancelCustomCat" class="btn btn-outline-secondary btn-sm" title="Volver a la lista de categorías">
-                            <i class="fa-solid fa-rotate-left"></i>
-                        </button>
-                    </div>
-                </div>
+                <input type="text" id="inputCustomCategoria" class="form-control bg-light border-0 d-none" placeholder="Nombre de categoría personalizada...">
             </div>
             <div class="{% if is_admin %}col-md-4{% else %}col-md-6{% endif %} border-start ps-4">
                 <label class="form-label fw-bold text-brand-black">División de Pagos (Monto y Método)</label>
@@ -153,6 +152,68 @@
             </div>
         </div>
     </form>
+</div>
+
+<!-- Panel de Filtros Avanzados para Gastos -->
+<div class="card card-custom p-3 mb-4 shadow-sm border-0 bg-white rounded-4">
+    <h6 class="fw-bold text-brand-black mb-3">
+        <i class="fa-solid fa-filter me-2 text-primary"></i>Filtrar Egresos por Fechas, Tipo o Categoría
+    </h6>
+    <form action="{{ url_for('gastos_bp.index') }}" method="GET" class="row g-2 align-items-end">
+        <input type="hidden" name="local" value="{{ active_local }}">
+
+        <div class="col-12 col-md-3">
+            <label class="form-label small fw-bold text-dark mb-1"><i class="fa-regular fa-calendar me-1 text-danger"></i>Desde:</label>
+            <input type="date" name="fecha_inicio" value="{{ fecha_inicio }}" class="form-control form-control-sm bg-light border-0 fw-semibold">
+        </div>
+
+        <div class="col-12 col-md-3">
+            <label class="form-label small fw-bold text-dark mb-1"><i class="fa-regular fa-calendar-check me-1 text-danger"></i>Hasta:</label>
+            <input type="date" name="fecha_fin" value="{{ fecha_fin }}" class="form-control form-control-sm bg-light border-0 fw-semibold">
+        </div>
+
+        <div class="col-12 col-md-2">
+            <label class="form-label small fw-bold text-dark mb-1"><i class="fa-solid fa-layer-group me-1 text-primary"></i>Tipo Salida:</label>
+            <select name="tipo" class="form-select form-select-sm bg-light border-0 fw-semibold">
+                <option value="todos" {% if tipo_filtro == 'todos' %}selected{% endif %}>Todos los tipos</option>
+                <option value="Gasto Diario" {% if tipo_filtro == 'Gasto Diario' %}selected{% endif %}>Gasto Diario</option>
+                <option value="Costo Indirecto" {% if tipo_filtro == 'Costo Indirecto' %}selected{% endif %}>Costo Indirecto</option>
+            </select>
+        </div>
+
+        <div class="col-12 col-md-2">
+            <label class="form-label small fw-bold text-dark mb-1"><i class="fa-solid fa-tag me-1 text-info"></i>Categoría:</label>
+            <select name="categoria" class="form-select form-select-sm bg-light border-0 fw-semibold">
+                <option value="todas" {% if categoria_filtro == 'todas' %}selected{% endif %}>Todas</option>
+                {% for cat in categorias_existentes %}
+                    <option value="{{ cat }}" {% if categoria_filtro == cat %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-12 col-md-2 d-flex gap-1">
+            <button type="submit" class="btn btn-sm btn-dark w-100 rounded-pill fw-bold">
+                <i class="fa-solid fa-search me-1"></i> Filtrar
+            </button>
+            <a href="{{ url_for('gastos_bp.index', local=active_local) }}" class="btn btn-sm btn-outline-secondary rounded-pill px-2" title="Limpiar Filtros">
+                <i class="fa-solid fa-rotate-left"></i>
+            </a>
+        </div>
+    </form>
+
+    <!-- Botones de Acceso Rápido por Período -->
+    <div class="d-flex align-items-center gap-2 mt-3 pt-2 border-top flex-wrap">
+        <span class="small fw-bold text-muted me-1" style="font-size:0.75rem;">Accesos Rápidos:</span>
+        <a href="{{ url_for('gastos_bp.index', local=active_local, fecha_inicio=hoy, fecha_fin=hoy) }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 small fw-bold">
+            ⚡ Gasto Diario de Hoy
+        </a>
+        <a href="{{ url_for('gastos_bp.index', local=active_local) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 small fw-bold">
+            📅 Este Mes
+        </a>
+        <a href="{{ url_for('gastos_bp.index', local=active_local, fecha_inicio='2026-08-01', fecha_fin='2026-08-31') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 small fw-bold">
+            📆 Mes Anterior (Agosto)
+        </a>
+    </div>
 </div>
 
 <!-- Tabla Historial -->

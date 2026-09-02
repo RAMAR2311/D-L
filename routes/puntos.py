@@ -89,12 +89,62 @@ def detalle(id):
     abonos_l2 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 2), Decimal('0.00'))
     abonos_l3 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 3), Decimal('0.00'))
 
+    # Calcular saldo individual por producto / sale_id
+    abonos_por_sale_id = {}
+    abonos_lista = [t for t in transacciones if t.tipo_movimiento == 'abono']
+    for a in abonos_lista:
+        if a.sale_id:
+            abonos_por_sale_id[a.sale_id] = abonos_por_sale_id.get(a.sale_id, Decimal('0.00')) + a.monto
+
+    productos_cartera = []
+    cargos_registros = [t for t in transacciones if t.tipo_movimiento == 'cargo']
+    for c in cargos_registros:
+        s_id = c.sale_id or c.id
+        tot_abono = abonos_por_sale_id.get(s_id, Decimal('0.00'))
+        if not c.sale_id and c.id in abonos_por_sale_id:
+            tot_abono += abonos_por_sale_id[c.id]
+        
+        saldo_prod = max(c.monto - tot_abono, Decimal('0.00'))
+        productos_cartera.append({
+            'cargo_id': c.id,
+            'sale_id': s_id,
+            'descripcion': c.descripcion or f'Venta #{s_id}',
+            'monto_cargo': c.monto,
+            'total_abonado': tot_abono,
+            'saldo_pendiente': saldo_prod,
+            'fecha': c.fecha,
+            'local_id': c.local_id or 1,
+            'pagado_completo': (saldo_prod <= Decimal('0.00'))
+        })
+
+    # Inyectar variables de saldo de producto en las transacciones para la tabla principal
+    for t in transacciones:
+        if t.tipo_movimiento == 'cargo':
+            s_id = t.sale_id or t.id
+            tot_ab = abonos_por_sale_id.get(s_id, Decimal('0.00'))
+            t.total_abonado_producto = tot_ab
+            t.saldo_pendiente_producto = max(t.monto - tot_ab, Decimal('0.00'))
+        elif t.tipo_movimiento == 'abono' and t.sale_id:
+            cargo_asoc = next((c for c in cargos_registros if (c.sale_id == t.sale_id or c.id == t.sale_id)), None)
+            if cargo_asoc:
+                tot_ab = abonos_por_sale_id.get(t.sale_id, Decimal('0.00'))
+                t.saldo_pendiente_producto = max(cargo_asoc.monto - tot_ab, Decimal('0.00'))
+                t.monto_cargo_producto = cargo_asoc.monto
+            else:
+                t.saldo_pendiente_producto = None
+                t.monto_cargo_producto = None
+        else:
+            t.saldo_pendiente_producto = None
+            t.monto_cargo_producto = None
+
     hoy_str = obtener_hora_bogota().strftime('%Y-%m-%d')
 
     return render_template(
         'puntos/detail.html',
         punto=punto,
         transacciones=transacciones,
+        productos_cartera=productos_cartera,
+        cargos_registros=cargos_registros,
         total_cargos=cargos,
         total_abonos=abonos,
         saldo_pendiente=saldo_pendiente,
@@ -126,6 +176,9 @@ def abonar(id):
 
     metodo_pago = request.form.get('metodo_pago', 'efectivo')
     descripcion = request.form.get('descripcion', '').strip()
+    sale_id_raw = request.form.get('sale_id')
+    sale_id = int(sale_id_raw) if sale_id_raw and sale_id_raw.isdigit() else None
+
     try:
         local_id_abono = int(request.form.get('local_id', 1))
     except (ValueError, TypeError):
@@ -148,8 +201,16 @@ def abonar(id):
     else:
         fecha_dt = obtener_hora_bogota()
 
+    # Si se seleccionó un producto/venta específico y no se escribió descripción personalizada
+    if sale_id and not descripcion:
+        cargo_ref = PuntoTransaction.query.filter_by(punto_id=punto.id, sale_id=sale_id, tipo_movimiento='cargo').first()
+        if cargo_ref and cargo_ref.descripcion:
+            descripcion = f"Abono a {cargo_ref.descripcion}"
+        else:
+            descripcion = f"Abono específico a Venta #{sale_id}"
+
     try:
-        # 1. Crear transacción de Abono al Punto con local_id y fecha personalizada
+        # 1. Crear transacción de Abono al Punto con local_id, sale_id y fecha personalizada
         transaccion_abono = PuntoTransaction(
             punto_id=punto.id,
             usuario_id=current_user.id,
@@ -157,6 +218,7 @@ def abonar(id):
             monto=monto,
             metodo_pago=metodo_pago,
             local_id=local_id_abono,
+            sale_id=sale_id,
             descripcion=descripcion if descripcion else f'Abono a {punto.nombre} desde D&L {local_id_abono}',
             fecha=fecha_dt
         )

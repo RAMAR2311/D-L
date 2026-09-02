@@ -1,22 +1,42 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from models import db, Product, ProductVariant, Maneo, StockAdjustment, Sale, SaleDetail, SalePayment, obtener_hora_bogota
-from decorators import admin_required
 
 maneos_bp = Blueprint('maneos_bp', __name__)
 
 @maneos_bp.route('/')
 @login_required
-@admin_required
 def index():
-    # Listar todos los maneos activos (PENDIENTES) y un historial reciente de cerrados
-    activos = Maneo.query.filter_by(estado='PENDIENTE').order_by(Maneo.fecha_prestamo.desc()).all()
-    historial = Maneo.query.filter(Maneo.estado != 'PENDIENTE').order_by(Maneo.fecha_resolucion.desc()).limit(50).all()
-    return render_template('maneos/index.html', activos=activos, historial=historial)
+    is_admin = (current_user.rol == 'admin')
+    
+    if is_admin:
+        active_local = request.args.get('local', 'central').lower()
+        if active_local not in ['central', '1', '2', '3']:
+            active_local = 'central'
+    else:
+        active_local = str(getattr(current_user, 'local_asignado', 1) or '1')
+
+    query_activos = Maneo.query.filter_by(estado='PENDIENTE')
+    query_historial = Maneo.query.filter(Maneo.estado != 'PENDIENTE')
+
+    if not is_admin or active_local != 'central':
+        local_num = int(active_local)
+        query_activos = query_activos.filter(Maneo.local_id == local_num)
+        query_historial = query_historial.filter(Maneo.local_id == local_num)
+
+    activos = query_activos.order_by(Maneo.fecha_prestamo.desc()).all()
+    historial = query_historial.order_by(Maneo.fecha_resolucion.desc()).limit(50).all()
+
+    return render_template(
+        'maneos/index.html',
+        activos=activos,
+        historial=historial,
+        active_local=active_local,
+        is_admin=is_admin
+    )
 
 @maneos_bp.route('/prestar', methods=['POST'])
 @login_required
-@admin_required
 def prestar():
     sku_busqueda = request.form.get('sku_busqueda', '').strip()
     local_vecino = request.form.get('local_vecino', '').strip()
@@ -25,6 +45,16 @@ def prestar():
     if not sku_busqueda or not local_vecino or cantidad < 1:
         flash("Todos los campos son obligatorios y la cantidad debe ser mayor a 0.", "danger")
         return redirect(url_for('maneos_bp.index'))
+
+    # Determinar sede emisora del préstamo
+    is_admin = (current_user.rol == 'admin')
+    if is_admin:
+        try:
+            local_id_maneo = int(request.form.get('local_id') or getattr(current_user, 'local_asignado', 1) or 1)
+        except (ValueError, TypeError):
+            local_id_maneo = 1
+    else:
+        local_id_maneo = int(getattr(current_user, 'local_asignado', 1) or 1)
 
     # Buscar el producto o variante por SKU
     producto = Product.query.filter_by(sku=sku_busqueda).first()
@@ -51,11 +81,10 @@ def prestar():
         producto.cantidad_stock -= cantidad # Reflejar en base
         
         # Registrar Ajuste
-        from models import StockAdjustment
         ajuste = StockAdjustment(
             product_id=producto.id,
             admin_id=current_user.id,
-            tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} (Subcat: {variante.nombre_variante})",
+            tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} (Subcat: {variante.nombre_variante}) desde Local {local_id_maneo}",
             stock_anterior=stock_anterior,
             stock_nuevo=variante.cantidad_stock
         )
@@ -66,29 +95,30 @@ def prestar():
         producto.cantidad_stock -= cantidad
         
         # Registrar Ajuste
-        from models import StockAdjustment
         ajuste = StockAdjustment(
             product_id=producto.id,
             admin_id=current_user.id,
-            tipo_movimiento=f"Préstamo (Maneo) a {local_vecino}",
+            tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} desde Local {local_id_maneo}",
             stock_anterior=stock_anterior,
             stock_nuevo=producto.cantidad_stock
         )
         db.session.add(ajuste)
 
-    # 1. Crear el Maneo
+    # 1. Crear el Maneo asociándolo al local_id y usuario_id
     nuevo_maneo = Maneo(
         product_id=producto.id,
         variant_id=variante.id if variante else None,
         local_vecino=local_vecino,
         cantidad=cantidad,
-        estado='PENDIENTE'
+        estado='PENDIENTE',
+        local_id=local_id_maneo,
+        usuario_id=current_user.id
     )
     db.session.add(nuevo_maneo)
 
     try:
         db.session.commit()
-        flash(f"Préstamo registrado exitosamente para {local_vecino}.", "success")
+        flash(f"Préstamo (Maneo) registrado exitosamente desde D&L {local_id_maneo} para {local_vecino}.", "success")
     except Exception as e:
         db.session.rollback()
         flash(f"Error al registrar el préstamo: {e}", "danger")
@@ -97,7 +127,6 @@ def prestar():
 
 @maneos_bp.route('/facturar/<int:id>', methods=['POST'])
 @login_required
-@admin_required
 def facturar(id):
     maneo = Maneo.query.get_or_404(id)
     if maneo.estado != 'PENDIENTE':
@@ -110,10 +139,12 @@ def facturar(id):
     metodo_pago = request.form.get('metodo_pago', 'efectivo')
     
     total_venta = precio_unidad * maneo.cantidad
+    local_destino_venta = maneo.local_id or getattr(current_user, 'local_asignado', 1) or 1
 
-    # Crear la Venta
+    # Crear la Venta en el local correspondiente
     nueva_venta = Sale(
         vendedor_id=current_user.id,
+        local_id=local_destino_venta,
         monto_total=total_venta,
         metodo_pago=metodo_pago
     )
@@ -144,7 +175,7 @@ def facturar(id):
 
     try:
         db.session.commit()
-        flash(f"Maneo facturado correctamente. Venta registrada por ${total_venta:,.0f}.", "success")
+        flash(f"Maneo facturado correctamente. Venta registrada por ${total_venta:,.0f} en D&L {local_destino_venta}.", "success")
     except Exception as e:
         db.session.rollback()
         flash(f"Error al facturar el maneo: {e}", "danger")
@@ -153,7 +184,6 @@ def facturar(id):
 
 @maneos_bp.route('/devolver/<int:id>', methods=['POST'])
 @login_required
-@admin_required
 def devolver(id):
     maneo = Maneo.query.get_or_404(id)
     if maneo.estado != 'PENDIENTE':
@@ -166,7 +196,6 @@ def devolver(id):
 
     # 2. Devolver stock
     producto = maneo.producto
-    from models import StockAdjustment
     
     if maneo.variant_id:
         variante = ProductVariant.query.with_for_update().get(maneo.variant_id)
@@ -178,7 +207,7 @@ def devolver(id):
             ajuste = StockAdjustment(
                 product_id=producto.id,
                 admin_id=current_user.id,
-                tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} (Subcat: {variante.nombre_variante})",
+                tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} (Subcat: {variante.nombre_variante}) a Local {maneo.local_id or 1}",
                 stock_anterior=stock_anterior,
                 stock_nuevo=variante.cantidad_stock
             )
@@ -190,7 +219,7 @@ def devolver(id):
         ajuste = StockAdjustment(
             product_id=producto.id,
             admin_id=current_user.id,
-            tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino}",
+            tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} a Local {maneo.local_id or 1}",
             stock_anterior=stock_anterior,
             stock_nuevo=producto.cantidad_stock
         )
@@ -198,7 +227,7 @@ def devolver(id):
 
     try:
         db.session.commit()
-        flash(f"Maneo devuelto. {maneo.cantidad} unidades regresaron al stock.", "success")
+        flash(f"Maneo devuelto. {maneo.cantidad} unidades regresaron al stock de D&L {maneo.local_id or 1}.", "success")
     except Exception as e:
         db.session.rollback()
         flash(f"Error al devolver el maneo: {e}", "danger")

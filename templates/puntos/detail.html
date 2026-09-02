@@ -73,11 +73,78 @@
     </div>
 </div>
 
+<!-- Cartera Detallada por Producto -->
+{% if productos_cartera %}
+<div class="card card-custom p-0 overflow-hidden mb-4 border-0 shadow-sm rounded-4">
+    <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <div class="rounded-circle bg-primary bg-opacity-10 text-primary p-2 px-3 fw-bold fs-6">
+                <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
+            <div>
+                <h6 class="fw-bold text-dark mb-0">Cartera y Estado por Producto</h6>
+                <small class="text-muted" style="font-size:0.72rem;">Seguimiento individual del valor de cada artículo, lo abonado y el saldo pendiente</small>
+            </div>
+        </div>
+        <span class="badge bg-dark text-white rounded-pill px-3 py-1" style="font-size: 0.75rem;">
+            <i class="fa-solid fa-tag me-1 text-warning"></i> {{ productos_cartera|length }} producto{% if productos_cartera|length > 1 %}s{% endif %}
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+            <thead class="bg-light text-muted">
+                <tr>
+                    <th class="ps-4 py-2">PRODUCTO / VENTA</th>
+                    <th class="text-center py-2">SEDE</th>
+                    <th class="text-end py-2">VALOR CARGO</th>
+                    <th class="text-end py-2">TOTAL ABONADO</th>
+                    <th class="text-end py-2">SALDO PENDIENTE</th>
+                    <th class="text-center py-2 pe-4">ESTADO / ACCIÓN</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in productos_cartera %}
+                <tr class="{% if p.pagado_completo %}bg-success bg-opacity-10{% endif %}">
+                    <td class="ps-4 fw-bold text-dark">
+                        {{ p.descripcion }}
+                        <small class="text-muted d-block fw-normal" style="font-size:0.7rem;">
+                            <i class="fa-regular fa-calendar me-1"></i>{{ p.fecha.strftime('%d/%m/%Y %H:%M') }}
+                        </small>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-secondary text-white rounded-pill px-2 py-1" style="font-size:0.7rem;">D&L {{ p.local_id }}</span>
+                    </td>
+                    <td class="text-end fw-bold text-dark">${{ '{:,.0f}'.format(p.monto_cargo) }}</td>
+                    <td class="text-end fw-bold text-success">${{ '{:,.0f}'.format(p.total_abonado) }}</td>
+                    <td class="text-end fw-bolder {% if p.saldo_pendiente > 0 %}text-danger fs-6{% else %}text-success{% endif %}">
+                        ${{ '{:,.0f}'.format(p.saldo_pendiente) }}
+                    </td>
+                    <td class="text-center pe-4">
+                        {% if p.pagado_completo %}
+                            <span class="badge bg-success text-white rounded-pill px-3 py-1 fw-bold">
+                                <i class="fa-solid fa-check-circle me-1"></i>PAGADO ($0)
+                            </span>
+                        {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 fw-bold btn-abonar-producto" 
+                                    data-bs-toggle="modal" data-bs-target="#modalAbonarPunto" 
+                                    data-sale-id="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}">
+                                <i class="fa-solid fa-hand-holding-dollar me-1"></i>Abonar (${{ '{:,.0f}'.format(p.saldo_pendiente) }})
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Tabla de Movimientos del Estado de Cuenta -->
 <div class="card card-custom p-0 overflow-hidden">
     <div class="card-header bg-light py-3 border-0">
         <h5 class="fw-bold m-0 text-brand-black">
-            <i class="fa-solid fa-list-check me-2 text-primary"></i>Movimientos / Transacciones
+            <i class="fa-solid fa-list-check me-2 text-primary"></i>Historial de Movimientos / Transacciones
         </h5>
     </div>
     <div class="table-responsive">
@@ -124,6 +191,24 @@
                         {{ t.descripcion or 'Transacción registrada' }}
                         {% if t.sale_id %}
                             <small class="text-muted d-block">Venta ID: #{{ t.sale_id }}</small>
+                        {% endif %}
+
+                        <!-- Indicador de Saldo por Producto -->
+                        {% if t.tipo_movimiento == 'cargo' and t.saldo_pendiente_producto is not none %}
+                            <div class="mt-1">
+                                <span class="badge bg-light text-dark border me-1" style="font-size:0.7rem;">
+                                    Abonado: <strong class="text-success">${{ '{:,.0f}'.format(t.total_abonado_producto) }}</strong>
+                                </span>
+                                <span class="badge {% if t.saldo_pendiente_producto > 0 %}bg-warning bg-opacity-10 text-dark border border-warning{% else %}bg-success bg-opacity-10 text-success border border-success{% endif %}" style="font-size:0.7rem;">
+                                    Saldo restante de este producto: <strong>${{ '{:,.0f}'.format(t.saldo_pendiente_producto) }}</strong>
+                                </span>
+                            </div>
+                        {% elif t.tipo_movimiento == 'abono' and t.saldo_pendiente_producto is not none %}
+                            <div class="mt-1">
+                                <span class="badge bg-info bg-opacity-10 text-dark border border-info" style="font-size:0.7rem;">
+                                    <i class="fa-solid fa-scale-balanced me-1 text-info"></i>Saldo restante de este producto: <strong>${{ '{:,.0f}'.format(t.saldo_pendiente_producto) }}</strong>
+                                </span>
+                            </div>
                         {% endif %}
                     </td>
                     <td class="text-center">
@@ -202,6 +287,19 @@
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted"><i class="fa-solid fa-box me-1 text-primary"></i>Abonar a un Producto / Venta Específica (Opcional)</label>
+                        <select name="sale_id" id="selectSaleIdAbono" class="form-select bg-light border-0 fw-semibold" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
+                            <option value="" data-saldo="{{ saldo_pendiente|int }}" selected>🌐 Abono General a la Deuda Global (Saldo total: ${{ '{:,.0f}'.format(saldo_pendiente) }})</option>
+                            {% for p in productos_cartera %}
+                                <option value="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}" {% if p.pagado_completo %}disabled{% endif %}>
+                                    🏷️ {{ p.descripcion }} — Cargo: ${{ '{:,.0f}'.format(p.monto_cargo) }} | Abonado: ${{ '{:,.0f}'.format(p.total_abonado) }} | SALDO RESTANTE: ${{ '{:,.0f}'.format(p.saldo_pendiente) }}{% if p.pagado_completo %} (COMPLETADO){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Al seleccionar un producto, el monto se sugerirá con el saldo pendiente de ese artículo.</small>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label fw-bold small text-muted">Sede / Caja que realiza el desembolso *</label>
                         <select name="local_id" class="form-select bg-light border-0 fw-semibold" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
                             <option value="1" {% if current_user.local_asignado == 1 %}selected{% endif %}>🏪 D&L 1</option>
@@ -211,8 +309,8 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">Descripción / Nota</label>
-                        <input type="text" name="descripcion" class="form-control bg-light border-0" placeholder="Ej: Pago parcial por fundas prestadas" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
+                        <label class="form-label fw-bold small text-muted">Descripción / Nota Adicional</label>
+                        <input type="text" name="descripcion" class="form-control bg-light border-0" placeholder="Ej: Pago parcial de funda o cargador" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light">
@@ -275,5 +373,38 @@
     </div>
 </div>
 {% endfor %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectSale = document.getElementById('selectSaleIdAbono');
+    const inputMonto = document.querySelector('#modalAbonarPunto input[name="monto"]');
+
+    if (selectSale && inputMonto) {
+        selectSale.addEventListener('change', function() {
+            const selectedOpt = selectSale.options[selectSale.selectedIndex];
+            const saldoAttr = selectedOpt.getAttribute('data-saldo');
+            if (saldoAttr) {
+                const saldoVal = parseInt(saldoAttr, 10);
+                if (!isNaN(saldoVal) && saldoVal > 0) {
+                    inputMonto.value = saldoVal;
+                    inputMonto.max = saldoVal;
+                }
+            }
+        });
+    }
+
+    // Botones de abonar rápido a producto desde la tabla de Cartera
+    document.querySelectorAll('.btn-abonar-producto').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const saleId = this.getAttribute('data-sale-id');
+            const saldo = this.getAttribute('data-saldo');
+            if (selectSale && saleId) {
+                selectSale.value = saleId;
+                selectSale.dispatchEvent(new Event('change'));
+            }
+        });
+    });
+});
+</script>
 
 {% endblock %}

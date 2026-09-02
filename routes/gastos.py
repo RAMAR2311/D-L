@@ -71,7 +71,7 @@ def index():
         
         return redirect(url_for('gastos_bp.index', local=request.args.get('local', 'central')))
 
-    # GET Logic (Filters current month expenses)
+    # GET Logic (Filtros por fecha, tipo, categoría y local)
     if is_admin:
         active_local = request.args.get('local', 'central').lower()
         if active_local not in ['central', '1', '2', '3']:
@@ -80,29 +80,59 @@ def index():
         active_local = str(getattr(current_user, 'local_asignado', 1) or '1')
 
     ahora = obtener_hora_bogota()
-    mes_actual = ahora.month
-    anio_actual = ahora.year
+    primer_dia_mes_str = ahora.replace(day=1).strftime('%Y-%m-%d')
+    hoy_str = ahora.strftime('%Y-%m-%d')
+
+    fecha_inicio_str = request.args.get('fecha_inicio', primer_dia_mes_str)
+    fecha_fin_str = request.args.get('fecha_fin', hoy_str)
+    tipo_filtro = request.args.get('tipo', 'todos')
+    categoria_filtro = request.args.get('categoria', 'todas')
+
+    try:
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+    except ValueError:
+        fecha_inicio = ahora.replace(day=1).date()
+        fecha_fin = ahora.date()
+        fecha_inicio_str = fecha_inicio.strftime('%Y-%m-%d')
+        fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
 
     query = Expense.query.filter(
-        extract('month', Expense.fecha_gasto) == mes_actual,
-        extract('year', Expense.fecha_gasto) == anio_actual
+        db.func.date(Expense.fecha_gasto) >= fecha_inicio,
+        db.func.date(Expense.fecha_gasto) <= fecha_fin
     )
+
+    if tipo_filtro in ['Gasto Diario', 'Costo Indirecto']:
+        query = query.filter(Expense.tipo_gasto == tipo_filtro)
+
+    if categoria_filtro != 'todas' and categoria_filtro.strip():
+        query = query.filter(Expense.categoria == categoria_filtro.strip())
 
     if not is_admin or active_local != 'central':
         local_num = int(active_local)
         query = query.filter(Expense.local_id == local_num)
         
-    gastos_mes = query.order_by(Expense.fecha_gasto.desc()).all()
+    gastos_filtrados = query.order_by(Expense.fecha_gasto.desc()).all()
 
-    total_diarios = sum((g.monto for g in gastos_mes if g.tipo_gasto == 'Gasto Diario'))
-    total_indirectos = sum((g.monto for g in gastos_mes if g.tipo_gasto == 'Costo Indirecto'))
+    total_diarios = sum((g.monto for g in gastos_filtrados if g.tipo_gasto == 'Gasto Diario'))
+    total_indirectos = sum((g.monto for g in gastos_filtrados if g.tipo_gasto == 'Costo Indirecto'))
+    total_general = sum((g.monto for g in gastos_filtrados))
 
-    hoy_str = ahora.strftime('%Y-%m-%d')
+    # Obtener categorías únicas registradas para el selector de filtro
+    cat_query = db.session.query(Expense.categoria).distinct().all()
+    categorias_existentes = sorted(list(set([c[0].strip() for c in cat_query if c[0] and c[0].strip()])))
+
     return render_template(
         'gastos/index.html',
-        gastos=gastos_mes,
+        gastos=gastos_filtrados,
         total_diarios=total_diarios,
         total_indirectos=total_indirectos,
+        total_general=total_general,
+        fecha_inicio=fecha_inicio_str,
+        fecha_fin=fecha_fin_str,
+        tipo_filtro=tipo_filtro,
+        categoria_filtro=categoria_filtro,
+        categorias_existentes=categorias_existentes,
         hoy=hoy_str,
         active_local=active_local,
         is_admin=is_admin

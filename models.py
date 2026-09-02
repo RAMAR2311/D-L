@@ -319,7 +319,39 @@ class ArqueoCaja(db.Model):
     total_unidades_ch = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
     local_id = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
 
+    # Campos para Conciliación Física de Efectivo (Sobrante / Faltante)
+    efectivo_fisico = db.Column(db.Numeric(10, 2), nullable=True, default=0.0)
+    diferencia = db.Column(db.Numeric(10, 2), nullable=True, default=0.0)
+
     fecha_creacion = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    @property
+    def efectivo_esperado(self):
+        base = self.base_inicial or 0
+        efectivo_sis = self.total_efectivo_sistema or 0
+        gastos = self.gastos_del_dia or 0
+        return float(base) + float(efectivo_sis) - float(gastos)
+
+    @property
+    def efectivo_contado(self):
+        if self.efectivo_fisico is not None:
+            return float(self.efectivo_fisico)
+        return self.efectivo_esperado
+
+    @property
+    def monto_diferencia(self):
+        if self.diferencia is not None:
+            return float(self.diferencia)
+        return float(self.efectivo_contado) - float(self.efectivo_esperado)
+
+    @property
+    def estado_cuadre(self):
+        dif = self.monto_diferencia
+        if dif > 0:
+            return 'SOBRANTE'
+        elif dif < 0:
+            return 'FALTANTE'
+        return 'CUADRADO'
 
     def __init__(self, **kwargs):
         super(ArqueoCaja, self).__init__(**kwargs)
@@ -334,11 +366,14 @@ class Maneo(db.Model):
     cantidad = db.Column(db.Integer, nullable=False)
     valor_unidad = db.Column(db.Numeric(12, 2), nullable=True, default=0)  # Valor pactado por unidad
     estado = db.Column(db.String(50), nullable=False, default='PENDIENTE') # PENDIENTE, FACTURADO, DEVUELTO
+    local_id = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
+    usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     fecha_prestamo = db.Column(db.DateTime, default=obtener_hora_bogota)
     fecha_resolucion = db.Column(db.DateTime, nullable=True)
 
     producto = db.relationship('Product', backref='maneos', lazy=True)
     variante = db.relationship('ProductVariant', backref='maneos_rel', lazy=True)
+    usuario = db.relationship('User', backref='maneos', lazy=True)
 
     def __init__(self, **kwargs):
         super(Maneo, self).__init__(**kwargs)

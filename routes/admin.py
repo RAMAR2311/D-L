@@ -208,12 +208,33 @@ def dashboard():
 @admin_bp.route('/maneos')
 @login_required
 def maneos():
-    lista_maneos = Maneo.query.order_by(Maneo.fecha_prestamo.desc()).all()
+    is_admin = (current_user.rol == 'admin')
+    
+    if is_admin:
+        active_local = request.args.get('local', 'central').lower()
+        if active_local not in ['central', '1', '2', '3']:
+            active_local = 'central'
+    else:
+        active_local = str(getattr(current_user, 'local_asignado', 1) or '1')
+
+    query = Maneo.query
+
+    if not is_admin or active_local != 'central':
+        local_num = int(active_local)
+        query = query.filter(Maneo.local_id == local_num)
+
+    lista_maneos = query.order_by(Maneo.fecha_prestamo.desc()).all()
     # Priorizar PENDIENTE temporalmente
     lista_maneos.sort(key=lambda m: 0 if m.estado == 'PENDIENTE' else 1)
     
     productos = Product.query.order_by(Product.nombre).all()
-    return render_template('admin/maneos.html', maneos=lista_maneos, productos=productos)
+    return render_template(
+        'admin/maneos.html',
+        maneos=lista_maneos,
+        productos=productos,
+        active_local=active_local,
+        is_admin=is_admin
+    )
 
 @admin_bp.route('/maneos/prestar', methods=['POST'])
 @login_required
@@ -231,6 +252,16 @@ def maneos_prestar():
     if not sku:
         flash('Asegúrate de escanear o ingresar un SKU válido.', 'danger')
         return redirect(url_for('admin_bp.maneos'))
+
+    # Determinar sede emisora del préstamo
+    is_admin = (current_user.rol == 'admin')
+    if is_admin:
+        try:
+            local_id_maneo = int(request.form.get('local_id') or getattr(current_user, 'local_asignado', 1) or 1)
+        except (ValueError, TypeError):
+            local_id_maneo = 1
+    else:
+        local_id_maneo = int(getattr(current_user, 'local_asignado', 1) or 1)
 
     producto = Product.query.filter_by(sku=sku.strip()).first()
     if not producto:
@@ -260,7 +291,9 @@ def maneos_prestar():
             local_vecino=local_vecino.strip(),
             cantidad=cantidad,
             valor_unidad=valor_unidad,
-            estado='PENDIENTE'
+            estado='PENDIENTE',
+            local_id=local_id_maneo,
+            usuario_id=current_user.id
         )
         db.session.add(nuevo_maneo)
 
@@ -268,19 +301,19 @@ def maneos_prestar():
         ajuste = StockAdjustment(
             product_id=producto.id,
             admin_id=current_user.id,
-            tipo_movimiento=f'Préstamo (Maneo) a {local_vecino}' + (f' [{variante.nombre_variante}]' if variante else ''),
+            tipo_movimiento=f'Préstamo (Maneo) a {local_vecino}' + (f' [{variante.nombre_variante}]' if variante else '') + f' desde D&L {local_id_maneo}',
             stock_anterior=stock_anterior,
             stock_nuevo=variante.cantidad_stock if variante else producto.cantidad_stock
         )
         db.session.add(ajuste)
 
         db.session.commit()
-        flash('Maneo registrado y stock descontado exitosamente.', 'success')
+        flash(f'Maneo registrado desde D&L {local_id_maneo} y stock descontado exitosamente.', 'success')
     except Exception as e:
         db.session.rollback()
         flash('Error al registrar el maneo. Transacción revertida.', 'danger')
 
-    return redirect(url_for('admin_bp.maneos'))
+    return redirect(url_for('admin_bp.maneos', local=request.args.get('local', active_local if 'active_local' in locals() else 'central')))
 
 @admin_bp.route('/maneos/facturar/<int:id>', methods=['POST'])
 @login_required
@@ -344,10 +377,12 @@ def maneos_facturar(id):
             maneo.cantidad = cantidad_vendida
 
         metodo_pago_seleccionado = request.form.get('metodo_pago', 'efectivo')
+        local_destino_venta = maneo.local_id or getattr(current_user, 'local_asignado', 1) or 1
         
-        # Registrar la venta real del Maneo
+        # Registrar la venta real del Maneo en el local emisor
         nueva_venta = Sale(
             vendedor_id=current_user.id,
+            local_id=local_destino_venta,
             monto_total=(precio_venta * cantidad_vendida),
             metodo_pago=metodo_pago_seleccionado
         )
@@ -374,9 +409,9 @@ def maneos_facturar(id):
         db.session.commit()
 
         if cantidad_no_vendida > 0:
-            flash(f'Maneo facturado parcialmente. Se registró la venta de ${precio_venta * cantidad_vendida} y se devolvieron {cantidad_no_vendida} uds al inventario.', 'success')
+            flash(f'Maneo facturado parcialmente. Se registró la venta de ${precio_venta * cantidad_vendida} en D&L {local_destino_venta} y se devolvieron {cantidad_no_vendida} uds al inventario.', 'success')
         else:
-            flash(f'Maneo facturado totalmente. Se registró la venta de ${precio_venta * cantidad_vendida} en la caja.', 'success')
+            flash(f'Maneo facturado totalmente. Se registró la venta de ${precio_venta * cantidad_vendida} en la caja de D&L {local_destino_venta}.', 'success')
     except Exception as e:
         db.session.rollback()
         flash('Error al facturar el maneo.', 'danger')
@@ -540,7 +575,26 @@ def balance_financiero():
         desglose_pagos['transferencia'] +
         desglose_pagos['otros']
     )
-    total_ingresos = ventas_efectivo + ventas_digitales
+
+    # 4. Sobrantes y Faltantes de Arqueos de Caja
+    from models import ArqueoCaja
+    query_arqueos = ArqueoCaja.query.filter(
+        ArqueoCaja.fecha_arqueo >= inicio_dt.date(),
+        ArqueoCaja.fecha_arqueo <= fin_dt.date()
+    )
+    if active_local != 'central':
+        query_arqueos = query_arqueos.filter(ArqueoCaja.local_id == int(active_local))
+
+    sobrantes_caja = Decimal('0.00')
+    faltantes_caja = Decimal('0.00')
+    for arq in query_arqueos.all():
+        dif = Decimal(str(arq.monto_diferencia or 0))
+        if dif > 0:
+            sobrantes_caja += dif
+        elif dif < 0:
+            faltantes_caja += abs(dif)
+
+    total_ingresos = ventas_efectivo + ventas_digitales + sobrantes_caja
 
     # 2. Costo de Mercancía Vendida (COGS) por Local o General
     query_detalles = SaleDetail.query.join(Sale).filter(
@@ -589,7 +643,7 @@ def balance_financiero():
     abonos_puntos = sum(g.monto for g in gastos_query if es_abono_punto(g))
     gastos_operacionales = sum(g.monto for g in gastos_query if g.tipo_gasto == 'Gasto Diario' and not es_abono_punto(g))
     
-    total_salidas = float(costos_directos) + float(costos_indirectos) + float(gastos_operacionales) + float(abonos_puntos)
+    total_salidas = float(costos_directos) + float(costos_indirectos) + float(gastos_operacionales) + float(abonos_puntos) + float(faltantes_caja)
     balance_neto = float(total_ingresos) - total_salidas
 
     datos_financieros = {
@@ -603,6 +657,8 @@ def balance_financiero():
         'ventas_otros': float(desglose_pagos['otros']),
         'ventas_digitales': float(ventas_digitales),
         'ventas_transferencia_total': float(ventas_digitales),
+        'sobrantes_caja': float(sobrantes_caja),
+        'faltantes_caja': float(faltantes_caja),
         'total_ingresos': float(total_ingresos),
         'costos_directos': float(costos_directos),
         'costos_indirectos': float(costos_indirectos),

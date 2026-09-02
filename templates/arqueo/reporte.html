@@ -73,38 +73,130 @@
 
             <!-- Resumen Consolidado de Totales -->
             <h5 class="fw-bold text-brand-black mb-3">📍 Resumen General del Período Recaudado</h5>
-            <div class="row g-3 mb-5 resumen-totales">
-                <div class="col-12 col-md-3">
+            <div class="row g-2 mb-4 resumen-totales">
+                <div class="col-12 col-md-4 col-lg-2">
                     <div class="card p-3 border rounded shadow-sm text-center h-100" style="background-color: #d4edda; border-left: 4px solid #28a745 !important;">
-                        <small class="fw-bold text-uppercase d-block mb-1" style="color: #155724;">Recaudo Neto Total</small>
-                        <h4 class="mb-0 fw-bold" style="color: #155724;">
+                        <small class="fw-bold text-uppercase d-block mb-1" style="color: #155724; font-size: 0.65rem;">Recaudo Neto Total</small>
+                        <h4 class="mb-0 fw-bold fs-6" style="color: #155724;">
                             ${{ (resumen.total_recaudado_neto)|cop }}
                         </h4>
-                        <small class="d-block mt-1 opacity-75" style="font-size:0.7rem; color: #155724;">(Venta Total - Gastos)</small>
+                        <small class="d-block mt-1 opacity-75" style="font-size:0.65rem; color: #155724;">(Venta - Gastos)</small>
                     </div>
                 </div>
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-4 col-lg-2">
                     <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #dc3545 !important;">
-                        <small class="text-secondary fw-bold text-uppercase d-block mb-1">Total Gastos Operativos</small>
-                        <h4 class="mb-0 text-danger fw-bold">$-{{ (resumen.total_gastos)|cop }}</h4>
-                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">(Efectivo: ${{ (resumen.total_gastos_efectivo)|cop }})</small>
+                        <small class="text-secondary fw-bold text-uppercase d-block mb-1" style="font-size: 0.65rem;">Gastos Operativos</small>
+                        <h4 class="mb-0 text-danger fw-bold fs-6">$-{{ (resumen.total_gastos)|cop }}</h4>
+                        <small class="text-muted d-block mt-1" style="font-size:0.65rem;">(Efectivo: ${{ (resumen.total_gastos_efectivo)|cop }})</small>
                     </div>
                 </div>
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-4 col-lg-2">
                     <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #0d6efd !important;">
-                        <small class="text-secondary fw-bold text-uppercase d-block mb-1">Venta Total Bruta</small>
-                        <h4 class="mb-0 text-primary fw-bold">${{ (resumen.total_recaudado_bruto)|cop }}</h4>
-                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">Suma Efectivo + Digital</small>
+                        <small class="text-secondary fw-bold text-uppercase d-block mb-1" style="font-size: 0.65rem;">Venta Total Bruta</small>
+                        <h4 class="mb-0 text-primary fw-bold fs-6">${{ (resumen.total_recaudado_bruto)|cop }}</h4>
+                        <small class="text-muted d-block mt-1" style="font-size:0.65rem;">Efectivo + Digital</small>
                     </div>
                 </div>
-                <div class="col-12 col-md-3">
-                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #198754 !important;">
-                        <small class="text-secondary fw-bold d-block mb-1">EFECTIVO ESPERADO EN CAJA</small>
-                        <h4 class="mb-0 text-success fw-bold">${{ (resumen.efectivo_esperado)|cop }}</h4>
-                        <small class="text-muted d-block mt-1" style="font-size:0.7rem;">(Base + VentasEfectivo) - GastosEfectivo</small>
+                <div class="col-12 col-md-4 col-lg-2">
+                    <div class="card p-3 border rounded shadow-sm bg-light text-center h-100" style="border-left: 4px solid #6c757d !important;">
+                        <small class="text-secondary fw-bold d-block mb-1" style="font-size: 0.65rem;">EFECTIVO ESPERADO</small>
+                        <h4 class="mb-0 text-dark fw-bold fs-6">${{ (resumen.efectivo_esperado)|cop }}</h4>
+                        <small class="text-muted d-block mt-1" style="font-size:0.65rem;">(Base + Ef.) - Gastos</small>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 col-lg-2">
+                    <div class="card p-3 border rounded shadow-sm text-center h-100 {% if resumen.total_diferencia > 0 %}bg-warning bg-opacity-10 border-warning{% elif resumen.total_diferencia < 0 %}bg-danger bg-opacity-10 border-danger{% else %}bg-light border-secondary{% endif %}" style="border-left: 4px solid {% if resumen.total_diferencia > 0 %}#ffc107{% elif resumen.total_diferencia < 0 %}#dc3545{% else %}#6c757d{% endif %} !important;">
+                        <small class="fw-bold d-block mb-1 {% if resumen.total_diferencia > 0 %}text-dark{% elif resumen.total_diferencia < 0 %}text-danger{% else %}text-secondary{% endif %}" style="font-size: 0.65rem;">
+                            CONCILIACIÓN / SOBRANTE
+                        </small>
+                        <h4 class="mb-0 fw-bolder fs-6 {% if resumen.total_diferencia > 0 %}text-dark{% elif resumen.total_diferencia < 0 %}text-danger{% else %}text-secondary{% endif %}">
+                            {% if resumen.total_diferencia > 0 %}+${{ resumen.total_diferencia|cop }}{% elif resumen.total_diferencia < 0 %}-${{ (resumen.total_diferencia * -1)|cop }}{% else %}$0{% endif %}
+                        </h4>
+                        <small class="fw-bold d-block mt-1" style="font-size:0.65rem;">
+                            {% if resumen.total_diferencia > 0 %}
+                                <span class="badge bg-warning text-dark"><i class="fa-solid fa-plus-circle me-1"></i>SOBRANTE EN CAJA</span>
+                            {% elif resumen.total_diferencia < 0 %}
+                                <span class="badge bg-danger"><i class="fa-solid fa-minus-circle me-1"></i>FALTANTE EN CAJA</span>
+                            {% else %}
+                                <span class="badge bg-secondary"><i class="fa-solid fa-check me-1"></i>CUADRADA</span>
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 col-lg-2">
+                    <div class="card p-3 border rounded shadow-sm text-center h-100" style="background-color: #e8f5e9; border-left: 4px solid #198754 !important;">
+                        <small class="fw-bold text-uppercase d-block mb-1 text-success" style="font-size: 0.65rem;">EFECTIVO REAL EN CAJA</small>
+                        <h4 class="mb-0 fw-bolder text-success fs-5">
+                            ${{ (resumen.total_efectivo_fisico)|cop }}
+                        </h4>
+                        <small class="d-block mt-1 fw-bold text-success opacity-75" style="font-size:0.65rem;">(Esperado + Sobrante)</small>
                     </div>
                 </div>
             </div>
+
+            <!-- Bloque Elegante de Novedades & Justificaciones -->
+            {% if resumen.observaciones_diferencias %}
+            <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0 !important;">
+                <div class="p-3 px-4 bg-white border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle bg-warning bg-opacity-10 text-warning p-2 px-3 fw-bold fs-6">
+                            <i class="fa-solid fa-comments"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-0">Justificaciones y Novedades del Período</h6>
+                            <small class="text-muted" style="font-size: 0.72rem;">Notas registradas sobre sobrantes, faltantes o novedades de caja</small>
+                        </div>
+                    </div>
+                    <span class="badge bg-dark text-white rounded-pill px-3 py-1" style="font-size: 0.75rem;">
+                        <i class="fa-solid fa-note-sticky me-1 text-warning"></i> {{ resumen.observaciones_diferencias|length }} nota{% if resumen.observaciones_diferencias|length > 1 %}s{% endif %}
+                    </span>
+                </div>
+
+                <div class="p-3 p-md-4">
+                    <div class="row g-3">
+                        {% for obs in resumen.observaciones_diferencias %}
+                        <div class="col-12 {% if resumen.observaciones_diferencias|length > 1 %}col-md-6{% endif %}">
+                            <div class="card h-100 p-3 border rounded-3 bg-white shadow-sm transition-all" style="border-left: 4px solid {% if obs.diferencia > 0 %}#198754{% elif obs.diferencia < 0 %}#dc3545{% else %}#6c757d{% endif %} !important;">
+                                <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size: 0.7rem;">
+                                            <i class="fa-solid fa-shop me-1 text-info"></i>Local {{ obs.local_id }}
+                                        </span>
+                                        <span class="text-muted small fw-semibold" style="font-size: 0.75rem;">
+                                            <i class="fa-regular fa-calendar me-1"></i>{{ obs.fecha }}
+                                        </span>
+                                    </div>
+
+                                    {% if obs.diferencia > 0 %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-1 fw-bold" style="font-size: 0.75rem;">
+                                            <i class="fa-solid fa-plus-circle me-1"></i>+${{ obs.diferencia|cop }} SOBRANTE
+                                        </span>
+                                    {% elif obs.diferencia < 0 %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-3 py-1 fw-bold" style="font-size: 0.75rem;">
+                                            <i class="fa-solid fa-minus-circle me-1"></i>-${{ (obs.diferencia * -1)|cop }} FALTANTE
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary rounded-pill px-3 py-1 fw-bold" style="font-size: 0.75rem;">
+                                            <i class="fa-solid fa-check me-1"></i>$0 CUADRADO
+                                        </span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-2 text-dark small fw-bold">
+                                    <i class="fa-solid fa-user-tie text-secondary me-1"></i>Cajero: <span class="text-primary">{{ obs.cajero }}</span>
+                                </div>
+
+                                <div class="p-2 px-3 rounded-3 bg-light border-start border-3 border-warning text-dark small lh-sm">
+                                    <i class="fa-solid fa-quote-left text-warning opacity-75 me-1"></i>
+                                    <span class="fw-semibold text-dark">{{ obs.texto }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Desglose por Categoría de Gastos del Período -->
             {% if desglose_gastos_cat %}
@@ -143,35 +235,56 @@
             <h5 class="fw-bold text-brand-black mb-3 border-bottom pb-2">📋 Desglose Analítico por Cierres de Día</h5>
             <div class="table-responsive">
                 <table class="table table-bordered table-sm fw-semibold mb-0 table-hover align-middle">
-                    <thead class="table-light text-center text-uppercase" style="font-size: 0.85rem;">
+                    <thead class="table-light text-center text-uppercase" style="font-size: 0.8rem;">
                         <tr>
-                            <th width="10%">Fecha</th>
-                            <th width="10%">Sede</th>
-                            <th width="18%">Cajero(a)</th>
-                            <th width="13%" class="text-primary">Base Inicial</th>
-                            <th width="13%" class="text-dark bg-light border-start border-end">Venta Total</th>
-                            <th width="13%" class="text-success">Ventas Efectivo</th>
-                            <th width="13%" class="text-info">Bancos</th>
-                            <th width="10%" class="text-danger">Gastos</th>
-                            <th width="8%" class="text-center">Acción</th>
+                            <th width="8%">Fecha</th>
+                            <th width="7%">Sede</th>
+                            <th width="12%">Cajero(a)</th>
+                            <th width="9%" class="text-primary">Base</th>
+                            <th width="9%" class="text-success">Ventas Ef.</th>
+                            <th width="8%" class="text-danger">Gastos</th>
+                            <th width="10%" class="text-dark bg-light">Ef. Esperado</th>
+                            <th width="10%" class="text-success bg-light">Ef. Físico Real</th>
+                            <th width="20%">Conciliación / Comentario</th>
+                            <th width="7%" class="text-center">Acción</th>
                         </tr>
                     </thead>
-                    <tbody style="font-size: 0.9rem;">
+                    <tbody style="font-size: 0.85rem;">
                         {% for arqueo in arqueos %}
                         <tr>
                             <td class="text-center text-secondary">{{ arqueo.fecha_arqueo }}</td>
                             <td class="text-center">
-                                <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size:0.72rem;">
+                                <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size:0.7rem;">
                                     Local {{ arqueo.local_id or (arqueo.cajero.local_asignado if arqueo.cajero else 1) }}
                                 </span>
                             </td>
-                            <td class="text-truncate" style="max-width:140px;" title="{{ arqueo.cajero.nombre }}">{{ arqueo.cajero.nombre }}</td>
+                            <td class="text-truncate" style="max-width:120px;" title="{{ arqueo.cajero.nombre }}">{{ arqueo.cajero.nombre }}</td>
                             <td class="text-end text-primary fw-bold">${{ (arqueo.base_inicial)|cop }}</td>
-                            <td class="text-end text-dark fw-bolder bg-light border-start border-end">${{ (arqueo.total_efectivo_sistema + arqueo.total_transferencia_sistema)|cop }}</td>
                             <td class="text-end text-success fw-bold">${{ (arqueo.total_efectivo_sistema)|cop }}</td>
-                            <td class="text-end text-info fw-bold">${{ (arqueo.total_transferencia_sistema)|cop }}</td>
                             <td class="text-end {% if arqueo.gastos_del_dia > 0 %}text-danger{% else %}text-muted{% endif %} fw-bold">
                                 ${{ (arqueo.gastos_del_dia)|cop }}
+                            </td>
+                            <td class="text-end text-dark fw-bold bg-light">${{ (arqueo.efectivo_esperado)|cop }}</td>
+                            <td class="text-end text-success fw-bolder bg-light">${{ (arqueo.efectivo_contado)|cop }}</td>
+                            <td>
+                                {% if arqueo.monto_diferencia > 0 %}
+                                    <span class="badge bg-success rounded-pill px-2 py-1 shadow-sm" title="Sobrante en caja">
+                                        <i class="fa-solid fa-plus-circle me-1"></i>+${{ arqueo.monto_diferencia|cop }} SOBRANTE
+                                    </span>
+                                {% elif arqueo.monto_diferencia < 0 %}
+                                    <span class="badge bg-danger rounded-pill px-2 py-1 shadow-sm" title="Faltante en caja">
+                                        <i class="fa-solid fa-minus-circle me-1"></i>-${{ (arqueo.monto_diferencia * -1)|cop }} FALTANTE
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-check me-1"></i>$0 CUADRADO
+                                    </span>
+                                {% endif %}
+                                {% if arqueo.observaciones_gastos %}
+                                    <div class="mt-1 text-dark fw-bold small lh-sm">
+                                        <i class="fa-solid fa-comment-dots text-warning me-1"></i>"{{ arqueo.observaciones_gastos }}"
+                                    </div>
+                                {% endif %}
                             </td>
                             <td class="text-center">
                                 {% if is_admin or current_user.rol == 'admin' %}
@@ -188,7 +301,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="9" class="text-center text-muted p-4">No hay arqueos registrados en estas fechas.</td>
+                            <td colspan="10" class="text-center text-muted p-4">No hay arqueos registrados en estas fechas.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

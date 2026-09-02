@@ -81,8 +81,15 @@
                         <td class="text-end py-2 text-primary">${{ (datos.ventas_digitales)|cop }}</td>
                     </tr>
 
+                    {% if datos.sobrantes_caja > 0 %}
+                    <tr class="fw-bold text-dark border-top bg-warning bg-opacity-10">
+                        <td class="py-2"><i class="fa-solid fa-plus-circle text-success me-2"></i>Sobrantes / Ajustes de Caja (Conciliación Arqueos)</td>
+                        <td class="text-end py-2 text-success fw-bolder">+${{ (datos.sobrantes_caja)|cop }}</td>
+                    </tr>
+                    {% endif %}
+
                     <tr class="border-top text-brand-black fw-bolder bg-light">
-                        <td class="p-3">Σ TOTAL INGRESOS (VENTAS)</td>
+                        <td class="p-3">Σ TOTAL INGRESOS (VENTAS + AJUSTES)</td>
                         <td class="text-end p-3 text-success fs-5">${{ (datos.total_ingresos)|cop }}</td>
                     </tr>
                 </tbody>
@@ -108,6 +115,12 @@
                         <td>Costos Indirectos Permanentes</td>
                         <td class="text-danger text-end">-${{ (datos.costos_indirectos)|cop }}</td>
                     </tr>
+                    {% if datos.faltantes_caja > 0 %}
+                    <tr class="bg-danger bg-opacity-10">
+                        <td><i class="fa-solid fa-minus-circle me-1 text-danger"></i>Faltantes / Descuadres de Caja (Conciliación Arqueos)</td>
+                        <td class="text-danger text-end fw-bold">-${{ (datos.faltantes_caja)|cop }}</td>
+                    </tr>
+                    {% endif %}
                     <tr class="border-top text-brand-black fw-bolder bg-light">
                         <td class="p-3">Σ TOTAL SALIDAS Y DEDUCCIONES</td>
                         <td class="text-danger text-end p-3 fs-5">-${{ (datos.total_salidas)|cop }}</td>

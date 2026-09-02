@@ -107,7 +107,11 @@ def nuevo():
             return redirect(url_for('arqueo_bp.reporte', fecha_inicio=fecha_str, fecha_fin=fecha_str, local=active_local))
 
         base_inicial = float(request.form.get('base_inicial', 0.0))
+        efectivo_fisico_ingresado = float(request.form.get('efectivo_fisico', 0.0))
         observaciones_gastos = request.form.get('observaciones_gastos', '').strip()
+
+        efectivo_esperado_calc = base_inicial + float(total_efectivo) - float(gastos_automaticos)
+        diferencia_calc = efectivo_fisico_ingresado - efectivo_esperado_calc
 
         nuevo_arqueo = ArqueoCaja(
             vendedor_id=current_user.id,
@@ -118,7 +122,9 @@ def nuevo():
             observaciones_gastos=observaciones_gastos,
             total_efectivo_sistema=total_efectivo,
             total_transferencia_sistema=total_transferencia,
-            total_unidades_ch=0.0
+            total_unidades_ch=0.0,
+            efectivo_fisico=efectivo_fisico_ingresado,
+            diferencia=diferencia_calc
         )
 
         try:
@@ -223,6 +229,20 @@ def reporte():
         gastos_efectivo_query = gastos_efectivo_query.filter(Expense.local_id == local_num)
     resumen['total_gastos_efectivo'] = sum(g.monto for g in gastos_efectivo_query.all())
     resumen['efectivo_esperado'] = (resumen['total_base'] + resumen['total_efectivo']) - resumen['total_gastos_efectivo']
+    resumen['total_efectivo_fisico'] = sum(a.efectivo_contado for a in arqueos)
+    resumen['total_diferencia'] = sum(a.monto_diferencia for a in arqueos)
+
+    obs_diferencias = []
+    for a in arqueos:
+        if a.observaciones_gastos and a.observaciones_gastos.strip():
+            obs_diferencias.append({
+                'fecha': a.fecha_arqueo,
+                'local_id': a.local_id,
+                'cajero': a.cajero.nombre if a.cajero else 'Usuario',
+                'diferencia': a.monto_diferencia,
+                'texto': a.observaciones_gastos.strip()
+            })
+    resumen['observaciones_diferencias'] = obs_diferencias
 
     ventas_query = Sale.query.filter(
         db.func.date(Sale.fecha_venta) >= fecha_inicio,

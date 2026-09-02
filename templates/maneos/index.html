@@ -1,14 +1,36 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h2 class="fw-bold text-brand-black mb-0"><i class="fa-solid fa-handshake me-2" style="color: var(--brand-blue);"></i>Maneos (Préstamos)</h2>
         <p class="text-muted mb-0">Gestión de mercancía prestada a locales vecinos.</p>
     </div>
-    <button type="button" class="btn btn-blue rounded-pill fw-bold shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#modalNuevoManeo">
-        <i class="fa-solid fa-plus me-2"></i>Registrar Préstamo
-    </button>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        {% if is_admin %}
+        <div class="btn-group shadow-sm rounded-pill overflow-hidden border bg-white" role="group">
+            <a href="{{ url_for('maneos_bp.index', local='central') }}" class="btn btn-sm {% if active_local == 'central' %}btn-dark fw-bold{% else %}btn-outline-dark{% endif %} px-3">
+                <i class="fa-solid fa-cubes me-1"></i> Central (Todos)
+            </a>
+            <a href="{{ url_for('maneos_bp.index', local='1') }}" class="btn btn-sm {% if active_local == '1' %}btn-primary fw-bold{% else %}btn-outline-primary{% endif %} px-3">
+                <i class="fa-solid fa-shop me-1"></i> D&L 1
+            </a>
+            <a href="{{ url_for('maneos_bp.index', local='2') }}" class="btn btn-sm {% if active_local == '2' %}btn-info text-white fw-bold{% else %}btn-outline-info{% endif %} px-3">
+                <i class="fa-solid fa-shop me-1"></i> D&L 2
+            </a>
+            <a href="{{ url_for('maneos_bp.index', local='3') }}" class="btn btn-sm {% if active_local == '3' %}btn-success fw-bold{% else %}btn-outline-success{% endif %} px-3">
+                <i class="fa-solid fa-shop me-1"></i> D&L 3
+            </a>
+        </div>
+        {% else %}
+        <span class="badge bg-dark text-white rounded-pill px-3 py-2 fs-6 shadow-sm">
+            <i class="fa-solid fa-shop me-1 text-info"></i> Sede: Local {{ active_local }}
+        </span>
+        {% endif %}
+        <button type="button" class="btn btn-blue rounded-pill fw-bold shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#modalNuevoManeo">
+            <i class="fa-solid fa-plus me-2"></i>Registrar Préstamo
+        </button>
+    </div>
 </div>
 
 <!-- Tarjetas Rápidas -->
@@ -16,7 +38,7 @@
     <div class="col-md-4">
         <div class="card card-custom border-0 shadow-sm" style="border-left: 5px solid #ffc107 !important;">
             <div class="card-body">
-                <h6 class="text-muted text-uppercase fw-bold mb-1"><i class="fa-solid fa-clock me-1 text-warning"></i> Pendientes</h6>
+                <h6 class="text-muted text-uppercase fw-bold mb-1"><i class="fa-solid fa-clock me-1 text-warning"></i> Pendientes en {{ active_local|upper }}</h6>
                 <h3 class="fw-bolder m-0 text-warning">{{ activos|length }}</h3>
                 <small class="text-muted">Préstamos sin resolver</small>
             </div>
@@ -43,6 +65,7 @@
                     <thead class="bg-light">
                         <tr>
                             <th class="ps-4">FECHA PRÉSTAMO</th>
+                            <th class="text-center">SEDE ORIGEN</th>
                             <th>LOCAL VECINO</th>
                             <th>PRODUCTO</th>
                             <th class="text-center">CANTIDAD</th>
@@ -53,6 +76,21 @@
                         {% for maneo in activos %}
                         <tr>
                             <td class="ps-4 text-muted small">{{ maneo.fecha_prestamo.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td class="text-center">
+                                {% set loc = maneo.local_id or 1 %}
+                                {% if loc == 1 %}
+                                    <span class="badge bg-primary text-white rounded-pill px-3 py-1">D&L 1</span>
+                                {% elif loc == 2 %}
+                                    <span class="badge bg-info text-white rounded-pill px-3 py-1">D&L 2</span>
+                                {% elif loc == 3 %}
+                                    <span class="badge bg-success text-white rounded-pill px-3 py-1">D&L 3</span>
+                                {% else %}
+                                    <span class="badge bg-secondary text-white rounded-pill px-3 py-1">D&L {{ loc }}</span>
+                                {% endif %}
+                                {% if maneo.usuario %}
+                                    <small class="d-block text-muted" style="font-size:0.7rem;"><i class="fa-solid fa-user me-1"></i>{{ maneo.usuario.nombre }}</small>
+                                {% endif %}
+                            </td>
                             <td class="fw-bold text-brand-black">{{ maneo.local_vecino }}</td>
                             <td>
                                 <div class="fw-bold">{{ maneo.producto.nombre }}</div>
@@ -87,7 +125,7 @@
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                 <div class="modal-body">
                                                     <div class="alert alert-warning border-0 rounded-3 small">
-                                                        Al facturar, este producto se registrará como una venta oficial y entrará al Arqueo de Caja.
+                                                        Al facturar, este producto se registrará como una venta oficial de la sede D&L {{ maneo.local_id or 1 }} y entrará a su Arqueo de Caja.
                                                     </div>
                                                     <p class="mb-3"><strong>Producto:</strong> {{ maneo.producto.nombre }} 
                                                         {% if maneo.variante %}
@@ -122,9 +160,9 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-muted">
+                            <td colspan="6" class="text-center py-5 text-muted">
                                 <i class="fa-solid fa-handshake-slash fs-1 mb-3 opacity-25"></i>
-                                <p class="mb-0">No hay préstamos activos en este momento.</p>
+                                <p class="mb-0">No hay préstamos activos en este momento para {{ active_local|upper }}.</p>
                             </td>
                         </tr>
                         {% endfor %}
@@ -142,6 +180,7 @@
                     <thead class="bg-light">
                         <tr>
                             <th class="ps-4">FECHA RESOLUCIÓN</th>
+                            <th class="text-center">SEDE ORIGEN</th>
                             <th>LOCAL VECINO</th>
                             <th>PRODUCTO</th>
                             <th class="text-center">CANTIDAD</th>
@@ -152,6 +191,21 @@
                         {% for maneo in historial %}
                         <tr>
                             <td class="ps-4 text-muted small">{{ maneo.fecha_resolucion.strftime('%Y-%m-%d %H:%M') if maneo.fecha_resolucion else '-' }}</td>
+                            <td class="text-center">
+                                {% set loc = maneo.local_id or 1 %}
+                                {% if loc == 1 %}
+                                    <span class="badge bg-primary text-white rounded-pill px-3 py-1">D&L 1</span>
+                                {% elif loc == 2 %}
+                                    <span class="badge bg-info text-white rounded-pill px-3 py-1">D&L 2</span>
+                                {% elif loc == 3 %}
+                                    <span class="badge bg-success text-white rounded-pill px-3 py-1">D&L 3</span>
+                                {% else %}
+                                    <span class="badge bg-secondary text-white rounded-pill px-3 py-1">D&L {{ loc }}</span>
+                                {% endif %}
+                                {% if maneo.usuario %}
+                                    <small class="d-block text-muted" style="font-size:0.7rem;"><i class="fa-solid fa-user me-1"></i>{{ maneo.usuario.nombre }}</small>
+                                {% endif %}
+                            </td>
                             <td class="fw-bold text-brand-black">{{ maneo.local_vecino }}</td>
                             <td class="text-muted">
                                 {{ maneo.producto.nombre }}
@@ -170,7 +224,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-muted">No hay historial de maneos.</td>
+                            <td colspan="6" class="text-center py-5 text-muted">No hay historial de maneos para {{ active_local|upper }}.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -191,6 +245,16 @@
             <form action="{{ url_for('maneos_bp.prestar') }}" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
+                    {% if is_admin %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small">Sede Emisora del Préstamo *</label>
+                        <select name="local_id" class="form-select bg-light border-0 fw-semibold" required>
+                            <option value="1" {% if active_local == '1' or active_local == 'central' %}selected{% endif %}>🏪 D&L 1</option>
+                            <option value="2" {% if active_local == '2' %}selected{% endif %}>🏪 D&L 2</option>
+                            <option value="3" {% if active_local == '3' %}selected{% endif %}>🏪 D&L 3</option>
+                        </select>
+                    </div>
+                    {% endif %}
                     <div class="mb-3">
                         <label class="form-label fw-bold text-muted small">Nombre del Local Vecino *</label>
                         <input type="text" name="local_vecino" class="form-control form-control-lg" placeholder="Ej: Celulares Don Pepe" required autofocus>
