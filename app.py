@@ -88,8 +88,143 @@ def create_app():
         except (ValueError, TypeError):
             return value
 
+    @app.context_processor
+    def inject_pago_servidor():
+        import urllib.parse
+        from models import ServerPayment, obtener_hora_bogota
+        from itsdangerous import URLSafeTimedSerializer
+
+        try:
+            ahora = obtener_hora_bogota()
+            anio_actual = ahora.year
+            mes_actual = ahora.month
+            dia_actual = ahora.day
+
+            # Buscar si el mes actual está pagado
+            pago = ServerPayment.query.filter_by(anio=anio_actual, mes=mes_actual, estado='pagado').first()
+
+            # Generar token de confirmación firmado con SECRET_KEY para este mes
+            serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+            token_confirmacion = serializer.dumps({'anio': anio_actual, 'mes': mes_actual}, salt='server-payment-salt')
+
+            # Construir URL de confirmación completa
+            from flask import request
+            server_host = request.host_url.rstrip('/') if request else ''
+            url_confirmacion = f"{server_host}/servidor/confirmar-pago?token={token_confirmacion}"
+
+            # Nombres de meses en español
+            nombres_meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+            nombre_mes = nombres_meses[mes_actual] if 1 <= mes_actual <= 12 else str(mes_actual)
+
+            # Mensaje encoded para WhatsApp
+            msg_txt = f"Hola, adjunto el comprobante de pago de la mensualidad del servidor Zenic para {nombre_mes} {anio_actual}.\n\nPara confirmar mi pago en el sistema con 1 solo clic, toca aquí:\n{url_confirmacion}"
+            whatsapp_url = f"https://wa.me/573115643557?text={urllib.parse.quote(msg_txt)}"
+
+
+            dias_para_el_15 = 15 - dia_actual
+            dias_gabela = (20 - dia_actual + 1) if (16 <= dia_actual <= 20) else 0
+
+            if pago:
+                estado = 'pagado'
+            elif dia_actual <= 6:
+                # Días 1 al 6: Notificación pequeña circular arriba a la derecha ("Al Día")
+                estado = 'al_dia'
+            elif dia_actual < 15:
+                # Días 7 al 14: Alerta preventiva compacta (semana de anticipación)
+                estado = 'preventivo'
+            elif dia_actual == 15:
+                # Día 15: Día de Pago
+                estado = 'hoy'
+            elif dia_actual <= 20:
+                # Días 16 al 20: 5 Días de Gabela (Periodo de Gracia)
+                estado = 'gabela'
+            else:
+                # Día 21+: Vencido tras agotar los 5 días de gabela
+                estado = 'vencido'
+
+            return {
+                'pago_servidor': {
+                    'estado': estado,
+                    'mes_nombre': nombre_mes,
+                    'anio': anio_actual,
+                    'dias_restantes': dias_para_el_15,
+                    'dias_vencido': abs(dias_para_el_15),
+                    'dias_gabela': dias_gabela,
+                    'whatsapp_url': whatsapp_url,
+                    'nu_llave': '@QEI910',
+                    'nequi_num': '3505422186'
+                }
+            }
+
+        except Exception:
+            return {'pago_servidor': {'estado': 'pagado'}}
+
+    @app.route('/servidor/confirmar-pago')
+    def confirmar_pago_servidor():
+        from flask import request
+        from itsdangerous import URLSafeTimedSerializer, BadSignature
+        from models import ServerPayment, db, obtener_hora_bogota
+
+        token = request.args.get('token')
+        if not token:
+            return "<h2 style='color:red; font-family:sans-serif; text-align:center; margin-top:50px;'>Enlace inválido o incompleto.</h2>", 400
+
+        serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+        try:
+            data = serializer.loads(token, salt='server-payment-salt')
+            anio = data.get('anio')
+            mes = data.get('mes')
+
+            pago = ServerPayment.query.filter_by(anio=anio, mes=mes).first()
+            if not pago:
+                pago = ServerPayment(anio=anio, mes=mes, estado='pagado', fecha_pago=obtener_hora_bogota())
+                db.session.add(pago)
+            else:
+                pago.estado = 'pagado'
+                pago.fecha_pago = obtener_hora_bogota()
+
+            db.session.commit()
+
+            nombres_meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+            nombre_mes = nombres_meses[mes] if 1 <= mes <= 12 else str(mes)
+
+            return f"""
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Pago Confirmado - Servidor D&L</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+                <style>
+                    body {{ background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+                    .card-success {{ background: #fff; border: 3px solid #100F0D; border-radius: 1.25rem; box-shadow: 6px 6px 0px #100F0D; padding: 2.5rem; text-align: center; max-width: 450px; }}
+                </style>
+            </head>
+            <body>
+                <div class="card-success">
+                    <div class="mb-3 text-success">
+                        <i class="fa-solid fa-circle-check fa-4x"></i>
+                    </div>
+                    <h2 class="fw-bold text-dark mb-2">¡Pago Confirmado!</h2>
+                    <p class="text-secondary fs-5 mb-4">La mensualidad del servidor para <strong>{nombre_mes} {anio}</strong> ha sido marcada como pagada con éxito.</p>
+                    <div class="alert alert-success border-2 border-dark rounded-3 py-2 fw-semibold mb-4">
+                        ✅ Alerta desactivada automáticamente en la aplicación.
+                    </div>
+                    <a href="{url_for('index')}" class="btn btn-dark btn-lg w-100 fw-bold border-2 shadow-sm">Ir a la Aplicación</a>
+                </div>
+            </body>
+            </html>
+            """
+        except BadSignature:
+            return "<h2 style='color:red; font-family:sans-serif; text-align:center; margin-top:50px;'>El enlace de confirmación es inválido o ha expirado.</h2>", 403
+        except Exception as e:
+            return f"<h2 style='color:red; font-family:sans-serif; text-align:center; margin-top:50px;'>Error al procesar la confirmación: {str(e)}</h2>", 500
+
     @app.route('/')
     def index():
+
         # Redirección de sesión y rol de usuario
         if not current_user.is_authenticated:
             return redirect(url_for('auth_bp.login'))

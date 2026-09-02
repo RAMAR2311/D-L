@@ -99,10 +99,24 @@
                 <span class="font-title fs-3 text-dark">D&L</span>
             </a>
 
-            <!-- Spacer derecho para equilibrar flex -->
-            <div style="width: 40px;"></div>
+            <!-- Notificación Superior Derecha para Servidor Al Día (Días 1 a 6 o Pagado) -->
+            <div class="d-flex align-items-center justify-content-end" style="min-width: 40px;">
+                {% if current_user.is_authenticated and current_user.rol == 'admin' and pago_servidor is defined %}
+                    {% if pago_servidor.estado in ['al_dia', 'pagado'] %}
+                    <button class="btn btn-sm btn-light border-2 border-dark rounded-pill px-2.5 py-1 shadow-sm d-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#modalPagoServidor" style="background-color: #E8F5E9 !important; border-color: #100F0D !important;">
+                        <span class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 20px; height: 20px;">
+                            <i class="fa-solid fa-check" style="font-size: 0.65rem !important;"></i>
+                        </span>
+                        <span class="fw-bold text-dark font-title" style="font-size: 0.78rem;">Zenic: Al día</span>
+                    </button>
+
+                    {% endif %}
+                {% endif %}
+            </div>
+
         </div>
     </nav>
+
 
     {% if current_user.is_authenticated %}
     <!-- Offcanvas Menú Lateral (Sidebar) -->
@@ -264,6 +278,121 @@
         </div>
     </div>
     {% endif %}
+
+    {% if current_user.is_authenticated and current_user.rol == 'admin' and pago_servidor is defined and pago_servidor.estado not in ['pagado', 'al_dia'] %}
+
+    <!-- Banner Compacto de Recordatorio de Pago Servidor Zenic -->
+    <div class="container mb-3">
+        {% if pago_servidor.estado == 'preventivo' %}
+        <div class="alert alert-warning border border-dark shadow-sm rounded-pill py-2 px-3 d-flex align-items-center justify-content-between gap-2 mb-0" style="background-color: #FFF9E6; border-color: #100F0D !important;">
+            <div class="d-flex align-items-center gap-2 overflow-hidden text-nowrap">
+                <i class="fa-solid fa-calendar-day fs-5 flex-shrink-0" style="color: #D97706 !important;"></i>
+                <span class="small text-dark fw-semibold text-truncate">
+                    <strong>Mensualidad Servidor Zenic:</strong> Vence el 15 de {{ pago_servidor.mes_nombre }} (faltan {{ pago_servidor.dias_restantes }} días)
+                </span>
+            </div>
+            <button class="btn btn-sm btn-warning border border-dark fw-bold text-dark rounded-pill px-3 py-1 flex-shrink-0 shadow-none" style="font-size: 0.8rem;" data-bs-toggle="modal" data-bs-target="#modalPagoServidor">
+                <i class="fa-solid fa-wallet me-1"></i> Ver Pago
+            </button>
+        </div>
+        {% elif pago_servidor.estado == 'hoy' %}
+        <div class="alert alert-danger border border-dark shadow-sm rounded-pill py-2 px-3 d-flex align-items-center justify-content-between gap-2 mb-0" style="background-color: #FFEFEF; border-color: #100F0D !important;">
+            <div class="d-flex align-items-center gap-2 overflow-hidden text-nowrap">
+                <i class="fa-solid fa-triangle-exclamation text-danger fs-5 flex-shrink-0"></i>
+                <span class="small text-dark fw-bold text-truncate">
+                    ¡Hoy 15 de {{ pago_servidor.mes_nombre }} vence la mensualidad de tu Servidor Zenic!
+                </span>
+            </div>
+            <button class="btn btn-sm btn-danger border border-dark fw-bold text-white rounded-pill px-3 py-1 flex-shrink-0 shadow-none" style="font-size: 0.8rem;" data-bs-toggle="modal" data-bs-target="#modalPagoServidor">
+                <i class="fa-solid fa-wallet me-1"></i> Pagar Hoy
+            </button>
+        </div>
+        {% elif pago_servidor.estado == 'gabela' %}
+        <div class="alert alert-warning border border-dark shadow-sm rounded-pill py-2 px-3 d-flex align-items-center justify-content-between gap-2 mb-0" style="background-color: #FFF3CD; border-color: #100F0D !important;">
+            <div class="d-flex align-items-center gap-2 overflow-hidden text-nowrap">
+                <i class="fa-solid fa-hourglass-half text-dark fs-5 flex-shrink-0"></i>
+                <span class="small text-dark fw-bold text-truncate">
+                    ⏳ Periodo de gracia Servidor Zenic (quedan {{ pago_servidor.dias_gabela }} días de gabela). Venció el 15 de {{ pago_servidor.mes_nombre }}.
+                </span>
+            </div>
+            <button class="btn btn-sm btn-warning border border-dark fw-bold text-dark rounded-pill px-3 py-1 flex-shrink-0 shadow-none" style="font-size: 0.8rem;" data-bs-toggle="modal" data-bs-target="#modalPagoServidor">
+                <i class="fa-solid fa-wallet me-1"></i> Reportar Pago
+            </button>
+        </div>
+        {% elif pago_servidor.estado == 'vencido' %}
+        <div class="alert alert-danger border border-dark shadow-sm rounded-pill py-2 px-3 d-flex align-items-center justify-content-between gap-2 mb-0" style="background-color: #FFDADA; border-color: #100F0D !important;">
+            <div class="d-flex align-items-center gap-2 overflow-hidden text-nowrap">
+                <i class="fa-solid fa-circle-exclamation text-dark fs-5 flex-shrink-0"></i>
+                <span class="small text-dark fw-bold text-truncate">
+                    🚨 Mensualidad Servidor Zenic vencida (Gabela de 5 días agotada). Venció el 15 de {{ pago_servidor.mes_nombre }}.
+                </span>
+            </div>
+            <button class="btn btn-sm btn-dark border border-dark fw-bold text-warning rounded-pill px-3 py-1 flex-shrink-0 shadow-none" style="font-size: 0.8rem;" data-bs-toggle="modal" data-bs-target="#modalPagoServidor">
+                <i class="fa-solid fa-wallet me-1"></i> Reportar Pago
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if current_user.is_authenticated and current_user.rol == 'admin' and pago_servidor is defined %}
+    <!-- Modal de Medios de Pago de Servidor Zenic -->
+    <div class="modal fade" id="modalPagoServidor" tabindex="-1" aria-labelledby="modalPagoServidorLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-3 border-dark rounded-4 shadow-lg">
+                <div class="modal-header bg-dark text-white border-bottom border-2 border-dark rounded-top-4">
+                    <h5 class="modal-title font-title fw-bold text-white" id="modalPagoServidorLabel">
+                        <i class="fa-solid fa-server me-2 text-warning"></i> Pago Mensualidad Servidor Zenic
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="text-center mb-3">
+                        <span class="badge bg-danger text-white border border-dark fs-6 px-3 py-2 rounded-pill">
+                            Vencimiento: 15 de {{ pago_servidor.mes_nombre }} {{ pago_servidor.anio }}
+                        </span>
+                    </div>
+                    
+                    <p class="text-secondary small text-center mb-4">
+                        Por favor realiza tu transferencia a cualquiera de los siguientes medios y envía tu comprobante por WhatsApp:
+                    </p>
+
+                    <!-- Tarjetas de Cuentas -->
+                    <div class="row g-3 mb-4">
+                        <!-- Nu -->
+                        <div class="col-6">
+                            <div class="card card-custom p-3 text-center h-100 bg-white">
+                                <div class="fw-bold mb-1" style="color: #8A05BE;">
+                                    <i class="fa-solid fa-credit-card me-1"></i> Nu
+                                </div>
+                                <div class="fs-5 fw-bold text-dark font-monospace user-select-all">{{ pago_servidor.nu_llave }}</div>
+                                <span class="small text-muted">Llave Bre-B / Nu</span>
+                            </div>
+                        </div>
+                        <!-- Nequi -->
+                        <div class="col-6">
+                            <div class="card card-custom p-3 text-center h-100 bg-white">
+                                <div class="fw-bold mb-1" style="color: #FF007A;">
+                                    <i class="fa-solid fa-mobile-screen me-1"></i> Nequi
+                                </div>
+                                <div class="fs-5 fw-bold text-dark font-monospace user-select-all">{{ pago_servidor.nequi_num }}</div>
+                                <span class="small text-muted">Celular / Nequi</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botón Enviar WhatsApp -->
+                    <div class="d-grid gap-2">
+                        <a href="{{ pago_servidor.whatsapp_url }}" target="_blank" class="btn btn-success btn-lg border-2 border-dark fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-2" style="background-color: #25D366 !important; color: #ffffff !important;">
+                            <i class="fa-brands fa-whatsapp fs-3"></i> Enviar Comprobante por WhatsApp
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 
     <!-- App Container -->
     <main class="container mb-5">

@@ -531,3 +531,18 @@ class Asesor(db.Model):
         super(Asesor, self).__init__(**kwargs)
 
 
+class ServerPayment(db.Model):
+    __tablename__ = 'server_payments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    anio = db.Column(db.Integer, nullable=False)
+    mes = db.Column(db.Integer, nullable=False)
+    estado = db.Column(db.String(20), nullable=False, default='pagado') # 'pagado', 'pendiente'
+    fecha_pago = db.Column(db.DateTime, default=obtener_hora_bogota)
+    observacion = db.Column(db.String(255), nullable=True)
+
+    def __init__(self, **kwargs):
+        super(ServerPayment, self).__init__(**kwargs)
+
+
+
