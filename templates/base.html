@@ -370,22 +370,32 @@
                     <div class="row g-3 mb-4">
                         <!-- Nu -->
                         <div class="col-6">
-                            <div class="card card-custom p-3 text-center h-100 bg-white">
-                                <div class="fw-bold mb-1" style="color: #8A05BE;">
-                                    <i class="fa-solid fa-credit-card me-1"></i> Nu
+                            <div class="card card-custom p-3 text-center h-100 bg-white d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="fw-bold mb-1" style="color: #8A05BE;">
+                                        <i class="fa-solid fa-credit-card me-1"></i> Nu
+                                    </div>
+                                    <div class="fs-5 fw-bold text-dark font-monospace user-select-all mb-1" id="val_nu">{{ pago_servidor.nu_llave }}</div>
+                                    <span class="small text-muted d-block mb-3">Llave Bre-B / Nu</span>
                                 </div>
-                                <div class="fs-5 fw-bold text-dark font-monospace user-select-all">{{ pago_servidor.nu_llave }}</div>
-                                <span class="small text-muted">Llave Bre-B / Nu</span>
+                                <button type="button" onclick="copiarTexto('{{ pago_servidor.nu_llave }}', this)" class="btn btn-sm btn-outline-dark rounded-3 fw-bold w-100 border-2">
+                                    <i class="fa-regular fa-copy me-1"></i> Copiar
+                                </button>
                             </div>
                         </div>
                         <!-- Nequi -->
                         <div class="col-6">
-                            <div class="card card-custom p-3 text-center h-100 bg-white">
-                                <div class="fw-bold mb-1" style="color: #FF007A;">
-                                    <i class="fa-solid fa-mobile-screen me-1"></i> Nequi
+                            <div class="card card-custom p-3 text-center h-100 bg-white d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="fw-bold mb-1" style="color: #FF007A;">
+                                        <i class="fa-solid fa-mobile-screen me-1"></i> Nequi
+                                    </div>
+                                    <div class="fs-5 fw-bold text-dark font-monospace user-select-all mb-1" id="val_nequi">{{ pago_servidor.nequi_num }}</div>
+                                    <span class="small text-muted d-block mb-3">Celular / Nequi</span>
                                 </div>
-                                <div class="fs-5 fw-bold text-dark font-monospace user-select-all">{{ pago_servidor.nequi_num }}</div>
-                                <span class="small text-muted">Celular / Nequi</span>
+                                <button type="button" onclick="copiarTexto('{{ pago_servidor.nequi_num }}', this)" class="btn btn-sm btn-outline-dark rounded-3 fw-bold w-100 border-2">
+                                    <i class="fa-regular fa-copy me-1"></i> Copiar
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -451,6 +461,21 @@
             } else {
                 input.value = '';
             }
+        }
+
+        function copiarTexto(texto, btn) {
+            if (!texto) return;
+            navigator.clipboard.writeText(texto).then(() => {
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check me-1 text-success"></i> ¡Copiado!';
+                btn.classList.add('border-success', 'text-success');
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.classList.remove('border-success', 'text-success');
+                }, 1800);
+            }).catch(err => {
+                console.error('Error al copiar:', err);
+            });
         }
     </script>
     {% block scripts %}{% endblock %}

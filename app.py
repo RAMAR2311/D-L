@@ -162,13 +162,13 @@ def create_app():
         except Exception:
             return {'pago_servidor': {'estado': 'pagado'}}
 
-    @app.route('/servidor/confirmar-pago')
+    @app.route('/servidor/confirmar-pago', methods=['GET', 'POST'])
     def confirmar_pago_servidor():
-        from flask import request
+        from flask import request, url_for
         from itsdangerous import URLSafeTimedSerializer, BadSignature
         from models import ServerPayment, db, obtener_hora_bogota
 
-        token = request.args.get('token')
+        token = request.args.get('token') or request.form.get('token')
         if not token:
             return "<h2 style='color:red; font-family:sans-serif; text-align:center; margin-top:50px;'>Enlace inválido o incompleto.</h2>", 400
 
@@ -178,44 +178,126 @@ def create_app():
             anio = data.get('anio')
             mes = data.get('mes')
 
-            pago = ServerPayment.query.filter_by(anio=anio, mes=mes).first()
-            if not pago:
-                pago = ServerPayment(anio=anio, mes=mes, estado='pagado', fecha_pago=obtener_hora_bogota())
-                db.session.add(pago)
-            else:
-                pago.estado = 'pagado'
-                pago.fecha_pago = obtener_hora_bogota()
-
-            db.session.commit()
-
             nombres_meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
             nombre_mes = nombres_meses[mes] if 1 <= mes <= 12 else str(mes)
 
+            pago = ServerPayment.query.filter_by(anio=anio, mes=mes).first()
+            
+            # Si ya está pagado, mostrar la pantalla de éxito directamente
+            if pago and pago.estado == 'pagado':
+                return f"""
+                <!DOCTYPE html>
+                <html lang="es">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Pago Ya Verificado - Servidor Zenic</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+                    <style>
+                        body {{ background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+                        .card-success {{ background: #fff; border: 3px solid #100F0D; border-radius: 1.25rem; box-shadow: 6px 6px 0px #100F0D; padding: 2.5rem; text-align: center; max-width: 450px; width: 90%; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="card-success">
+                        <div class="mb-3 text-success">
+                            <i class="fa-solid fa-circle-check fa-4x"></i>
+                        </div>
+                        <h2 class="fw-bold text-dark mb-2">¡Pago Ya Confirmado!</h2>
+                        <p class="text-secondary fs-5 mb-4">La mensualidad del <strong>Servidor Zenic</strong> para <strong>{nombre_mes} {anio}</strong> ya se encuentra registrada como pagada.</p>
+                        <div class="alert alert-success border-2 border-dark rounded-3 py-2 fw-semibold mb-4">
+                            ✅ Alerta de pago desactivada en el sistema.
+                        </div>
+                        <a href="{url_for('index')}" class="btn btn-dark btn-lg w-100 fw-bold border-2 shadow-sm">Ir a la Aplicación</a>
+                    </div>
+                </body>
+                </html>
+                """
+
+            error_msg = ""
+            pin_esperado = os.environ.get('PIN_CONFIRMACION_SERVIDOR', '9876')
+
+            if request.method == 'POST':
+                pin_ingresado = request.form.get('pin', '').strip()
+                if pin_ingresado == pin_esperado:
+                    if not pago:
+                        pago = ServerPayment(anio=anio, mes=mes, estado='pagado', fecha_pago=obtener_hora_bogota())
+                        db.session.add(pago)
+                    else:
+                        pago.estado = 'pagado'
+                        pago.fecha_pago = obtener_hora_bogota()
+
+                    db.session.commit()
+
+                    return f"""
+                    <!DOCTYPE html>
+                    <html lang="es">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Pago Confirmado - Servidor Zenic</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+                        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+                        <style>
+                            body {{ background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+                            .card-success {{ background: #fff; border: 3px solid #100F0D; border-radius: 1.25rem; box-shadow: 6px 6px 0px #100F0D; padding: 2.5rem; text-align: center; max-width: 450px; width: 90%; }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="card-success">
+                            <div class="mb-3 text-success">
+                                <i class="fa-solid fa-circle-check fa-4x"></i>
+                            </div>
+                            <h2 class="fw-bold text-dark mb-2">¡Pago Confirmado!</h2>
+                            <p class="text-secondary fs-5 mb-4">La mensualidad del <strong>Servidor Zenic</strong> para <strong>{nombre_mes} {anio}</strong> ha sido verificada y marcada como pagada con éxito.</p>
+                            <div class="alert alert-success border-2 border-dark rounded-3 py-2 fw-semibold mb-4">
+                                ✅ Alerta desactivada automáticamente en la aplicación.
+                            </div>
+                            <a href="{url_for('index')}" class="btn btn-dark btn-lg w-100 fw-bold border-2 shadow-sm">Ir a la Aplicación</a>
+                        </div>
+                    </body>
+                    </html>
+                    """
+                else:
+                    error_msg = "🚨 PIN de confirmación incorrecto. Inténtalo nuevamente."
+
+            # Formulario GET o POST con PIN incorrecto
             return f"""
             <!DOCTYPE html>
             <html lang="es">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Pago Confirmado - Servidor D&L</title>
+                <title>Autorizar Pago - Servidor Zenic</title>
                 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
                 <style>
                     body {{ background-color: #f4f6f8; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
-                    .card-success {{ background: #fff; border: 3px solid #100F0D; border-radius: 1.25rem; box-shadow: 6px 6px 0px #100F0D; padding: 2.5rem; text-align: center; max-width: 450px; }}
+                    .card-pin {{ background: #fff; border: 3px solid #100F0D; border-radius: 1.25rem; box-shadow: 6px 6px 0px #100F0D; padding: 2.5rem; text-align: center; max-width: 440px; width: 90%; }}
                 </style>
             </head>
             <body>
-                <div class="card-success">
-                    <div class="mb-3 text-success">
-                        <i class="fa-solid fa-circle-check fa-4x"></i>
+                <div class="card-pin">
+                    <div class="mb-3 text-warning">
+                        <i class="fa-solid fa-shield-halved fa-3x text-dark"></i>
                     </div>
-                    <h2 class="fw-bold text-dark mb-2">¡Pago Confirmado!</h2>
-                    <p class="text-secondary fs-5 mb-4">La mensualidad del servidor para <strong>{nombre_mes} {anio}</strong> ha sido marcada como pagada con éxito.</p>
-                    <div class="alert alert-success border-2 border-dark rounded-3 py-2 fw-semibold mb-4">
-                        ✅ Alerta desactivada automáticamente en la aplicación.
-                    </div>
-                    <a href="{url_for('index')}" class="btn btn-dark btn-lg w-100 fw-bold border-2 shadow-sm">Ir a la Aplicación</a>
+                    <h3 class="fw-bold text-dark mb-1">Confirmar Pago Servidor</h3>
+                    <p class="text-muted small mb-3">Mensualidad <strong>Servidor Zenic</strong> - <strong>{nombre_mes} {anio}</strong></p>
+                    
+                    {f'<div class="alert alert-danger border-2 border-dark rounded-3 py-2 fw-semibold mb-3 small">{error_msg}</div>' if error_msg else ''}
+
+                    <p class="text-secondary small mb-4">Ingresa el <strong>PIN Secreto del Proveedor</strong> para autorizar y registrar este pago en el sistema:</p>
+
+                    <form method="POST" action="">
+                        <input type="hidden" name="token" value="{token}">
+                        <div class="mb-4">
+                            <input type="password" name="pin" class="form-control form-control-lg text-center fw-bold border-2 border-dark rounded-3" placeholder="••••" maxlength="10" required autofocus autocomplete="off" style="letter-spacing: 4px; font-size: 1.5rem;">
+                        </div>
+                        <button type="submit" class="btn btn-success btn-lg w-100 fw-bold border-2 border-dark shadow-sm">
+                            <i class="fa-solid fa-check-double me-2"></i> Confirmar Pago
+                        </button>
+                    </form>
                 </div>
             </body>
             </html>
@@ -274,4 +356,5 @@ if __name__ == '__main__':
             db.session.commit()
             print("🚀 [INFO] Usuario maestro 'admin@dl.com' fue creado automáticamente.")
             
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, port=port)
