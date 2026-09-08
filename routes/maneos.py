@@ -75,10 +75,22 @@ def prestar():
             flash("Variante inválida.", "danger")
             return redirect(url_for('maneos_bp.index'))
             
-        # Descontar Inventario Variante
-        stock_anterior = variante.cantidad_stock
-        variante.cantidad_stock -= cantidad
-        producto.cantidad_stock -= cantidad # Reflejar en base
+        # Validar y descontar stock multisede
+        stock_disponible = variante.get_stock_local(str(local_id_maneo))
+        if cantidad > stock_disponible:
+            flash(f"Stock insuficiente en D&L {local_id_maneo} para la subcategoría '{variante.nombre_variante}'. Disponible: {stock_disponible}, solicitado: {cantidad}.", "danger")
+            return redirect(url_for('maneos_bp.index'))
+
+        stock_anterior = variante.total_stock
+        if local_id_maneo == 1:
+            variante.stock_local_1 = max(0, (variante.stock_local_1 or 0) - cantidad)
+        elif local_id_maneo == 2:
+            variante.stock_local_2 = max(0, (variante.stock_local_2 or 0) - cantidad)
+        elif local_id_maneo == 3:
+            variante.stock_local_3 = max(0, (variante.stock_local_3 or 0) - cantidad)
+
+        variante.cantidad_stock = variante.total_stock
+        producto.cantidad_stock = producto.total_stock
         
         # Registrar Ajuste
         ajuste = StockAdjustment(
@@ -86,13 +98,25 @@ def prestar():
             admin_id=current_user.id,
             tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} (Subcat: {variante.nombre_variante}) desde Local {local_id_maneo}",
             stock_anterior=stock_anterior,
-            stock_nuevo=variante.cantidad_stock
+            stock_nuevo=variante.total_stock
         )
         db.session.add(ajuste)
     else:
-        # Descontar Inventario Base
-        stock_anterior = producto.cantidad_stock
-        producto.cantidad_stock -= cantidad
+        # Validar y descontar stock base multisede
+        stock_disponible = producto.get_stock_local(str(local_id_maneo))
+        if cantidad > stock_disponible:
+            flash(f"Stock insuficiente en D&L {local_id_maneo} para '{producto.nombre}'. Disponible: {stock_disponible}, solicitado: {cantidad}.", "danger")
+            return redirect(url_for('maneos_bp.index'))
+
+        stock_anterior = producto.total_stock
+        if local_id_maneo == 1:
+            producto.stock_local_1 = max(0, (producto.stock_local_1 or 0) - cantidad)
+        elif local_id_maneo == 2:
+            producto.stock_local_2 = max(0, (producto.stock_local_2 or 0) - cantidad)
+        elif local_id_maneo == 3:
+            producto.stock_local_3 = max(0, (producto.stock_local_3 or 0) - cantidad)
+
+        producto.cantidad_stock = producto.total_stock
         
         # Registrar Ajuste
         ajuste = StockAdjustment(
@@ -100,7 +124,7 @@ def prestar():
             admin_id=current_user.id,
             tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} desde Local {local_id_maneo}",
             stock_anterior=stock_anterior,
-            stock_nuevo=producto.cantidad_stock
+            stock_nuevo=producto.total_stock
         )
         db.session.add(ajuste)
 
@@ -197,31 +221,44 @@ def devolver(id):
     # 2. Devolver stock
     producto = maneo.producto
     
+    loc_id = maneo.local_id or 1
     if maneo.variant_id:
         variante = ProductVariant.query.with_for_update().get(maneo.variant_id)
         if variante:
-            stock_anterior = variante.cantidad_stock
-            variante.cantidad_stock += maneo.cantidad
-            producto.cantidad_stock += maneo.cantidad # Reflejar en base
+            stock_anterior = variante.total_stock
+            if loc_id == 1:
+                variante.stock_local_1 = (variante.stock_local_1 or 0) + maneo.cantidad
+            elif loc_id == 2:
+                variante.stock_local_2 = (variante.stock_local_2 or 0) + maneo.cantidad
+            elif loc_id == 3:
+                variante.stock_local_3 = (variante.stock_local_3 or 0) + maneo.cantidad
+            variante.cantidad_stock = variante.total_stock
+            producto.cantidad_stock = producto.total_stock
             
             ajuste = StockAdjustment(
                 product_id=producto.id,
                 admin_id=current_user.id,
-                tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} (Subcat: {variante.nombre_variante}) a Local {maneo.local_id or 1}",
+                tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} (Subcat: {variante.nombre_variante}) a Local {loc_id}",
                 stock_anterior=stock_anterior,
-                stock_nuevo=variante.cantidad_stock
+                stock_nuevo=variante.total_stock
             )
             db.session.add(ajuste)
     else:
-        stock_anterior = producto.cantidad_stock
-        producto.cantidad_stock += maneo.cantidad
+        stock_anterior = producto.total_stock
+        if loc_id == 1:
+            producto.stock_local_1 = (producto.stock_local_1 or 0) + maneo.cantidad
+        elif loc_id == 2:
+            producto.stock_local_2 = (producto.stock_local_2 or 0) + maneo.cantidad
+        elif loc_id == 3:
+            producto.stock_local_3 = (producto.stock_local_3 or 0) + maneo.cantidad
+        producto.cantidad_stock = producto.total_stock
     
         ajuste = StockAdjustment(
             product_id=producto.id,
             admin_id=current_user.id,
-            tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} a Local {maneo.local_id or 1}",
+            tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} a Local {loc_id}",
             stock_anterior=stock_anterior,
-            stock_nuevo=producto.cantidad_stock
+            stock_nuevo=producto.total_stock
         )
         db.session.add(ajuste)
 

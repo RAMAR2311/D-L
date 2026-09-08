@@ -144,6 +144,7 @@ def seed_all():
                     stock_local_1=ps["stock1"],
                     stock_local_2=ps["stock2"],
                     stock_local_3=ps["stock3"],
+                    cantidad_stock=ps["stock1"] + ps["stock2"] + ps["stock3"],
                     observacion="Producto de prueba generado para demostracion."
                 )
                 db.session.add(p)
@@ -160,17 +161,21 @@ def seed_all():
 
                 # Variantes
                 for var_data in ps["variantes"]:
+                    v_tot = var_data["s1"] + var_data["s2"] + var_data["s3"]
                     v = ProductVariant(
                         product_id=p.id,
                         nombre_variante=var_data["nombre"],
                         stock_local_1=var_data["s1"],
                         stock_local_2=var_data["s2"],
                         stock_local_3=var_data["s3"],
+                        cantidad_stock=v_tot,
                         precio_costo=var_data["costo"],
                         precio_minimo=var_data["min"],
                         precio_sugerido=var_data["sug"]
                     )
                     db.session.add(v)
+                if ps["variantes"]:
+                    p.cantidad_stock = sum(vd["s1"] + vd["s2"] + vd["s3"] for vd in ps["variantes"])
             products_list.append(p)
         db.session.commit()
         print("[4/12] Productos, Variantes y Ajustes de Stock listos.")
@@ -316,6 +321,8 @@ def seed_all():
                 cantidad=2,
                 valor_unidad=25000,
                 estado="PENDIENTE",
+                local_id=1,
+                usuario_id=vendedor_user.id,
                 fecha_prestamo=datetime.now()
             )
             db.session.add(m)

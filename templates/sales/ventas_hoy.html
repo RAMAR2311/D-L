@@ -9,7 +9,11 @@
                 <i class="fa-solid fa-list-check me-2"></i>{% if fecha_inicio == hoy and fecha_fin == hoy %}Ventas del Día{% else %}Historial de Ventas{% endif %}
             </h2>
             <p class="text-muted small mb-0 mt-1">
-                <i class="fa-solid fa-store text-brand-pink me-1"></i>Local Asignado: <strong>D&L {{ current_user.local_asignado or 1 }}</strong> 
+                {% if is_admin %}
+                    <i class="fa-solid fa-store text-brand-pink me-1"></i>Sede Activa: <strong>{% if active_local == 'central' %}Todas las Sedes (Central){% else %}D&L {{ active_local }}{% endif %}</strong>
+                {% else %}
+                    <i class="fa-solid fa-store text-brand-pink me-1"></i>Local Asignado: <strong>D&L {{ current_user.local_asignado or 1 }}</strong> 
+                {% endif %}
                 <span class="ms-2 badge bg-light text-dark border rounded-pill fw-semibold">
                     <i class="fa-regular fa-calendar me-1"></i>
                     {% if fecha_inicio == fecha_fin %}
@@ -20,7 +24,25 @@
                 </span>
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2">
+
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            {% if is_admin %}
+            <div class="btn-group shadow-sm rounded-pill overflow-hidden border bg-white" role="group">
+                <a href="{{ url_for('sales_bp.ventas_hoy', local='central', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == 'central' %}btn-dark fw-bold{% else %}btn-outline-dark{% endif %} px-3">
+                    <i class="fa-solid fa-cubes me-1"></i> Todas
+                </a>
+                <a href="{{ url_for('sales_bp.ventas_hoy', local='1', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == '1' %}btn-primary fw-bold{% else %}btn-outline-primary{% endif %} px-3">
+                    <i class="fa-solid fa-shop me-1"></i> D&L 1
+                </a>
+                <a href="{{ url_for('sales_bp.ventas_hoy', local='2', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == '2' %}btn-info text-white fw-bold{% else %}btn-outline-info{% endif %} px-3">
+                    <i class="fa-solid fa-shop me-1"></i> D&L 2
+                </a>
+                <a href="{{ url_for('sales_bp.ventas_hoy', local='3', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm {% if active_local == '3' %}btn-success fw-bold{% else %}btn-outline-success{% endif %} px-3">
+                    <i class="fa-solid fa-shop me-1"></i> D&L 3
+                </a>
+            </div>
+            {% endif %}
+
             <a href="/sales/nueva" class="btn btn-light rounded-pill px-4 fw-bold text-muted border shadow-sm">
                 <i class="fa-solid fa-arrow-left me-1"></i> Módulo de Caja
             </a>
@@ -31,6 +53,9 @@
     <div class="col-12 mb-4">
         <div class="card card-custom p-3 bg-light border-0 shadow-sm">
             <form method="GET" action="{{ url_for('sales_bp.ventas_hoy') }}" class="row align-items-end g-2">
+                {% if is_admin %}
+                    <input type="hidden" name="local" value="{{ active_local }}">
+                {% endif %}
                 <div class="col-6 col-md-4">
                     <label class="form-label fw-bold text-muted small mb-1"><i class="fa-regular fa-calendar me-1"></i> Desde (Fecha)</label>
                     <input type="date" name="fecha_inicio" class="form-control form-control-sm border-0 shadow-sm" value="{{ fecha_inicio }}">
@@ -43,9 +68,9 @@
                     <button type="submit" class="btn btn-blue btn-sm w-100 rounded-pill fw-bold">
                         <i class="fa-solid fa-filter me-1"></i> Filtrar Ventas
                     </button>
-                    {% if fecha_inicio != hoy or fecha_fin != hoy %}
-                        <a href="{{ url_for('sales_bp.ventas_hoy') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-bold d-flex align-items-center gap-1" data-bs-toggle="tooltip" title="Restablecer a hoy">
-                            <i class="fa-solid fa-rotate-left"></i> Hoy
+                    {% if fecha_inicio != hoy or fecha_fin != hoy or (is_admin and active_local != 'central') %}
+                        <a href="{{ url_for('sales_bp.ventas_hoy') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-bold d-flex align-items-center gap-1" data-bs-toggle="tooltip" title="Restablecer filtros">
+                            <i class="fa-solid fa-rotate-left"></i> Restablecer
                         </a>
                     {% endif %}
                 </div>
@@ -89,9 +114,10 @@
                 <tr>
                     <th width="280">PRODUCTOS VENDIDOS</th>
                     <th>HORA DE COBRO</th>
-                    <th>VENDEDOR RESPONSABLE</th>
+                    <th>RESPONSABLES</th>
                     <th class="text-center">VÍA DE PAGO</th>
-                    <th class="text-end" width="160">IMPORTE CERRADO</th>
+                    <th class="text-end" width="140">IMPORTE CERRADO</th>
+                    <th class="text-center" width="120">ACCIONES</th>
                 </tr>
             </thead>
             <tbody>
@@ -99,7 +125,12 @@
                 <tr>
                     <td class="align-middle py-3">
                         <div class="d-flex flex-column gap-1 text-start">
-                            <span class="text-muted fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.5px;">TICKET #{{ "%05d"|format(venta.id) }}</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.5px;">TICKET #{{ "%05d"|format(venta.id) }}</span>
+                                {% if is_admin and active_local == 'central' %}
+                                    <span class="badge bg-secondary text-white rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">D&L {{ venta.local_id }}</span>
+                                {% endif %}
+                            </div>
                             <div class="lh-sm">
                                 {% for det in venta.detalles %}
                                     <div class="d-flex align-items-center flex-wrap gap-1 my-1">
@@ -124,9 +155,18 @@
                             </div>
                         </div>
                     </td>
-                    <td class="align-middle text-muted"><i class="fa-regular fa-clock text-brand-pink me-1"></i> {{ venta.fecha_venta.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="align-middle text-muted">
+                        <i class="fa-regular fa-clock text-brand-pink me-1"></i> {{ venta.fecha_venta.strftime('%Y-%m-%d %H:%M') if venta.fecha_venta else '—' }}
+                    </td>
                     <td class="align-middle fw-semibold text-brand-black">
-                        <i class="fa-solid fa-user-circle text-muted me-1"></i> {{ venta.vendedor.nombre }}
+                        <div>
+                            <i class="fa-solid fa-user-circle text-muted me-1"></i> {{ venta.vendedor.nombre if venta.vendedor else 'Cajero' }}
+                        </div>
+                        {% if venta.asesor %}
+                            <small class="d-block text-muted fw-normal mt-1" style="font-size: 0.75rem;">
+                                <i class="fa-solid fa-user-tag text-brand-pink me-1"></i>Asesor: <strong>{{ venta.asesor.nombre }}</strong>
+                            </small>
+                        {% endif %}
                     </td>
                     <td class="text-center align-middle">
                         {% if venta.pagos|length > 1 %}
@@ -145,16 +185,31 @@
                             {% endif %}
                         {% else %}
                             <!-- Fallback retrocompatibilidad -->
-                            <span class="badge bg-light text-dark border rounded-pill px-3 py-2">{{ venta.metodo_pago|capitalize }}</span>
+                            <span class="badge bg-light text-dark border rounded-pill px-3 py-2">{{ (venta.metodo_pago or 'efectivo')|capitalize }}</span>
                         {% endif %}
                     </td>
-                    <td class="text-end align-middle fw-bolder text-brand-black fs-5 pe-4">
+                    <td class="text-end align-middle fw-bolder text-brand-black fs-5 pe-3">
                         ${{ (venta.monto_total)|cop }}
+                    </td>
+                    <td class="text-center align-middle pe-3">
+                        <div class="d-flex flex-column gap-1">
+                            <a href="{{ url_for('sales_bp.imprimir_ticket', sale_id=venta.id) }}" target="_blank" class="btn btn-sm btn-pink rounded-pill px-3 fw-bold shadow-sm" title="Reimprimir comprobante de venta">
+                                <i class="fa-solid fa-receipt me-1"></i> Recibo
+                            </a>
+                            {% if is_admin %}
+                            <form action="{{ url_for('sales_bp.eliminar_venta', sale_id=venta.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de anular el ticket #{{ '%05d'|format(venta.id) }}? Esta acción devolverá el stock a su sede.');" class="m-0 p-0">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-2 fw-bold w-100" style="font-size: 0.72rem;" title="Anular venta">
+                                    <i class="fa-solid fa-trash me-1"></i> Anular
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="text-center py-5">
+                    <td colspan="6" class="text-center py-5">
                         <i class="fa-solid fa-store-slash fs-1 mb-3" style="color: var(--brand-pink);"></i>
                         <h4 class="text-brand-black fw-bold">No hay ventas registradas para este periodo</h4>
                         <p class="text-muted mb-0">Usa el filtro de fechas superior para seleccionar otro rango o día.</p>

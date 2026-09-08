@@ -109,17 +109,33 @@
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2 w-100">Activo</span>
                             </td>
                             <td class="text-center pe-4">
-                                <form action="{{ url_for('admin_bp.eliminar_vendedor', id=vendedor.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar a este trabajador? Esta acción no se puede deshacer.');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle shadow-sm" title="Eliminar trabajador">
-                                        <i class="fa-solid fa-trash-can"></i>
+                                <div class="d-flex justify-content-center align-items-center gap-1">
+                                    {% if vendedor.rol != 'admin' %}
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-circle shadow-sm" data-bs-toggle="modal" data-bs-target="#modalEditarVendedor{{ vendedor.id }}" title="Editar información del trabajador">
+                                        <i class="fa-solid fa-pen-to-square"></i>
                                     </button>
-                                </form>
+                                    {% endif %}
+
+                                    {% if vendedor.rol != 'admin' and vendedor.id != current_user.id %}
+                                    <form action="{{ url_for('admin_bp.eliminar_vendedor', id=vendedor.id) }}" method="POST" class="d-inline m-0" onsubmit="return confirm('¿Estás seguro de que deseas eliminar a {{ vendedor.nombre }}? Esta acción no se puede deshacer.');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle shadow-sm" title="Eliminar trabajador">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" title="Usuario protegido (Administrador)">
+                                        <button class="btn btn-sm btn-outline-secondary rounded-circle shadow-sm" disabled style="opacity: 0.4;">
+                                            <i class="fa-solid fa-shield-halved"></i>
+                                        </button>
+                                    </span>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-muted">
+                            <td colspan="6" class="text-center py-5 text-muted">
                                 <i class="fa-solid fa-users-slash fs-1 mb-3 opacity-25"></i>
                                 <p class="mb-0">Aún no has dado de alta a ningún Vendedor/Cajero.</p>
                             </td>
@@ -131,4 +147,64 @@
         </div>
     </div>
 </div>
+
+<!-- Modales de Edición de Trabajadores -->
+{% for vendedor in vendedores %}
+{% if vendedor.rol != 'admin' %}
+<div class="modal fade" id="modalEditarVendedor{{ vendedor.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" action="{{ url_for('admin_bp.editar_vendedor', id=vendedor.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="modal-header border-0 bg-light">
+                    <h5 class="modal-title fw-bold text-brand-black">
+                        <i class="fa-solid fa-user-pen me-2 text-primary"></i>Editar Trabajador
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label text-brand-black fw-semibold small">Nombre Completo</label>
+                        <input type="text" name="nombre" class="form-control bg-light border-0 py-2" value="{{ vendedor.nombre }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-brand-black fw-semibold small">Correo Empresarial (Login)</label>
+                        <input type="email" name="email" class="form-control bg-light border-0 py-2" value="{{ vendedor.email }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-brand-black fw-semibold small">Celular / Móvil de Contacto</label>
+                        <input type="text" name="telefono" class="form-control bg-light border-0 py-2" value="{{ vendedor.telefono or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-brand-black fw-semibold small">Rol / Perfil</label>
+                        <select name="rol" class="form-select bg-light border-0 py-2" required>
+                            <option value="vendedor" {% if vendedor.rol == 'vendedor' %}selected{% endif %}>Vendedor (Cajas / Tienda)</option>
+                            <option value="bodega" {% if vendedor.rol == 'bodega' %}selected{% endif %}>Bodega (Inventario Mayorista)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-brand-black fw-semibold small">Sede / Local Asignado</label>
+                        <select name="local_asignado" class="form-select bg-light border-0 py-2" required>
+                            <option value="1" {% if vendedor.local_asignado == 1 %}selected{% endif %}>D&L 1</option>
+                            <option value="2" {% if vendedor.local_asignado == 2 %}selected{% endif %}>D&L 2</option>
+                            <option value="3" {% if vendedor.local_asignado == 3 %}selected{% endif %}>D&L 3</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-brand-black fw-semibold small">Nueva Contraseña / PIN (Opcional)</label>
+                        <input type="password" name="password" class="form-control bg-light border-0 py-2" placeholder="Dejar en blanco para conservar actual">
+                        <small class="text-muted" style="font-size:0.75rem;">Solo llena este campo si deseas cambiar la contraseña del trabajador.</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
 {% endblock %}

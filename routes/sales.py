@@ -552,19 +552,29 @@ def ventas_hoy():
         
     fin_dt_end = fin_dt + timedelta(days=1)
     
-    # Filtrar ventas de este rango únicamente para el local asignado al usuario
-    local_id_cajero = current_user.local_asignado or 1
+    is_admin = (current_user.rol == 'admin')
+    if is_admin:
+        active_local = request.args.get('local', 'central').lower()
+        if active_local not in ['central', '1', '2', '3']:
+            active_local = 'central'
+    else:
+        active_local = str(getattr(current_user, 'local_asignado', 1) or '1')
     
-    ventas = Sale.query.options(
+    query = Sale.query.options(
         joinedload(Sale.vendedor),
+        joinedload(Sale.asesor),
         selectinload(Sale.detalles).selectinload(SaleDetail.producto),
         selectinload(Sale.detalles).selectinload(SaleDetail.variante),
         selectinload(Sale.pagos)
     ).filter(
         Sale.fecha_venta >= inicio_dt,
-        Sale.fecha_venta < fin_dt_end,
-        Sale.local_id == local_id_cajero
-    ).order_by(Sale.fecha_venta.desc()).all()
+        Sale.fecha_venta < fin_dt_end
+    )
+    
+    if not is_admin or active_local != 'central':
+        query = query.filter(Sale.local_id == int(active_local))
+        
+    ventas = query.order_by(Sale.fecha_venta.desc()).all()
     
     # Acumuladores de las ventas
     total_efectivo = Decimal('0')
@@ -593,6 +603,8 @@ def ventas_hoy():
                            total_mixto=total_mixto,
                            fecha_inicio=fecha_inicio,
                            fecha_fin=fecha_fin,
+                           active_local=active_local,
+                           is_admin=is_admin,
                            hoy=hoy_str)
 
 
@@ -604,58 +616,74 @@ def eliminar_venta(sale_id):
     venta = Sale.query.get_or_404(sale_id)
     
     try:
-        # Revertir Stock
-        from models import StockAdjustment
+        # Revertir Stock en Sede correspondiente
+        from models import StockAdjustment, StockTransfer, PuntoTransaction
+        loc_id = venta.local_id or 1
         for detalle in venta.detalles:
             if detalle.variant_id:
                 variante = ProductVariant.query.with_for_update().get(detalle.variant_id)
+                producto = Product.query.with_for_update().get(detalle.product_id)
                 if variante:
-                    stock_anterior = variante.cantidad_stock
-                    variante.cantidad_stock += detalle.cantidad_vendida
+                    stock_anterior = variante.total_stock
+                    if loc_id == 1:
+                        variante.stock_local_1 = (variante.stock_local_1 or 0) + detalle.cantidad_vendida
+                    elif loc_id == 2:
+                        variante.stock_local_2 = (variante.stock_local_2 or 0) + detalle.cantidad_vendida
+                    elif loc_id == 3:
+                        variante.stock_local_3 = (variante.stock_local_3 or 0) + detalle.cantidad_vendida
+                    variante.cantidad_stock = variante.total_stock
+                    if producto:
+                        producto.cantidad_stock = producto.total_stock
                     
                     ajuste = StockAdjustment(
                         product_id=detalle.product_id,
                         admin_id=current_user.id,
-                        tipo_movimiento=f"Anulación Venta #{venta.id} (Subcat: {variante.nombre_variante})",
+                        tipo_movimiento=f"Anulación Venta #{venta.id} (Subcat: {variante.nombre_variante}) en D&L {loc_id}",
                         stock_anterior=stock_anterior,
-                        stock_nuevo=variante.cantidad_stock
+                        stock_nuevo=variante.total_stock
                     )
                     db.session.add(ajuste)
-                    
-                producto = Product.query.with_for_update().get(detalle.product_id)
-                if producto:
-                    producto.cantidad_stock += detalle.cantidad_vendida
             elif detalle.product_id:
                 producto = Product.query.with_for_update().get(detalle.product_id)
                 if producto:
-                    stock_anterior = producto.cantidad_stock
-                    producto.cantidad_stock += detalle.cantidad_vendida
+                    stock_anterior = producto.total_stock
+                    if loc_id == 1:
+                        producto.stock_local_1 = (producto.stock_local_1 or 0) + detalle.cantidad_vendida
+                    elif loc_id == 2:
+                        producto.stock_local_2 = (producto.stock_local_2 or 0) + detalle.cantidad_vendida
+                    elif loc_id == 3:
+                        producto.stock_local_3 = (producto.stock_local_3 or 0) + detalle.cantidad_vendida
+                    producto.cantidad_stock = producto.total_stock
                     
                     ajuste = StockAdjustment(
                         product_id=producto.id,
                         admin_id=current_user.id,
-                        tipo_movimiento=f"Anulación Venta #{venta.id}",
+                        tipo_movimiento=f"Anulación Venta #{venta.id} en D&L {loc_id}",
                         stock_anterior=stock_anterior,
-                        stock_nuevo=producto.cantidad_stock
+                        stock_nuevo=producto.total_stock
                     )
                     db.session.add(ajuste)
                     
         # Eliminar Transacciones de Punto (Deudas) generadas por esta venta
-        from models import PuntoTransaction
         transacciones_punto = PuntoTransaction.query.filter_by(sale_id=venta.id).all()
         for transaccion in transacciones_punto:
             db.session.delete(transaccion)
+
+        # Eliminar Traslados automáticos generados por esta venta para prevenir error de llave foránea
+        traslados = StockTransfer.query.filter_by(sale_id=venta.id).all()
+        for traslado in traslados:
+            db.session.delete(traslado)
             
         # Eliminar Venta y Detalles (Cascada)
         db.session.delete(venta)
         db.session.commit()
-        flash('Venta anulada y stock devuelto exitosamente.', 'success')
+        flash('Venta anulada y stock devuelto exitosamente a su sede.', 'success')
         
     except Exception as e:
         db.session.rollback()
-        flash('Ocurrió un error al anular la venta.', 'danger')
+        flash(f'Ocurrió un error al anular la venta: {str(e)}', 'danger')
         
-    return redirect(url_for('sales_bp.historial'))
+    return redirect(request.referrer or url_for('sales_bp.historial'))
 
 # Endpoint para editar el método de pago de una venta (Solo Admin)
 @sales_bp.route('/editar_pago/<int:sale_id>', methods=['POST'])
