@@ -122,13 +122,24 @@
                                 <span class="text-muted fst-italic">-</span>
                             {% endif %}
                         </td>
-                        <td class="text-end fw-semibold text-dark">${{ item.total_cargos|cop }}</td>
-                        <td class="text-end fw-semibold text-success">${{ item.total_abonos|cop }}</td>
+                        <td class="text-end">
+                            <a href="{{ url_for('puntos_bp.detalle', id=p.id) }}?ver=cargos" class="fw-bold text-dark text-decoration-none d-inline-flex align-items-center gap-1" title="Ver desglose de nuevos saldos y cargos">
+                                <span>${{ item.total_cargos|cop }}</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-muted" style="font-size: 0.65rem;"></i>
+                            </a>
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('puntos_bp.detalle', id=p.id) }}?ver=abonos" class="fw-bold text-success text-decoration-none d-inline-flex align-items-center gap-1" title="Ver desglose de abonos pagados">
+                                <span>${{ item.total_abonos|cop }}</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-success" style="font-size: 0.65rem;"></i>
+                            </a>
+                        </td>
                         <td class="text-end">
                             {% if item.saldo_pendiente > 0 %}
-                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger px-3 py-2 fs-6 fw-bolder">
-                                    ${{ item.saldo_pendiente|cop }}
-                                </span>
+                                <a href="{{ url_for('puntos_bp.detalle', id=p.id) }}?ver=pendientes" class="badge bg-danger bg-opacity-10 text-danger border border-danger px-3 py-2 fs-6 fw-bolder text-decoration-none d-inline-flex align-items-center gap-1" title="Ver desglose de saldos pendientes">
+                                    <span>${{ item.saldo_pendiente|cop }}</span>
+                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.65rem;"></i>
+                                </a>
                             {% else %}
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 fs-6 fw-bold">
                                     $0 (Al Día)

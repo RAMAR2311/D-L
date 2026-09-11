@@ -85,13 +85,31 @@ def detalle(id):
     abonos = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono'), Decimal('0.00'))
     saldo_pendiente = cargos - abonos
 
+    # Desglose de Abonos por Sede
     abonos_l1 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 1), Decimal('0.00'))
     abonos_l2 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 2), Decimal('0.00'))
     abonos_l3 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 3), Decimal('0.00'))
+    count_abonos_l1 = sum(1 for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 1)
+    count_abonos_l2 = sum(1 for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 2)
+    count_abonos_l3 = sum(1 for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 3)
+
+    # Desglose de Cargos / Nuevos Saldos por Sede
+    cargos_l1 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'cargo' and (t.local_id or 1) == 1), Decimal('0.00'))
+    cargos_l2 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'cargo' and (t.local_id or 1) == 2), Decimal('0.00'))
+    cargos_l3 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'cargo' and (t.local_id or 1) == 3), Decimal('0.00'))
+    count_cargos_l1 = sum(1 for t in transacciones if t.tipo_movimiento == 'cargo' and (t.local_id or 1) == 1)
+    count_cargos_l2 = sum(1 for t in transacciones if t.tipo_movimiento == 'cargo' and (t.local_id or 1) == 2)
+    count_cargos_l3 = sum(1 for t in transacciones if t.tipo_movimiento == 'cargo' and (t.local_id or 1) == 3)
+
+    # Desglose de Abonos por Método de Pago
+    abonos_por_metodo = {}
+    abonos_lista = [t for t in transacciones if t.tipo_movimiento == 'abono']
+    for a in abonos_lista:
+        met = (a.metodo_pago or 'efectivo').lower().strip()
+        abonos_por_metodo[met] = abonos_por_metodo.get(met, Decimal('0.00')) + a.monto
 
     # Calcular saldo individual por producto / sale_id
     abonos_por_sale_id = {}
-    abonos_lista = [t for t in transacciones if t.tipo_movimiento == 'abono']
     for a in abonos_lista:
         if a.sale_id:
             abonos_por_sale_id[a.sale_id] = abonos_por_sale_id.get(a.sale_id, Decimal('0.00')) + a.monto
@@ -105,6 +123,11 @@ def detalle(id):
             tot_abono += abonos_por_sale_id[c.id]
         
         saldo_prod = max(c.monto - tot_abono, Decimal('0.00'))
+        porcentaje_pagado = int((tot_abono / c.monto * 100) if c.monto > 0 else 100)
+        c.total_abonado = tot_abono
+        c.saldo_pendiente = saldo_prod
+        c.porcentaje_pagado = min(porcentaje_pagado, 100)
+
         productos_cartera.append({
             'cargo_id': c.id,
             'sale_id': s_id,
@@ -112,8 +135,10 @@ def detalle(id):
             'monto_cargo': c.monto,
             'total_abonado': tot_abono,
             'saldo_pendiente': saldo_prod,
+            'porcentaje_pagado': c.porcentaje_pagado,
             'fecha': c.fecha,
             'local_id': c.local_id or 1,
+            'usuario': c.usuario.nombre if c.usuario else 'Sistema',
             'pagado_completo': (saldo_prod <= Decimal('0.00'))
         })
 
@@ -130,12 +155,20 @@ def detalle(id):
                 tot_ab = abonos_por_sale_id.get(t.sale_id, Decimal('0.00'))
                 t.saldo_pendiente_producto = max(cargo_asoc.monto - tot_ab, Decimal('0.00'))
                 t.monto_cargo_producto = cargo_asoc.monto
+                t.cargo_asociado_desc = cargo_asoc.descripcion
             else:
                 t.saldo_pendiente_producto = None
                 t.monto_cargo_producto = None
+                t.cargo_asociado_desc = None
         else:
             t.saldo_pendiente_producto = None
             t.monto_cargo_producto = None
+            t.cargo_asociado_desc = None
+
+    items_pendientes = [p for p in productos_cartera if p['saldo_pendiente'] > Decimal('0.00')]
+    deuda_l1 = sum((p['saldo_pendiente'] for p in items_pendientes if (p['local_id'] or 1) == 1), Decimal('0.00'))
+    deuda_l2 = sum((p['saldo_pendiente'] for p in items_pendientes if (p['local_id'] or 1) == 2), Decimal('0.00'))
+    deuda_l3 = sum((p['saldo_pendiente'] for p in items_pendientes if (p['local_id'] or 1) == 3), Decimal('0.00'))
 
     hoy_str = obtener_hora_bogota().strftime('%Y-%m-%d')
 
@@ -145,12 +178,27 @@ def detalle(id):
         transacciones=transacciones,
         productos_cartera=productos_cartera,
         cargos_registros=cargos_registros,
+        abonos_lista=abonos_lista,
+        items_pendientes=items_pendientes,
         total_cargos=cargos,
         total_abonos=abonos,
         saldo_pendiente=saldo_pendiente,
         abonos_l1=abonos_l1,
         abonos_l2=abonos_l2,
         abonos_l3=abonos_l3,
+        count_abonos_l1=count_abonos_l1,
+        count_abonos_l2=count_abonos_l2,
+        count_abonos_l3=count_abonos_l3,
+        cargos_l1=cargos_l1,
+        cargos_l2=cargos_l2,
+        cargos_l3=cargos_l3,
+        count_cargos_l1=count_cargos_l1,
+        count_cargos_l2=count_cargos_l2,
+        count_cargos_l3=count_cargos_l3,
+        deuda_l1=deuda_l1,
+        deuda_l2=deuda_l2,
+        deuda_l3=deuda_l3,
+        abonos_por_metodo=abonos_por_metodo,
         hoy=hoy_str
     )
 
@@ -286,6 +334,60 @@ def eliminar_transaccion(t_id):
         
     return redirect(url_for('puntos_bp.detalle', id=punto_id))
 
+@puntos_bp.route('/<int:id>/agregar-cargo', methods=['POST'])
+@login_required
+def agregar_cargo(id):
+    punto = Punto.query.get_or_404(id)
+
+    try:
+        monto = Decimal(str(request.form.get('monto', '0')).replace(',', '').strip())
+    except (ValueError, TypeError):
+        monto = Decimal('0.00')
+
+    descripcion = request.form.get('descripcion', '').strip()
+    try:
+        local_id_cargo = int(request.form.get('local_id', 1))
+    except (ValueError, TypeError):
+        local_id_cargo = getattr(current_user, 'local_asignado', 1) or 1
+
+    if monto <= 0:
+        flash('El monto del nuevo saldo / cargo debe ser mayor a 0.', 'danger')
+        return redirect(url_for('puntos_bp.detalle', id=punto.id))
+
+    if not descripcion:
+        descripcion = f"Nuevo cargo / saldo ingresado en D&L {local_id_cargo}"
+
+    fecha_cargo_str = request.form.get('fecha_cargo')
+    if fecha_cargo_str:
+        try:
+            hora_actual = obtener_hora_bogota().time()
+            fecha_dt = datetime.strptime(fecha_cargo_str, '%Y-%m-%d').replace(
+                hour=hora_actual.hour, minute=hora_actual.minute, second=hora_actual.second
+            )
+        except ValueError:
+            fecha_dt = obtener_hora_bogota()
+    else:
+        fecha_dt = obtener_hora_bogota()
+
+    try:
+        transaccion_cargo = PuntoTransaction(
+            punto_id=punto.id,
+            usuario_id=current_user.id,
+            tipo_movimiento='cargo',
+            monto=monto,
+            local_id=local_id_cargo,
+            descripcion=descripcion,
+            fecha=fecha_dt
+        )
+        db.session.add(transaccion_cargo)
+        db.session.commit()
+        flash(f'Nuevo saldo/cargo de ${monto:,.0f} registrado exitosamente a favor de "{punto.nombre}".', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error al intentar registrar el nuevo cargo.', 'danger')
+
+    return redirect(url_for('puntos_bp.detalle', id=punto.id, ver='cargos'))
+
 @puntos_bp.route('/transaccion/<int:t_id>/editar', methods=['POST'])
 @login_required
 def editar_transaccion(t_id):
@@ -301,6 +403,23 @@ def editar_transaccion(t_id):
             transaccion.monto = Decimal(monto_str.replace(',', '').strip())
         except:
             pass
+
+    local_id_str = request.form.get('local_id')
+    if local_id_str:
+        try:
+            transaccion.local_id = int(local_id_str)
+        except:
+            pass
+
+    fecha_str = request.form.get('fecha')
+    if fecha_str:
+        try:
+            transaccion.fecha = datetime.strptime(fecha_str, '%Y-%m-%dT%H:%M')
+        except ValueError:
+            try:
+                transaccion.fecha = datetime.strptime(fecha_str, '%Y-%m-%d')
+            except ValueError:
+                pass
             
     transaccion.descripcion = descripcion
     if transaccion.tipo_movimiento == 'abono':
@@ -314,3 +433,4 @@ def editar_transaccion(t_id):
         flash('Error al intentar actualizar la transacción.', 'danger')
         
     return redirect(url_for('puntos_bp.detalle', id=punto_id))
+
