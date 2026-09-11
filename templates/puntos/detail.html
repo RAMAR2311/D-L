@@ -5,10 +5,14 @@
 .card-interactive {
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
 }
 .card-interactive:hover {
     transform: translateY(-3px);
     box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important;
+}
+.card-interactive:active {
+    transform: scale(0.98);
 }
 .badge-sede-1 { background-color: #0d6efd; color: #fff; }
 .badge-sede-2 { background-color: #0dcaf0; color: #000; }
@@ -16,6 +20,34 @@
 .filter-btn.active {
     background-color: var(--brand-black, #212529) !important;
     color: #fff !important;
+}
+
+/* Optimización para Teléfonos y Tablets */
+@media (max-width: 767.98px) {
+    .modal-fullscreen-md-down .modal-content {
+        border-radius: 0 !important;
+        min-height: 100vh;
+    }
+    .modal-fullscreen-md-down .modal-header {
+        position: sticky;
+        top: 0;
+        z-index: 1055;
+        background-color: #ffffff !important;
+        border-bottom: 2px solid #e9ecef !important;
+    }
+    .modal-fullscreen-md-down .modal-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 1055;
+        background-color: #ffffff !important;
+        border-top: 2px solid #e9ecef !important;
+    }
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+    .fs-mobile-small {
+        font-size: 0.8rem !important;
+    }
 }
 </style>
 
@@ -418,7 +450,7 @@
 <!-- MODAL: DESGLOSE DETALLADO Y COMPLETO DE ABONOS REALIZADOS          -->
 <!-- ================================================================= -->
 <div class="modal fade" id="modalDetalleAbonos" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header bg-success bg-opacity-10 border-bottom py-3 px-4">
                 <div>
@@ -585,7 +617,7 @@
 <!-- MODAL: DESGLOSE DETALLADO Y COMPLETO DE NUEVOS SALDOS Y CARGOS    -->
 <!-- ================================================================= -->
 <div class="modal fade" id="modalDetalleCargos" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header bg-warning bg-opacity-10 border-bottom py-3 px-4">
                 <div>
@@ -726,7 +758,7 @@
 <!-- MODAL: DESGLOSE DETALLADO DE SALDOS PENDIENTES POR PAGAR           -->
 <!-- ================================================================= -->
 <div class="modal fade" id="modalDetallePendientes" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header bg-danger bg-opacity-10 border-bottom py-3 px-4">
                 <div>
@@ -1160,20 +1192,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (verParam === 'abonos') {
         const modalAbonosEl = document.getElementById('modalDetalleAbonos');
         if (modalAbonosEl && typeof bootstrap !== 'undefined') {
-            const modalInstance = new bootstrap.Modal(modalAbonosEl);
-            modalInstance.show();
+            bootstrap.Modal.getOrCreateInstance(modalAbonosEl).show();
         }
     } else if (verParam === 'cargos' || verParam === 'saldos') {
         const modalCargosEl = document.getElementById('modalDetalleCargos');
         if (modalCargosEl && typeof bootstrap !== 'undefined') {
-            const modalInstance = new bootstrap.Modal(modalCargosEl);
-            modalInstance.show();
+            bootstrap.Modal.getOrCreateInstance(modalCargosEl).show();
         }
     } else if (verParam === 'pendientes' || verParam === 'deuda' || verParam === 'saldo') {
         const modalPendientesEl = document.getElementById('modalDetallePendientes');
         if (modalPendientesEl && typeof bootstrap !== 'undefined') {
-            const modalInstance = new bootstrap.Modal(modalPendientesEl);
-            modalInstance.show();
+            bootstrap.Modal.getOrCreateInstance(modalPendientesEl).show();
         }
     }
 });
