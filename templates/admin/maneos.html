@@ -360,6 +360,7 @@
         "id": {{ p.id }},
         "sku": {{ p.sku|tojson }},
         "nombre": {{ p.nombre|tojson }},
+        "descontar_inventario": {{ 'true' if p.descontar_inventario else 'false' }},
         "stock": {{ (p.get_stock_local(active_local) if active_local != 'central' else p.total_stock) or 0 }},
         "stock_1": {{ p.get_stock_local('1') or 0 }},
         "stock_2": {{ p.get_stock_local('2') or 0 }},
@@ -373,6 +374,7 @@
             {
                 "id": {{ v.id }},
                 "nombre": {{ v.nombre_variante|tojson }},
+                "descontar_inventario": {{ 'true' if (v.descontar_inventario if (v.descontar_inventario is defined and v.descontar_inventario is not none) else p.descontar_inventario) else 'false' }},
                 "stock": {{ (v.get_stock_local(active_local) if active_local != 'central' else v.total_stock) or 0 }},
                 "stock_1": {{ v.get_stock_local('1') or 0 }},
                 "stock_2": {{ v.get_stock_local('2') or 0 }},
@@ -550,9 +552,18 @@
         loanItems.forEach((item, index) => {
             const prod = maneoCatalog.find(p => p.sku === item.sku) || item;
             const availableStock = getItemStock(prod, item.variant_id, localId);
-            const stockClass = availableStock > 0 
-                ? 'bg-success bg-opacity-10 text-success border border-success' 
-                : 'bg-danger bg-opacity-10 text-danger border border-danger';
+            const itemVar = (item.variant_id && prod.variantes) ? prod.variantes.find(v => String(v.id) === String(item.variant_id)) : null;
+            const debeDescontar = itemVar ? ((typeof itemVar.descontar_inventario !== 'undefined') ? itemVar.descontar_inventario : prod.descontar_inventario) : prod.descontar_inventario;
+
+            let stockBadge = '';
+            if (debeDescontar) {
+                const stockClass = availableStock > 0 
+                    ? 'bg-success bg-opacity-10 text-success border border-success' 
+                    : 'bg-danger bg-opacity-10 text-danger border border-danger';
+                stockBadge = `<span class="badge ${stockClass}"><i class="fa-solid fa-warehouse me-1"></i>Stock D&L ${localId}: ${availableStock}</span>`;
+            } else {
+                stockBadge = `<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary" title="Facturación Libre sin stock físico"><i class="fa-solid fa-infinity me-1"></i>Facturación Libre (Stock: ${availableStock})</span>`;
+            }
 
             let variantsHtml = '';
             if (item.variantes && item.variantes.length > 0) {
@@ -581,9 +592,7 @@
                             <strong class="text-dark d-block" style="font-size: 0.95rem;">${item.nombre}</strong>
                             <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
                                 <span class="badge bg-white text-secondary border">SKU: ${item.sku}</span>
-                                <span class="badge ${stockClass}">
-                                    <i class="fa-solid fa-warehouse me-1"></i>Stock D&L ${localId}: ${availableStock}
-                                </span>
+                                ${stockBadge}
                             </div>
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle" onclick="removeLoanItem(${index})" title="Quitar este producto">

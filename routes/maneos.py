@@ -75,58 +75,63 @@ def prestar():
             flash("Variante inválida.", "danger")
             return redirect(url_for('maneos_bp.index'))
             
-        # Validar y descontar stock multisede
-        stock_disponible = variante.get_stock_local(str(local_id_maneo))
-        if cantidad > stock_disponible:
-            flash(f"Stock insuficiente en D&L {local_id_maneo} para la subcategoría '{variante.nombre_variante}'. Disponible: {stock_disponible}, solicitado: {cantidad}.", "danger")
-            return redirect(url_for('maneos_bp.index'))
-
-        stock_anterior = variante.total_stock
-        if local_id_maneo == 1:
-            variante.stock_local_1 = max(0, (variante.stock_local_1 or 0) - cantidad)
-        elif local_id_maneo == 2:
-            variante.stock_local_2 = max(0, (variante.stock_local_2 or 0) - cantidad)
-        elif local_id_maneo == 3:
-            variante.stock_local_3 = max(0, (variante.stock_local_3 or 0) - cantidad)
-
-        variante.cantidad_stock = variante.total_stock
-        producto.cantidad_stock = producto.total_stock
+        # Validar y descontar stock multisede solo si aplica descuento de inventario
+        debe_descontar = variante.descontar_inventario if (variante and hasattr(variante, 'descontar_inventario') and variante.descontar_inventario) else (producto.descontar_inventario if hasattr(producto, 'descontar_inventario') else False)
         
-        # Registrar Ajuste
-        ajuste = StockAdjustment(
-            product_id=producto.id,
-            admin_id=current_user.id,
-            tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} (Subcat: {variante.nombre_variante}) desde Local {local_id_maneo}",
-            stock_anterior=stock_anterior,
-            stock_nuevo=variante.total_stock
-        )
-        db.session.add(ajuste)
+        if debe_descontar:
+            stock_disponible = variante.get_stock_local(str(local_id_maneo))
+            if cantidad > stock_disponible:
+                flash(f"Stock insuficiente en D&L {local_id_maneo} para la subcategoría '{variante.nombre_variante}'. Disponible: {stock_disponible}, solicitado: {cantidad}.", "danger")
+                return redirect(url_for('maneos_bp.index'))
+
+            stock_anterior = variante.total_stock
+            if local_id_maneo == 1:
+                variante.stock_local_1 = max(0, (variante.stock_local_1 or 0) - cantidad)
+            elif local_id_maneo == 2:
+                variante.stock_local_2 = max(0, (variante.stock_local_2 or 0) - cantidad)
+            elif local_id_maneo == 3:
+                variante.stock_local_3 = max(0, (variante.stock_local_3 or 0) - cantidad)
+
+            variante.cantidad_stock = variante.total_stock
+            producto.cantidad_stock = producto.total_stock
+            
+            # Registrar Ajuste
+            ajuste = StockAdjustment(
+                product_id=producto.id,
+                admin_id=current_user.id,
+                tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} (Subcat: {variante.nombre_variante}) desde Local {local_id_maneo}",
+                stock_anterior=stock_anterior,
+                stock_nuevo=variante.total_stock
+            )
+            db.session.add(ajuste)
     else:
-        # Validar y descontar stock base multisede
-        stock_disponible = producto.get_stock_local(str(local_id_maneo))
-        if cantidad > stock_disponible:
-            flash(f"Stock insuficiente en D&L {local_id_maneo} para '{producto.nombre}'. Disponible: {stock_disponible}, solicitado: {cantidad}.", "danger")
-            return redirect(url_for('maneos_bp.index'))
+        # Validar y descontar stock base multisede solo si aplica descuento de inventario
+        debe_descontar = producto.descontar_inventario if hasattr(producto, 'descontar_inventario') else False
+        if debe_descontar:
+            stock_disponible = producto.get_stock_local(str(local_id_maneo))
+            if cantidad > stock_disponible:
+                flash(f"Stock insuficiente en D&L {local_id_maneo} para '{producto.nombre}'. Disponible: {stock_disponible}, solicitado: {cantidad}.", "danger")
+                return redirect(url_for('maneos_bp.index'))
 
-        stock_anterior = producto.total_stock
-        if local_id_maneo == 1:
-            producto.stock_local_1 = max(0, (producto.stock_local_1 or 0) - cantidad)
-        elif local_id_maneo == 2:
-            producto.stock_local_2 = max(0, (producto.stock_local_2 or 0) - cantidad)
-        elif local_id_maneo == 3:
-            producto.stock_local_3 = max(0, (producto.stock_local_3 or 0) - cantidad)
+            stock_anterior = producto.total_stock
+            if local_id_maneo == 1:
+                producto.stock_local_1 = max(0, (producto.stock_local_1 or 0) - cantidad)
+            elif local_id_maneo == 2:
+                producto.stock_local_2 = max(0, (producto.stock_local_2 or 0) - cantidad)
+            elif local_id_maneo == 3:
+                producto.stock_local_3 = max(0, (producto.stock_local_3 or 0) - cantidad)
 
-        producto.cantidad_stock = producto.total_stock
-        
-        # Registrar Ajuste
-        ajuste = StockAdjustment(
-            product_id=producto.id,
-            admin_id=current_user.id,
-            tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} desde Local {local_id_maneo}",
-            stock_anterior=stock_anterior,
-            stock_nuevo=producto.total_stock
-        )
-        db.session.add(ajuste)
+            producto.cantidad_stock = producto.total_stock
+            
+            # Registrar Ajuste
+            ajuste = StockAdjustment(
+                product_id=producto.id,
+                admin_id=current_user.id,
+                tipo_movimiento=f"Préstamo (Maneo) a {local_vecino} desde Local {local_id_maneo}",
+                stock_anterior=stock_anterior,
+                stock_nuevo=producto.total_stock
+            )
+            db.session.add(ajuste)
 
     # 1. Crear el Maneo asociándolo al local_id y usuario_id
     nuevo_maneo = Maneo(
@@ -218,53 +223,55 @@ def devolver(id):
     maneo.estado = 'DEVUELTO'
     maneo.fecha_resolucion = obtener_hora_bogota()
 
-    # 2. Devolver stock
+    # 2. Devolver stock si aplica descuento de inventario
     producto = maneo.producto
-    
     loc_id = maneo.local_id or 1
-    if maneo.variant_id:
-        variante = ProductVariant.query.with_for_update().get(maneo.variant_id)
-        if variante:
-            stock_anterior = variante.total_stock
+    debe_descontar = maneo.variante.descontar_inventario if (maneo.variant_id and maneo.variante and hasattr(maneo.variante, 'descontar_inventario') and maneo.variante.descontar_inventario) else (maneo.producto.descontar_inventario if hasattr(maneo.producto, 'descontar_inventario') else False)
+
+    if debe_descontar:
+        if maneo.variant_id:
+            variante = ProductVariant.query.with_for_update().get(maneo.variant_id)
+            if variante:
+                stock_anterior = variante.total_stock
+                if loc_id == 1:
+                    variante.stock_local_1 = (variante.stock_local_1 or 0) + maneo.cantidad
+                elif loc_id == 2:
+                    variante.stock_local_2 = (variante.stock_local_2 or 0) + maneo.cantidad
+                elif loc_id == 3:
+                    variante.stock_local_3 = (variante.stock_local_3 or 0) + maneo.cantidad
+                variante.cantidad_stock = variante.total_stock
+                producto.cantidad_stock = producto.total_stock
+                
+                ajuste = StockAdjustment(
+                    product_id=producto.id,
+                    admin_id=current_user.id,
+                    tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} (Subcat: {variante.nombre_variante}) a Local {loc_id}",
+                    stock_anterior=stock_anterior,
+                    stock_nuevo=variante.total_stock
+                )
+                db.session.add(ajuste)
+        else:
+            stock_anterior = producto.total_stock
             if loc_id == 1:
-                variante.stock_local_1 = (variante.stock_local_1 or 0) + maneo.cantidad
+                producto.stock_local_1 = (producto.stock_local_1 or 0) + maneo.cantidad
             elif loc_id == 2:
-                variante.stock_local_2 = (variante.stock_local_2 or 0) + maneo.cantidad
+                producto.stock_local_2 = (producto.stock_local_2 or 0) + maneo.cantidad
             elif loc_id == 3:
-                variante.stock_local_3 = (variante.stock_local_3 or 0) + maneo.cantidad
-            variante.cantidad_stock = variante.total_stock
+                producto.stock_local_3 = (producto.stock_local_3 or 0) + maneo.cantidad
             producto.cantidad_stock = producto.total_stock
-            
+        
             ajuste = StockAdjustment(
                 product_id=producto.id,
                 admin_id=current_user.id,
-                tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} (Subcat: {variante.nombre_variante}) a Local {loc_id}",
+                tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} a Local {loc_id}",
                 stock_anterior=stock_anterior,
-                stock_nuevo=variante.total_stock
+                stock_nuevo=producto.total_stock
             )
             db.session.add(ajuste)
-    else:
-        stock_anterior = producto.total_stock
-        if loc_id == 1:
-            producto.stock_local_1 = (producto.stock_local_1 or 0) + maneo.cantidad
-        elif loc_id == 2:
-            producto.stock_local_2 = (producto.stock_local_2 or 0) + maneo.cantidad
-        elif loc_id == 3:
-            producto.stock_local_3 = (producto.stock_local_3 or 0) + maneo.cantidad
-        producto.cantidad_stock = producto.total_stock
-    
-        ajuste = StockAdjustment(
-            product_id=producto.id,
-            admin_id=current_user.id,
-            tipo_movimiento=f"Devolución de Maneo de {maneo.local_vecino} a Local {loc_id}",
-            stock_anterior=stock_anterior,
-            stock_nuevo=producto.total_stock
-        )
-        db.session.add(ajuste)
 
     try:
         db.session.commit()
-        flash(f"Maneo devuelto. {maneo.cantidad} unidades regresaron al stock de D&L {maneo.local_id or 1}.", "success")
+        flash(f"Maneo devuelto. Se registraron {maneo.cantidad} unidades como devueltas en D&L {loc_id}.", "success")
     except Exception as e:
         db.session.rollback()
         flash(f"Error al devolver el maneo: {e}", "danger")

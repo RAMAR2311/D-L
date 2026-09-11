@@ -105,7 +105,7 @@
                     </div>
                 </div>
                 <div class="col-12 col-md-4 col-lg-2">
-                    <div class="card p-3 border rounded shadow-sm text-center h-100 {% if resumen.total_diferencia > 0 %}bg-warning bg-opacity-10 border-warning{% elif resumen.total_diferencia < 0 %}bg-danger bg-opacity-10 border-danger{% else %}bg-light border-secondary{% endif %}" style="border-left: 4px solid {% if resumen.total_diferencia > 0 %}#ffc107{% elif resumen.total_diferencia < 0 %}#dc3545{% else %}#6c757d{% endif %} !important;">
+                    <div class="card p-3 border rounded shadow-sm text-center h-100 {% if resumen.total_diferencia > 0 %}bg-warning bg-opacity-10 border-warning border-left-warning{% elif resumen.total_diferencia < 0 %}bg-danger bg-opacity-10 border-danger border-left-danger{% else %}bg-light border-secondary border-left-secondary{% endif %}">
                         <small class="fw-bold d-block mb-1 {% if resumen.total_diferencia > 0 %}text-dark{% elif resumen.total_diferencia < 0 %}text-danger{% else %}text-secondary{% endif %}" style="font-size: 0.65rem;">
                             CONCILIACIÓN / SOBRANTE
                         </small>
@@ -156,7 +156,7 @@
                     <div class="row g-3">
                         {% for obs in resumen.observaciones_diferencias %}
                         <div class="col-12 {% if resumen.observaciones_diferencias|length > 1 %}col-md-6{% endif %}">
-                            <div class="card h-100 p-3 border rounded-3 bg-white shadow-sm transition-all" style="border-left: 4px solid {% if obs.diferencia > 0 %}#198754{% elif obs.diferencia < 0 %}#dc3545{% else %}#6c757d{% endif %} !important;">
+                            <div class="card h-100 p-3 border rounded-3 bg-white shadow-sm transition-all {% if obs.diferencia > 0 %}border-left-success{% elif obs.diferencia < 0 %}border-left-danger{% else %}border-left-secondary{% endif %}">
                                 <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size: 0.7rem;">
@@ -364,6 +364,19 @@
 </div>
 
 <style>
+.border-left-success {
+    border-left: 4px solid #198754 !important;
+}
+.border-left-warning {
+    border-left: 4px solid #ffc107 !important;
+}
+.border-left-danger {
+    border-left: 4px solid #dc3545 !important;
+}
+.border-left-secondary {
+    border-left: 4px solid #6c757d !important;
+}
+
 /* ====== Estilos Exclusivos para PDF/Impresión ====== */
 @media print {
     @page {
