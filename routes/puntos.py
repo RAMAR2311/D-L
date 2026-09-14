@@ -232,10 +232,6 @@ def abonar(id):
     except (ValueError, TypeError):
         local_id_abono = getattr(current_user, 'local_asignado', 1) or 1
 
-    if monto <= 0:
-        flash('El monto del abono debe ser mayor a 0.', 'danger')
-        return redirect(url_for('puntos_bp.detalle', id=punto.id))
-
     # Obtener la fecha del abono elegida por el usuario
     fecha_abono_str = request.form.get('fecha_abono')
     if fecha_abono_str:
@@ -249,13 +245,49 @@ def abonar(id):
     else:
         fecha_dt = obtener_hora_bogota()
 
-    # Si se seleccionó un producto/venta específico y no se escribió descripción personalizada
-    if sale_id and not descripcion:
-        cargo_ref = PuntoTransaction.query.filter_by(punto_id=punto.id, sale_id=sale_id, tipo_movimiento='cargo').first()
-        if cargo_ref and cargo_ref.descripcion:
-            descripcion = f"Abono a {cargo_ref.descripcion}"
-        else:
-            descripcion = f"Abono específico a Venta #{sale_id}"
+    # Validar que el monto sea mayor a 0
+    if monto <= 0:
+        flash('El monto del abono debe ser mayor a 0.', 'danger')
+        return redirect(url_for('puntos_bp.detalle', id=punto.id))
+
+    # Validar que el abono no exceda la deuda global pendiente
+    if monto > saldo_pendiente:
+        flash(f'El monto del abono (${monto:,.0f}) excede el saldo pendiente total del punto (${saldo_pendiente:,.0f}).', 'warning')
+        return redirect(url_for('puntos_bp.detalle', id=punto.id))
+
+    # Validación estricta a nivel de producto / venta específica si se seleccionó uno
+    if sale_id:
+        cargo_ref = next((t for t in transacciones_existentes if t.tipo_movimiento == 'cargo' and (t.sale_id == sale_id or (not t.sale_id and t.id == sale_id))), None)
+        if not cargo_ref:
+            flash('No se encontró el cargo o producto seleccionado para este punto.', 'danger')
+            return redirect(url_for('puntos_bp.detalle', id=punto.id))
+
+        cargos_producto = sum(
+            (t.monto for t in transacciones_existentes if t.tipo_movimiento == 'cargo' and (t.sale_id == sale_id or (not t.sale_id and t.id == sale_id))),
+            Decimal('0.00')
+        )
+        abonos_producto = sum(
+            (t.monto for t in transacciones_existentes if t.tipo_movimiento == 'abono' and t.sale_id == sale_id),
+            Decimal('0.00')
+        )
+        saldo_pendiente_prod = max(cargos_producto - abonos_producto, Decimal('0.00'))
+
+        # Si el producto ya quedó en 0, BLOQUEAR abonos adicionales
+        if saldo_pendiente_prod <= Decimal('0.00'):
+            flash(f'El producto/ítem "{cargo_ref.descripcion or f"Venta #{sale_id}"}" ya se encuentra completamente pagado ($0 saldo pendiente). No es posible realizar más abonos a este producto.', 'warning')
+            return redirect(url_for('puntos_bp.detalle', id=punto.id))
+
+        # Si el monto ingresado supera lo que falta por pagar de ese producto, BLOQUEAR
+        if monto > saldo_pendiente_prod:
+            flash(f'El monto a abonar (${monto:,.0f}) excede el saldo pendiente de este producto (${saldo_pendiente_prod:,.0f}). El abono máximo permitido es de ${saldo_pendiente_prod:,.0f}.', 'warning')
+            return redirect(url_for('puntos_bp.detalle', id=punto.id))
+
+        # Asignar descripción automática si no se suministró una
+        if not descripcion:
+            if cargo_ref.descripcion:
+                descripcion = f"Abono a {cargo_ref.descripcion}"
+            else:
+                descripcion = f"Abono específico a Venta #{sale_id}"
 
     try:
         # 1. Crear transacción de Abono al Punto con local_id, sale_id y fecha personalizada
@@ -325,9 +357,26 @@ def eliminar_transaccion(t_id):
     transaccion = PuntoTransaction.query.get_or_404(t_id)
     punto_id = transaccion.punto_id
     try:
+        # Si la transacción es un abono, eliminar también el Gasto Diario correspondiente en caja
+        if transaccion.tipo_movimiento == 'abono':
+            punto = Punto.query.get(punto_id)
+            punto_nombre = punto.nombre if punto else ''
+            prefijo_desc = f"Abono a Punto {punto_nombre}"
+            gasto_asociado = Expense.query.filter(
+                Expense.categoria == 'Abono a Punto/Local',
+                Expense.local_id == transaccion.local_id,
+                Expense.monto == transaccion.monto,
+                Expense.descripcion.like(f"{prefijo_desc}%")
+            ).filter(
+                db.func.date(Expense.fecha_gasto) == db.func.date(transaccion.fecha)
+            ).order_by(Expense.id.desc()).first()
+
+            if gasto_asociado:
+                db.session.delete(gasto_asociado)
+
         db.session.delete(transaccion)
         db.session.commit()
-        flash('Transacción eliminada exitosamente.', 'success')
+        flash('Transacción y su desembolso en caja eliminados exitosamente.', 'success')
     except Exception as e:
         db.session.rollback()
         flash('Error al intentar eliminar la transacción.', 'danger')

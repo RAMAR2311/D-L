@@ -947,7 +947,7 @@
 <div class="modal fade" id="modalAbonarPunto" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow rounded-4">
-            <form method="POST" action="{{ url_for('puntos_bp.abonar', id=punto.id) }}">
+            <form method="POST" id="formAbonarPunto" action="{{ url_for('puntos_bp.abonar', id=punto.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <div class="modal-header border-0 bg-light">
                     <h5 class="modal-title fw-bold text-success">
@@ -968,7 +968,8 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-muted">Monto del Abono ($) *</label>
-                        <input type="number" name="monto" class="form-control form-control-lg bg-light border-0 fw-bold text-success" min="1" max="{{ saldo_pendiente|int if saldo_pendiente > 0 else 0 }}" step="1" placeholder="Ej: 50000" value="{{ saldo_pendiente if saldo_pendiente > 0 else '' }}" {% if saldo_pendiente <= 0 %}disabled{% else %}required{% endif %}>
+                        <input type="number" name="monto" id="inputMontoAbono" class="form-control form-control-lg bg-light border-0 fw-bold text-success" min="1" max="{{ saldo_pendiente|int if saldo_pendiente > 0 else 0 }}" step="1" placeholder="Ej: 50000" value="{{ saldo_pendiente if saldo_pendiente > 0 else '' }}" {% if saldo_pendiente <= 0 %}disabled{% else %}required{% endif %}>
+                        <small id="helperMontoMax" class="text-muted d-block mt-1" style="font-size: 0.72rem;">Monto máximo permitido para este abono: ${{ '{:,.0f}'.format(saldo_pendiente) }}</small>
                     </div>
 
                     <div class="mb-3">
@@ -986,14 +987,32 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-muted"><i class="fa-solid fa-box me-1 text-primary"></i>Abonar a un Producto / Venta Específica (Opcional)</label>
                         <select name="sale_id" id="selectSaleIdAbono" class="form-select bg-light border-0 fw-semibold" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
-                            <option value="" data-saldo="{{ saldo_pendiente|int }}" selected>🌐 Abono General a la Deuda Global (Saldo total: ${{ '{:,.0f}'.format(saldo_pendiente) }})</option>
-                            {% for p in productos_cartera %}
-                                <option value="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}" {% if p.pagado_completo %}disabled{% endif %}>
-                                    🏷️ {{ p.descripcion }} — Cargo: ${{ '{:,.0f}'.format(p.monto_cargo) }} | Abonado: ${{ '{:,.0f}'.format(p.total_abonado) }} | SALDO RESTANTE: ${{ '{:,.0f}'.format(p.saldo_pendiente) }}{% if p.pagado_completo %} (COMPLETADO){% endif %}
-                                </option>
-                            {% endfor %}
+                            <option value="" data-saldo="{{ saldo_pendiente|int }}" data-desc="" selected>🌐 Abono General a la Deuda Global (Saldo total: ${{ '{:,.0f}'.format(saldo_pendiente) }})</option>
+                            
+                            {% set prods_pendientes = productos_cartera|rejectattr('pagado_completo')|list %}
+                            {% set prods_pagados = productos_cartera|selectattr('pagado_completo')|list %}
+
+                            {% if prods_pendientes %}
+                            <optgroup label="📦 Productos con Saldo Pendiente por Pagar">
+                                {% for p in prods_pendientes %}
+                                    <option value="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}" data-desc="{{ p.descripcion }}">
+                                        🏷️ {{ p.descripcion }} — Pendiente: ${{ '{:,.0f}'.format(p.saldo_pendiente) }} (Cargo: ${{ '{:,.0f}'.format(p.monto_cargo) }} | Abonado: ${{ '{:,.0f}'.format(p.total_abonado) }})
+                                    </option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endif %}
+
+                            {% if prods_pagados %}
+                            <optgroup label="✅ Productos ya Totalmente Pagados ($0 pendiente - Bloqueados)">
+                                {% for p in prods_pagados %}
+                                    <option value="{{ p.sale_id }}" data-saldo="0" disabled class="text-muted">
+                                        ✔ {{ p.descripcion }} — TOTALMENTE PAGADO ($0 pendiente)
+                                    </option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endif %}
                         </select>
-                        <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Al seleccionar un producto, el monto se sugerirá automáticamente con su saldo pendiente.</small>
+                        <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Al seleccionar un producto específico, el valor se limitará estrictamente a lo que falta por pagar de ese producto.</small>
                     </div>
 
                     <div class="mb-3">
@@ -1013,7 +1032,7 @@
                 <div class="modal-footer border-0 bg-light">
                     <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                     {% if saldo_pendiente > 0 %}
-                        <button type="submit" class="btn btn-success text-white rounded-pill px-4 fw-bold">Registrar Abono</button>
+                        <button type="submit" id="btnSubmitAbono" class="btn btn-success text-white rounded-pill px-4 fw-bold">Registrar Abono</button>
                     {% else %}
                         <button type="button" class="btn btn-secondary rounded-pill px-4 fw-bold opacity-50" disabled title="Saldo en $0">Registrar Abono</button>
                     {% endif %}
@@ -1094,18 +1113,44 @@
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Selector de Abono a producto en modalAbonarPunto
     const selectSale = document.getElementById('selectSaleIdAbono');
-    const inputMonto = document.querySelector('#modalAbonarPunto input[name="monto"]');
+    const inputMonto = document.getElementById('inputMontoAbono');
+    const helperMontoMax = document.getElementById('helperMontoMax');
+    const globalSaldoMax = parseInt('{{ saldo_pendiente|int }}', 10) || 0;
 
     if (selectSale && inputMonto) {
         selectSale.addEventListener('change', function() {
             const selectedOpt = selectSale.options[selectSale.selectedIndex];
+            if (!selectedOpt || selectedOpt.disabled) return;
             const saldoAttr = selectedOpt.getAttribute('data-saldo');
-            if (saldoAttr) {
+            if (saldoAttr !== null && saldoAttr !== '') {
                 const saldoVal = parseInt(saldoAttr, 10);
                 if (!isNaN(saldoVal) && saldoVal > 0) {
                     inputMonto.value = saldoVal;
                     inputMonto.max = saldoVal;
+                    if (helperMontoMax) {
+                        const esGeneral = !selectedOpt.value;
+                        if (esGeneral) {
+                            helperMontoMax.textContent = 'Monto máximo permitido (Deuda global): $' + saldoVal.toLocaleString('es-CO');
+                            helperMontoMax.className = 'text-muted d-block mt-1';
+                        } else {
+                            helperMontoMax.textContent = 'Monto máximo permitido para este producto: $' + saldoVal.toLocaleString('es-CO');
+                            helperMontoMax.className = 'text-primary fw-bold d-block mt-1';
+                        }
+                    }
                 }
+            }
+        });
+
+        inputMonto.addEventListener('input', function() {
+            const val = parseInt(this.value, 10);
+            const maxVal = parseInt(this.max, 10);
+            if (!isNaN(val) && !isNaN(maxVal) && maxVal > 0 && val > maxVal) {
+                if (helperMontoMax) {
+                    helperMontoMax.textContent = '⚠️ El monto ingresado ($' + val.toLocaleString('es-CO') + ') supera el límite permitido de $' + maxVal.toLocaleString('es-CO');
+                    helperMontoMax.className = 'text-danger fw-bold d-block mt-1';
+                }
+            } else if (helperMontoMax) {
+                helperMontoMax.className = 'text-muted d-block mt-1';
             }
         });
     }
@@ -1121,6 +1166,28 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // 2b. Protección contra doble clic / doble envío de formulario en abonos
+    const formAbonar = document.getElementById('formAbonarPunto');
+    const btnSubmitAbono = document.getElementById('btnSubmitAbono');
+    if (formAbonar && btnSubmitAbono) {
+        formAbonar.addEventListener('submit', function(e) {
+            const val = parseInt(inputMonto.value, 10);
+            const maxVal = parseInt(inputMonto.max, 10);
+            if (!isNaN(val) && !isNaN(maxVal) && maxVal > 0 && val > maxVal) {
+                e.preventDefault();
+                alert('El monto ingresado excede el saldo pendiente permitido ($' + maxVal.toLocaleString('es-CO') + '). Por favor ajusta el valor.');
+                return false;
+            }
+
+            if (btnSubmitAbono.disabled) {
+                e.preventDefault();
+                return false;
+            }
+            btnSubmitAbono.disabled = true;
+            btnSubmitAbono.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Registrando abono...';
+        });
+    }
 
     // 3. Filtros por pestañas en la tabla principal de movimientos
     const filterBtns = document.querySelectorAll('.filter-btn');
