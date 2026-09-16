@@ -527,7 +527,7 @@
     });
 
     function confirmarCambioSede(event, targetLocal) {
-        if (ACTIVE_LOCAL === parseInt(targetLocal)) {
+        if (String(ACTIVE_LOCAL) === String(targetLocal)) {
             return false;
         }
         if (carrito && carrito.length > 0) {
@@ -1276,7 +1276,7 @@
                 pagosMixtos = [];
                 resetPagosMixtos();
                 renderCart();
-                window.location.reload();
+                window.location.href = '/sales/caja_visual' + (ACTIVE_LOCAL ? ('?local=' + ACTIVE_LOCAL) : '');
             } else {
                 alert(`Error: ${data.error}`);
                 delete btnFinal.dataset.submitting;

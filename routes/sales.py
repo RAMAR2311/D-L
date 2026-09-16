@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, flash, redirect, render_template, abort, url_for
+from flask import Blueprint, request, jsonify, flash, redirect, render_template, abort, url_for, session
 from flask_login import login_required, current_user
 from models import db, Product, ProductVariant, Sale, SaleDetail, SalePayment, Expense, User, Punto, PuntoTransaction, obtener_hora_bogota
 from decorators import admin_required
@@ -65,6 +65,7 @@ def procesar_venta():
                 local_id_venta = int(data.get('local_id') or 1)
             except (ValueError, TypeError):
                 local_id_venta = 1
+            session['pos_active_local'] = str(local_id_venta)
 
         nueva_venta = Sale(
             vendedor_id=current_user.id,
@@ -774,9 +775,14 @@ def caja_visual():
     if is_admin:
         local_param = request.args.get('local')
         if local_param in ['1', '2', '3']:
-            active_local = local_param
+            active_local = str(local_param)
+            session['pos_active_local'] = str(local_param)
         else:
-            active_local = None
+            saved_local = session.get('pos_active_local')
+            if saved_local and str(saved_local) in ['1', '2', '3']:
+                active_local = str(saved_local)
+            else:
+                active_local = None
     else:
         active_local = str(getattr(current_user, 'local_asignado', 1) or '1')
 
