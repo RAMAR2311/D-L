@@ -1,0 +1,579 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.pasarela-interactive-card {
+    transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), border 0.2s ease;
+    cursor: pointer;
+}
+.pasarela-interactive-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.1) !important;
+}
+.active-pasarela {
+    background: linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%) !important;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12) !important;
+    transform: translateY(-2px);
+    border: 2px solid #1e293b !important;
+}
+</style>
+
+<div class="container-fluid px-0">
+    <!-- Header Principal con Acciones -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="p-2 rounded-circle bg-danger bg-opacity-10 text-danger">
+                    <i class="fa-solid fa-vault fs-4" style="color: var(--mario-red);"></i>
+                </span>
+                <div>
+                    <h2 class="fw-bold text-brand-black mb-0">Tesorería y Flujo de Caja Consolidado</h2>
+                    <p class="text-muted mb-0 small">Auditoría centralizada de ingresos, egresos y saldos por pasarela multisede</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <!-- Botón Exportar a Excel/CSV -->
+            <a href="{{ url_for('admin_bp.tesoreria_exportar', periodo=data.periodo, fecha_inicio=data.fecha_inicio, fecha_fin=data.fecha_fin, local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, metodos=','.join(data.metodos_filtro), q=data.query_search) }}" 
+               class="btn btn-success rounded-pill fw-bold px-4 shadow-sm d-flex align-items-center gap-2"
+               style="background-color: #198754 !important; border-color: #157347 !important;">
+                <i class="fa-solid fa-file-excel fs-5"></i>
+                <span>Exportar Excel / CSV</span>
+            </a>
+
+            <a href="{{ url_for('admin_bp.dashboard') }}" class="btn btn-outline-dark rounded-pill px-4 fw-bold">
+                <i class="fa-solid fa-arrow-left me-1"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- 1. PANEL DE FILTROS Y CONTROLES SUPERIORES                -->
+    <!-- ========================================================= -->
+    <div class="card card-custom p-4 mb-4 border-0 shadow-sm bg-white rounded-4">
+        <!-- Selector Rápido de Períodos -->
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <label class="fw-bold text-muted small text-uppercase mb-0">
+                <i class="fa-regular fa-calendar-check me-1 text-primary"></i> Rango Rápido de Tiempo
+            </label>
+            <div class="btn-group btn-group-sm rounded-pill shadow-sm border overflow-hidden" role="group">
+                <a href="{{ url_for('admin_bp.tesoreria', periodo='hoy', local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, q=data.query_search) }}" 
+                   class="btn {% if data.periodo == 'hoy' %}btn-dark fw-bold text-white{% else %}btn-light text-dark{% endif %} px-3">
+                    Hoy
+                </a>
+                <a href="{{ url_for('admin_bp.tesoreria', periodo='semana', local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, q=data.query_search) }}" 
+                   class="btn {% if data.periodo == 'semana' %}btn-dark fw-bold text-white{% else %}btn-light text-dark{% endif %} px-3">
+                    Esta Semana
+                </a>
+                <a href="{{ url_for('admin_bp.tesoreria', periodo='quincena', local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, q=data.query_search) }}" 
+                   class="btn {% if data.periodo == 'quincena' %}btn-dark fw-bold text-white{% else %}btn-light text-dark{% endif %} px-3">
+                    Quincena Actual
+                </a>
+                <a href="{{ url_for('admin_bp.tesoreria', periodo='mes', local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, q=data.query_search) }}" 
+                   class="btn {% if data.periodo == 'mes' or not data.periodo %}btn-dark fw-bold text-white{% else %}btn-light text-dark{% endif %} px-3">
+                    ⭐ Mes Actual
+                </a>
+            </div>
+        </div>
+
+        <!-- Formulario de Filtros Específicos -->
+        <form method="GET" action="{{ url_for('admin_bp.tesoreria') }}" id="formFiltrosTesoreria">
+            <input type="hidden" name="periodo" id="inputPeriodo" value="{{ data.periodo }}">
+
+            <div class="row g-3 align-items-end">
+                <!-- Rango de Fechas Personalizado -->
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-bold text-dark mb-1"><i class="fa-regular fa-calendar me-1 text-danger"></i>Desde:</label>
+                    <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ data.fecha_inicio }}" class="form-control form-control-sm bg-light border-0 fw-semibold" onchange="document.getElementById('inputPeriodo').value='personalizado';">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-bold text-dark mb-1"><i class="fa-regular fa-calendar-check me-1 text-danger"></i>Hasta:</label>
+                    <input type="date" name="fecha_fin" id="fecha_fin" value="{{ data.fecha_fin }}" class="form-control form-control-sm bg-light border-0 fw-semibold" onchange="document.getElementById('inputPeriodo').value='personalizado';">
+                </div>
+
+                <!-- Filtro por Sede / Local -->
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-bold text-dark mb-1"><i class="fa-solid fa-store me-1 text-primary"></i>Sede / Local:</label>
+                    <select name="local" class="form-select form-select-sm bg-light border-0 fw-semibold">
+                        <option value="todos" {% if data.active_local == 'todos' or data.active_local == 'central' %}selected{% endif %}>🏢 Todas las Sedes (Consolidado)</option>
+                        <option value="1" {% if data.active_local == '1' %}selected{% endif %}>🏪 D&L 1</option>
+                        <option value="2" {% if data.active_local == '2' %}selected{% endif %}>🏪 D&L 2</option>
+                        <option value="3" {% if data.active_local == '3' %}selected{% endif %}>🏪 D&L 3</option>
+                    </select>
+                </div>
+
+                <!-- 1. Selector Principal: Tipo de Flujo (Ingresos / Salidas) -->
+                <div class="col-12 col-md-3">
+                    <label class="form-label small fw-bold text-dark mb-1">
+                        <i class="fa-solid fa-arrows-up-down me-1 text-info"></i>Tipo de Movimiento:
+                    </label>
+                    <select name="tipo_flujo" id="selectTipoFlujo" class="form-select form-select-sm bg-light border-0 fw-bold" onchange="actualizarOpcionesOperacion()">
+                        <option value="todos" {% if data.tipo_flujo == 'todos' or not data.tipo_flujo %}selected{% endif %}>Todos los Movimientos</option>
+                        <option value="ingreso" {% if data.tipo_flujo == 'ingreso' %}selected{% endif %}>🟢 Ingresos (+)</option>
+                        <option value="egreso" {% if data.tipo_flujo == 'egreso' %}selected{% endif %}>🔴 Salidas / Egresos (-)</option>
+                    </select>
+                </div>
+
+                <!-- 2. Desglose Específico de Operación (Dinámico según Ingreso o Egreso) -->
+                <div class="col-12 col-md-3" id="containerTipoOperacion">
+                    <label class="form-label small fw-bold text-dark mb-1" id="labelTipoOperacion">
+                        <i class="fa-solid fa-tags me-1 text-warning"></i>Desglose de Operación:
+                    </label>
+                    <select name="tipo_operacion" id="selectTipoOperacion" class="form-select form-select-sm bg-light border-0 fw-semibold">
+                        <!-- Opciones dinámicas inyectadas por JS -->
+                        {% if data.tipo_flujo == 'ingreso' %}
+                            <option value="todos" {% if data.tipo_operacion == 'todos' or not data.tipo_operacion %}selected{% endif %}>🟢 Todos los Ingresos</option>
+                            <option value="Venta" {% if data.tipo_operacion == 'Venta' %}selected{% endif %}>🛒 Ventas POS</option>
+                            <option value="Ajuste de Arqueo" {% if data.tipo_operacion == 'Ajuste de Arqueo' %}selected{% endif %}>⚖️ Sobrantes de Arqueo</option>
+                        {% elif data.tipo_flujo == 'egreso' %}
+                            <option value="todos" {% if data.tipo_operacion == 'todos' or not data.tipo_operacion %}selected{% endif %}>🔴 Todas las Salidas / Egresos</option>
+                            <option value="Gasto Operativo" {% if data.tipo_operacion == 'Gasto Operativo' %}selected{% endif %}>💸 Gastos Operativos</option>
+                            <option value="Abono a Proveedor" {% if data.tipo_operacion == 'Abono a Proveedor' %}selected{% endif %}>🚚 Abonos a Proveedores</option>
+                            <option value="Pago a Punto" {% if data.tipo_operacion == 'Pago a Punto' %}selected{% endif %}>🤝 Pagos / Abonos a Puntos</option>
+                            <option value="Ajuste de Arqueo" {% if data.tipo_operacion == 'Ajuste de Arqueo' %}selected{% endif %}>⚖️ Faltantes de Arqueo</option>
+                        {% else %}
+                            <option value="todos" selected>Todos los Conceptos</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Búsqueda Rápida de Texto -->
+                <div class="col-12 col-md-6">
+                    <label class="form-label small fw-bold text-dark mb-1"><i class="fa-solid fa-magnifying-glass me-1 text-muted"></i>Buscar por Concepto, Ticket o Usuario:</label>
+                    <input type="text" name="q" value="{{ data.query_search }}" class="form-control form-control-sm bg-light border-0" placeholder="Ej: Ticket #0012, Don Pepe, Nequi, Arriendo...">
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="col-12 col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-blue w-100 rounded-pill btn-sm fw-bold shadow-sm py-2">
+                        <i class="fa-solid fa-filter me-1"></i> Filtrar
+                    </button>
+                    <a href="{{ url_for('admin_bp.tesoreria') }}" class="btn btn-light rounded-pill btn-sm fw-bold border shadow-sm px-3 py-2" title="Limpiar todos los filtros">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Mantiene el método de pago seleccionado al aplicar otros filtros -->
+            {% if data.metodos_filtro %}
+                <input type="hidden" name="metodos" value="{{ ','.join(data.metodos_filtro) }}">
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- 2. CARDS DE RESUMEN FINANCIERO Y BALANCES GLOBALES        -->
+    <!-- ========================================================= -->
+    <div class="row g-3 mb-4">
+        <!-- Card 1: Balance Neto Global -->
+        <div class="col-12 col-lg-4">
+            <div class="card card-custom p-4 h-100 border-0 shadow-sm rounded-4 position-relative overflow-hidden" 
+                 style="background: linear-gradient(135deg, #ffffff 0%, {% if data.total_neto >= 0 %}#f0fdf4{% else %}#fef2f2{% endif %} 100%);">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted fw-bold small text-uppercase">Balance Neto en Período</span>
+                    <span class="badge {% if data.total_neto >= 0 %}bg-success{% else %}bg-danger{% endif %} text-white rounded-pill px-3 py-1 fw-bold">
+                        {% if data.total_neto >= 0 %}Superávit Neto{% else %}Déficit Neto{% endif %}
+                    </span>
+                </div>
+                <div class="fs-1 fw-bolder my-1 {% if data.total_neto >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {% if data.total_neto >= 0 %}+{% else %}-{% endif %}${{ data.total_neto|abs|cop }} <span class="fs-6 font-monospace text-muted">COP</span>
+                </div>
+                <p class="text-muted small mb-0">
+                    <i class="fa-solid fa-calculator me-1"></i>Total Ingresos (${{ data.total_ingresos|cop }}) - Total Egresos (${{ data.total_egresos|cop }})
+                </p>
+                <div class="mt-3 pt-3 border-top d-flex justify-content-between text-muted small">
+                    <span>Sede: <strong>{% if data.active_local == 'todos' %}Todas las Sedes{% else %}D&L {{ data.active_local }}{% endif %}</strong></span>
+                    <span>Transacciones: <strong>{{ data.total_movimientos }}</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Ingresos Totales -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card card-custom p-4 h-100 border-0 shadow-sm rounded-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted fw-bold small text-uppercase">Total Ingresos (+)</span>
+                    <span class="p-2 rounded-circle bg-success bg-opacity-10 text-success">
+                        <i class="fa-solid fa-arrow-trend-up fs-5"></i>
+                    </span>
+                </div>
+                <div class="fs-2 fw-bolder text-success my-1">
+                    +${{ data.total_ingresos|cop }} <span class="fs-6 font-monospace text-muted">COP</span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between text-muted small mt-2">
+                    <span><i class="fa-solid fa-check-circle text-success me-1"></i>{{ data.conteo_ingresos }} entradas registradas</span>
+                    <span class="badge bg-light text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1">Entradas</span>
+                </div>
+                <!-- Barra de Progreso -->
+                <div class="progress mt-3" style="height: 6px;">
+                    {% set pct_ing = (data.total_ingresos / (data.total_ingresos + data.total_egresos) * 100) if (data.total_ingresos + data.total_egresos) > 0 else 100 %}
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ pct_ing }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Egresos Totales -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card card-custom p-4 h-100 border-0 shadow-sm rounded-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted fw-bold small text-uppercase">Total Salidas / Egresos (-)</span>
+                    <span class="p-2 rounded-circle bg-danger bg-opacity-10 text-danger">
+                        <i class="fa-solid fa-arrow-trend-down fs-5"></i>
+                    </span>
+                </div>
+                <div class="fs-2 fw-bolder text-danger my-1">
+                    -${{ data.total_egresos|cop }} <span class="fs-6 font-monospace text-muted">COP</span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between text-muted small mt-2">
+                    <span><i class="fa-solid fa-circle-exclamation text-danger me-1"></i>{{ data.conteo_egresos }} salidas registradas</span>
+                    <span class="badge bg-light text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1">Desembolsos</span>
+                </div>
+                <!-- Barra de Progreso -->
+                <div class="progress mt-3" style="height: 6px;">
+                    {% set pct_egr = (data.total_egresos / (data.total_ingresos + data.total_egresos) * 100) if (data.total_ingresos + data.total_egresos) > 0 else 0 %}
+                    <div class="progress-bar bg-danger" role="progressbar" style="width: {{ pct_egr }}%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- 3. DESGLOSE HORIZONTAL DE SALDOS POR MÉTODO DE PAGO       -->
+    <!-- ========================================================= -->
+    <div class="mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <div>
+                <h5 class="fw-bold text-brand-black mb-0">
+                    <i class="fa-solid fa-wallet me-2 text-primary"></i>Saldos y Flujo por Pasarela / Cuenta
+                </h5>
+                <small class="text-muted fw-semibold">Haz clic en cualquier tarjeta para aislar y ver los movimientos de esa cuenta</small>
+            </div>
+
+            {% if data.metodos_filtro %}
+            <a href="{{ url_for('admin_bp.tesoreria', periodo=data.periodo, fecha_inicio=data.fecha_inicio, fecha_fin=data.fecha_fin, local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, q=data.query_search) }}" 
+               class="btn btn-sm btn-outline-dark rounded-pill fw-bold px-3 py-1 shadow-sm d-flex align-items-center gap-1">
+                <i class="fa-solid fa-rotate-left text-danger"></i> Mostrar todas las cuentas
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="row g-3">
+            {% set pasarelas_cards = [
+                ('efectivo', 'Efectivo', 'fa-solid fa-money-bill-wave', '#198754'),
+                ('nequi', 'Nequi', 'fa-solid fa-mobile-screen', '#FF007A'),
+                ('bancolombia', 'Bancolombia', 'fa-solid fa-building-columns', '#f59e0b'),
+                ('daviplata', 'Daviplata', 'fa-solid fa-mobile-retro', '#dc3545'),
+                ('bold', 'Bold', 'fa-solid fa-credit-card', '#1a1a1a'),
+                ('addi', 'Addi', 'fa-solid fa-bag-shopping', '#0dcaf0')
+            ] %}
+
+            {% for m_key, m_name, m_icon, m_color in pasarelas_cards %}
+                {% set is_active = (m_key in data.metodos_filtro) %}
+                {% set p_info = data.desglose_pasarelas.get(m_key, {'neto': 0, 'ingresos': 0, 'egresos': 0, 'total_transacciones': 0}) %}
+                <div class="col-12 col-sm-6 col-md-4 col-xl-2">
+                    <a href="{% if is_active %}{{ url_for('admin_bp.tesoreria', periodo=data.periodo, fecha_inicio=data.fecha_inicio, fecha_fin=data.fecha_fin, local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, q=data.query_search) }}{% else %}{{ url_for('admin_bp.tesoreria', periodo=data.periodo, fecha_inicio=data.fecha_inicio, fecha_fin=data.fecha_fin, local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, metodos=m_key, q=data.query_search) }}{% endif %}"
+                       class="card card-custom p-3 h-100 rounded-4 text-decoration-none transition-all position-relative pasarela-interactive-card {% if is_active %}border-3 border-dark bg-light shadow-md active-pasarela{% else %}border-0 bg-white shadow-sm hover-shadow{% endif %}"
+                       style="border-left: 5px solid {{ m_color }} !important; display: block;"
+                       title="{% if is_active %}Clic para quitar filtro de {{ m_name }}{% else %}Clic para ver los movimientos de {{ m_name }}{% endif %}">
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold small" style="color: {{ m_color }};">
+                                <i class="{{ m_icon }} me-1"></i>{{ m_name }}
+                            </span>
+                            {% if is_active %}
+                                <span class="badge bg-dark text-white rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">
+                                    <i class="fa-solid fa-check me-1"></i>Activo
+                                </span>
+                            {% else %}
+                                <span class="badge bg-light text-dark border rounded-pill" style="font-size: 0.72rem;">
+                                    {{ p_info.total_transacciones }} movs
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <div class="fs-5 fw-bold {% if p_info.neto >= 0 %}text-success{% else %}text-danger{% endif %} my-1">
+                            ${{ p_info.neto|cop }}
+                        </div>
+
+                        <div class="small text-muted" style="font-size: 0.72rem;">
+                            <span class="text-success d-block">+${{ p_info.ingresos|cop }}</span>
+                            <span class="text-danger d-block">-${{ p_info.egresos|cop }}</span>
+                        </div>
+
+                        <div class="pt-2 mt-2 border-top d-flex justify-content-between align-items-center" style="font-size: 0.7rem;">
+                            {% if is_active %}
+                                <span class="text-danger fw-bold"><i class="fa-solid fa-xmark me-1"></i>Quitar filtro</span>
+                                <i class="fa-solid fa-filter-circle-xmark text-danger"></i>
+                            {% else %}
+                                <span class="text-muted"><i class="fa-solid fa-arrow-pointer me-1"></i>Ver movimientos</span>
+                                <span class="text-primary fw-bold">→</span>
+                            {% endif %}
+                        </div>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- 4. TABLA CONSOLIDADA DE MOVIMIENTOS Y AUDITORÍA           -->
+    <!-- ========================================================= -->
+    <div class="card card-custom border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+        <div class="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h5 class="fw-bold text-brand-black mb-0">
+                    <i class="fa-solid fa-list-check me-2" style="color: var(--mario-red);"></i>Movimientos Financieros Consolidados
+                </h5>
+                <small class="text-muted">Mostrando {{ movimientos|length }} de {{ total_items }} registros filtrados</small>
+            </div>
+
+            <!-- Resumen Rápido de Sede -->
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill font-monospace" style="font-size: 0.8rem;">
+                    D&L 1: +${{ data.desglose_sedes[1].ingresos|cop }} / -${{ data.desglose_sedes[1].egresos|cop }}
+                </span>
+                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill font-monospace" style="font-size: 0.8rem;">
+                    D&L 2: +${{ data.desglose_sedes[2].ingresos|cop }} / -${{ data.desglose_sedes[2].egresos|cop }}
+                </span>
+                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill font-monospace" style="font-size: 0.8rem;">
+                    D&L 3: +${{ data.desglose_sedes[3].ingresos|cop }} / -${{ data.desglose_sedes[3].egresos|cop }}
+                </span>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tablaTesoreria">
+                <thead class="bg-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4" style="width: 140px;">Fecha y Hora</th>
+                        <th style="width: 100px;">Sede</th>
+                        <th style="width: 160px;">Tipo Operación</th>
+                        <th>Concepto / Descripción</th>
+                        <th style="width: 130px;">Método</th>
+                        <th class="text-end" style="width: 150px;">Monto</th>
+                        <th style="width: 140px;">Responsable</th>
+                        <th class="pe-4 text-center" style="width: 110px;">Ref</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if movimientos %}
+                        {% for m in movimientos %}
+                        <tr>
+                            <!-- Fecha y Hora -->
+                            <td class="ps-4">
+                                <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;">{{ m.fecha.strftime('%d/%m/%Y') if m.fecha else '' }}</span>
+                                <small class="text-muted" style="font-size: 0.75rem;">{{ m.fecha.strftime('%I:%M %p') if m.fecha else '' }}</small>
+                            </td>
+
+                            <!-- Sede / Local -->
+                            <td>
+                                {% if m.local_id == 1 %}
+                                    <span class="badge bg-primary text-white rounded-pill px-2.5 py-1">🏪 D&L 1</span>
+                                {% elif m.local_id == 2 %}
+                                    <span class="badge bg-info text-white rounded-pill px-2.5 py-1">🏪 D&L 2</span>
+                                {% elif m.local_id == 3 %}
+                                    <span class="badge bg-success text-white rounded-pill px-2.5 py-1">🏪 D&L 3</span>
+                                {% else %}
+                                    <span class="badge bg-dark text-white rounded-pill px-2.5 py-1">🏢 Central</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Tipo de Movimiento y Operación -->
+                            <td>
+                                <div class="d-flex flex-column gap-1 align-items-start">
+                                    {% if m.tipo_flujo == 'ingreso' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-0.5" style="font-size: 0.72rem;">
+                                            <i class="fa-solid fa-arrow-down-left me-1"></i> ENTRADA (+)
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-0.5" style="font-size: 0.72rem;">
+                                            <i class="fa-solid fa-arrow-up-right me-1"></i> SALIDA (-)
+                                        </span>
+                                    {% endif %}
+
+                                    <span class="fw-bold text-dark" style="font-size: 0.82rem;">
+                                        {% if m.tipo_operacion == 'Venta' %}
+                                            <i class="fa-solid fa-cart-shopping text-primary me-1"></i>Venta POS
+                                        {% elif m.tipo_operacion == 'Abono a Proveedor' %}
+                                            <i class="fa-solid fa-truck-field text-warning me-1"></i>Abono Proveedor
+                                        {% elif m.tipo_operacion == 'Pago a Punto' %}
+                                            <i class="fa-solid fa-store text-info me-1"></i>Pago a Punto
+                                        {% elif m.tipo_operacion == 'Gasto Operativo' %}
+                                            <i class="fa-solid fa-money-bill-transfer text-danger me-1"></i>Gasto Operativo
+                                        {% elif m.tipo_operacion == 'Ajuste de Arqueo' %}
+                                            <i class="fa-solid fa-scale-balanced text-secondary me-1"></i>Ajuste Arqueo
+                                        {% else %}
+                                            {{ m.tipo_operacion }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </td>
+
+                            <!-- Concepto / Descripción -->
+                            <td>
+                                <span class="fw-semibold text-dark d-block text-truncate" style="max-width: 320px;" title="{{ m.concepto }}">
+                                    {{ m.concepto }}
+                                </span>
+                            </td>
+
+                            <!-- Método de Pago -->
+                            <td>
+                                {% if m.metodo_pago == 'efectivo' %}
+                                    <span class="badge bg-success text-white rounded-pill px-2.5 py-1">💵 Efectivo</span>
+                                {% elif m.metodo_pago == 'nequi' %}
+                                    <span class="badge text-white rounded-pill px-2.5 py-1" style="background-color: #FF007A;">📱 Nequi</span>
+                                {% elif m.metodo_pago == 'bancolombia' %}
+                                    <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1">🏦 Bancolombia</span>
+                                {% elif m.metodo_pago == 'daviplata' %}
+                                    <span class="badge bg-danger text-white rounded-pill px-2.5 py-1">📱 Daviplata</span>
+                                {% elif m.metodo_pago == 'bold' %}
+                                    <span class="badge bg-dark text-white rounded-pill px-2.5 py-1">💳 Bold</span>
+                                {% elif m.metodo_pago == 'addi' %}
+                                    <span class="badge bg-info text-white rounded-pill px-2.5 py-1">🛍️ Addi</span>
+                                {% else %}
+                                    <span class="badge bg-secondary text-white rounded-pill px-2.5 py-1">🌐 {{ m.metodo_pago|capitalize }}</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Monto con Formato y Signo -->
+                            <td class="text-end">
+                                <span class="fs-6 fw-bolder {% if m.tipo_flujo == 'ingreso' %}text-success{% else %}text-danger{% endif %} font-monospace">
+                                    {% if m.tipo_flujo == 'ingreso' %}+{% else %}-{% endif %}${{ m.monto|cop }}
+                                </span>
+                            </td>
+
+                            <!-- Usuario / Cajero -->
+                            <td>
+                                <span class="small text-dark fw-semibold d-block">
+                                    <i class="fa-solid fa-user me-1 text-muted"></i>{{ m.usuario }}
+                                </span>
+                            </td>
+
+                            <!-- Referencia / Comprobante -->
+                            <td class="pe-4 text-center">
+                                {% if m.link_recibo %}
+                                    <a href="{{ m.link_recibo }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0.5 text-nowrap" title="Ver Recibo Oficial" style="font-size: 0.75rem;">
+                                        <i class="fa-solid fa-receipt me-1"></i>{{ m.referencia }}
+                                    </a>
+                                {% else %}
+                                    <span class="badge bg-light text-muted border rounded-pill px-2 py-1" style="font-size: 0.75rem;">
+                                        {{ m.referencia }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="fa-solid fa-folder-open fs-1 text-secondary opacity-50 mb-3 d-block"></i>
+                                <h6 class="fw-bold text-dark">No se encontraron movimientos para los filtros seleccionados</h6>
+                                <p class="small text-muted mb-3">Prueba ampliando el rango de fechas o restableciendo los filtros.</p>
+                                <a href="{{ url_for('admin_bp.tesoreria') }}" class="btn btn-sm btn-outline-dark rounded-pill px-4">
+                                    <i class="fa-solid fa-rotate-left me-1"></i> Restablecer Filtros
+                                </a>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if total_pages > 1 %}
+        <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="small text-muted">
+                Página <strong>{{ page }}</strong> de <strong>{{ total_pages }}</strong> (Total {{ total_items }} registros)
+            </span>
+
+            <nav aria-label="Navegación de Tesorería">
+                <ul class="pagination pagination-sm mb-0">
+                    <!-- Botón Anterior -->
+                    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                        <a class="page-link rounded-pill px-3 me-1" href="{{ url_for('admin_bp.tesoreria', page=page-1, periodo=data.periodo, fecha_inicio=data.fecha_inicio, fecha_fin=data.fecha_fin, local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, metodos=','.join(data.metodos_filtro), q=data.query_search) }}">
+                            <i class="fa-solid fa-chevron-left me-1"></i> Anterior
+                        </a>
+                    </li>
+
+                    <!-- Páginas intermedias -->
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                            <li class="page-item {% if p == page %}active{% endif %}">
+                                <a class="page-link rounded-circle mx-0.5 {% if p == page %}bg-dark border-dark text-white fw-bold{% endif %}" href="{{ url_for('admin_bp.tesoreria', page=p, periodo=data.periodo, fecha_inicio=data.fecha_inicio, fecha_fin=data.fecha_fin, local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, metodos=','.join(data.metodos_filtro), q=data.query_search) }}">
+                                    {{ p }}
+                                </a>
+                            </li>
+                        {% elif p == page - 3 or p == page + 3 %}
+                            <li class="page-item disabled"><span class="page-link border-0">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- Botón Siguiente -->
+                    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                        <a class="page-link rounded-pill px-3 ms-1" href="{{ url_for('admin_bp.tesoreria', page=page+1, periodo=data.periodo, fecha_inicio=data.fecha_inicio, fecha_fin=data.fecha_fin, local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, metodos=','.join(data.metodos_filtro), q=data.query_search) }}">
+                            Siguiente <i class="fa-solid fa-chevron-right ms-1"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    const OPCIONES_OPERACION = {
+        'todos': [
+            { value: 'todos', label: 'Todos los Conceptos' }
+        ],
+        'ingreso': [
+            { value: 'todos', label: '🟢 Todos los Ingresos (+)' },
+            { value: 'Venta', label: '🛒 Solo Ventas POS' },
+            { value: 'Ajuste de Arqueo', label: '⚖️ Sobrantes de Arqueo' }
+        ],
+        'egreso': [
+            { value: 'todos', label: '🔴 Todas las Salidas / Egresos (-)' },
+            { value: 'Gasto Operativo', label: '💸 Solo Gastos Operativos' },
+            { value: 'Abono a Proveedor', label: '🚚 Solo Abonos a Proveedores' },
+            { value: 'Pago a Punto', label: '🤝 Solo Pagos a Puntos' },
+            { value: 'Ajuste de Arqueo', label: '⚖️ Faltantes de Arqueo' }
+        ]
+    };
+
+    function actualizarOpcionesOperacion(valorSeleccionadoPrevio) {
+        const flujoSelect = document.getElementById('selectTipoFlujo');
+        const opSelect = document.getElementById('selectTipoOperacion');
+        if (!flujoSelect || !opSelect) return;
+
+        const flujo = flujoSelect.value || 'todos';
+        const opciones = OPCIONES_OPERACION[flujo] || OPCIONES_OPERACION['todos'];
+        const currentVal = valorSeleccionadoPrevio !== undefined ? valorSeleccionadoPrevio : opSelect.value;
+        
+        opSelect.innerHTML = '';
+        opciones.forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt.value;
+            el.textContent = opt.label;
+            if (opt.value === currentVal) {
+                el.selected = true;
+            }
+            opSelect.appendChild(el);
+        });
+
+        if (flujo === 'todos') {
+            opSelect.disabled = true;
+            opSelect.style.opacity = '0.5';
+        } else {
+            opSelect.disabled = false;
+            opSelect.style.opacity = '1';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedOperacion = "{{ data.tipo_operacion or 'todos' }}";
+        actualizarOpcionesOperacion(selectedOperacion);
+    });
+</script>
+{% endblock %}
+

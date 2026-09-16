@@ -90,7 +90,14 @@ def nuevo():
         Expense.tipo_gasto == 'Gasto Diario',
         Expense.local_id == local_id_num
     ).all()
-    gastos_automaticos = sum((Decimal(str(g.monto)) for g in gastos_diarios_registros), Decimal('0.00'))
+
+    # Solo los gastos pagados en efectivo descuentan de la caja física
+    gastos_efectivo_registros = [g for g in gastos_diarios_registros if (g.metodo_pago or 'efectivo').lower().strip() == 'efectivo']
+    gastos_automaticos = sum((Decimal(str(g.monto)) for g in gastos_efectivo_registros), Decimal('0.00'))
+
+    # Gastos pagados con medios digitales (Nequi, Bancolombia, etc.)
+    gastos_digitales_registros = [g for g in gastos_diarios_registros if (g.metodo_pago or 'efectivo').lower().strip() != 'efectivo']
+    total_gastos_digitales = sum((Decimal(str(g.monto)) for g in gastos_digitales_registros), Decimal('0.00'))
 
     # Desglose de gastos por categoría
     desglose_gastos_cat = {}
@@ -152,7 +159,10 @@ def nuevo():
         ventas_del_dia=ventas_del_dia,
         arqueo_existente=arqueo_existente,
         gastos_automaticos=gastos_automaticos,
+        total_gastos_digitales=total_gastos_digitales,
         gastos_diarios_registros=gastos_diarios_registros,
+        gastos_efectivo_registros=gastos_efectivo_registros,
+        gastos_digitales_registros=gastos_digitales_registros,
         desglose_gastos_cat=desglose_gastos_cat,
         abonos_puntos_registros=abonos_puntos_registros,
         total_abonos_puntos=total_abonos_puntos,

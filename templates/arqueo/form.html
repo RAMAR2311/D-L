@@ -436,14 +436,19 @@
                             <small class="text-muted" style="font-size: 0.7rem;">Dinero recibido al inicio de la jornada</small>
                         </div>
 
-                        <!-- Gastos del Día -->
+                        <!-- Gastos del Día en Efectivo -->
                         <div class="mb-3">
-                            <label for="gastos_del_dia" class="form-label small fw-bold text-brand-black">Gastos Operativos del Día</label>
+                            <label for="gastos_del_dia" class="form-label small fw-bold text-brand-black">Gastos Pagados en Efectivo (Caja)</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light border-0"><i class="fa-solid fa-money-bill-transfer text-danger"></i></span>
                                 <input type="number" step="1" min="0" id="gastos_del_dia" name="gastos_del_dia" class="form-control bg-light border-0 fw-bold text-danger" value="{{ (arqueo_existente.gastos_del_dia if arqueo_existente else gastos_automaticos)|int }}" readonly disabled>
                             </div>
-                            <small class="text-muted" style="font-size: 0.7rem;">Monto precargado desde Gastos Diarios</small>
+                            <small class="text-muted" style="font-size: 0.7rem;">Solo salidas pagadas en efectivo físico de la caja</small>
+                            {% if total_gastos_digitales and total_gastos_digitales > 0 %}
+                            <small class="text-info d-block mt-1 fw-semibold" style="font-size: 0.72rem;">
+                                <i class="fa-solid fa-circle-info me-1"></i>+${{ total_gastos_digitales|cop }} en gastos por medios digitales (no descuentan efectivo).
+                            </small>
+                            {% endif %}
                         </div>
 
                         <!-- Efectivo Físico Contado -->

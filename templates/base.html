@@ -136,6 +136,13 @@
                             <i class="fa-solid fa-chart-pie me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Dashboard Principal
                         </a>
                     </li>
+                    <!-- Módulo Centralizado de Tesorería y Flujo de Caja -->
+                    <li class="nav-item">
+                        <a class="nav-link text-dark rounded-3 px-3 py-2 fw-bold border-bottom d-flex align-items-center justify-content-between" href="/admin/tesoreria" style="background-color: #FEF2F2;">
+                            <span><i class="fa-solid fa-vault me-2 text-danger" style="color: var(--mario-red) !important; width:20px; text-align:center;"></i> Tesorería y Flujo de Caja</span>
+                            <span class="badge bg-danger text-white rounded-pill px-2 py-0.5" style="font-size: 0.65rem;">MULTISEDE</span>
+                        </a>
+                    </li>
                     <!-- Módulo Inventario -->
                     <li class="nav-item">
                         <a class="nav-link text-dark rounded-3 px-3 py-2 fw-semibold border-bottom d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#collapseInventario" role="button" aria-expanded="false" aria-controls="collapseInventario">
@@ -477,6 +484,112 @@
                 console.error('Error al copiar:', err);
             });
         }
+
+        // =========================================================================
+        // PREVENCIÓN GLOBAL DE DOBLE ENVÍO / ANTI-SPAM EN FORMULARIOS Y BOTONES
+        // =========================================================================
+        (function() {
+            // Escuchador global de envío de formularios
+            document.addEventListener('submit', function(e) {
+                const form = e.target;
+                if (!form || form.tagName !== 'FORM') return;
+
+                // Si el formulario no pasa la validación HTML5 nativa, permitir advertencias del navegador
+                if (form.checkValidity && !form.checkValidity()) {
+                    return;
+                }
+
+                // Si el formulario ya está en proceso de envío, cancelar clics/envíos repetidos
+                if (form.dataset.submitting === 'true') {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+
+                // Marcar formulario como en envío
+                form.dataset.submitting = 'true';
+
+                // Buscar todos los botones de tipo submit en el formulario o asociados
+                const submitButtons = Array.from(form.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type="button"]):not([type="reset"])'));
+                if (e.submitter && !submitButtons.includes(e.submitter)) {
+                    submitButtons.push(e.submitter);
+                }
+
+                submitButtons.forEach(btn => {
+                    // Guardar contenido y dimensiones originales
+                    if (!btn.dataset.originalHtml) {
+                        btn.dataset.originalHtml = btn.innerHTML || btn.value;
+                    }
+
+                    // Bloquear interacción física inmediata sin romper el evento submit
+                    btn.style.pointerEvents = 'none';
+                    btn.style.opacity = '0.75';
+
+                    // Actualizar texto con spinner animado
+                    if (btn.tagName === 'BUTTON') {
+                        const currentText = (btn.innerText || '').trim().toLowerCase();
+                        let loadingText = 'Procesando...';
+                        if (currentText.includes('guardar') || currentText.includes('crear') || currentText.includes('nuevo')) {
+                            loadingText = 'Guardando...';
+                        } else if (currentText.includes('abona') || currentText.includes('paga') || currentText.includes('factura') || currentText.includes('cobro')) {
+                            loadingText = 'Registrando...';
+                        } else if (currentText.includes('elimina') || currentText.includes('anula') || currentText.includes('borrar')) {
+                            loadingText = 'Eliminando...';
+                        }
+                        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>' + loadingText;
+                    }
+
+                    // Deshabilitar formalmente en el siguiente microtask para no interferir con el envío de datos
+                    setTimeout(() => {
+                        btn.disabled = true;
+                    }, 20);
+                });
+
+                // Temporizador de seguridad: si tras 10 segundos la página no recargó, reactivar
+                setTimeout(() => {
+                    if (form.dataset.submitting === 'true') {
+                        delete form.dataset.submitting;
+                        submitButtons.forEach(btn => {
+                            btn.disabled = false;
+                            btn.style.pointerEvents = '';
+                            btn.style.opacity = '';
+                            if (btn.dataset.originalHtml) {
+                                btn.innerHTML = btn.dataset.originalHtml;
+                            }
+                        });
+                    }
+                }, 10000);
+            }, true);
+
+            // Bloquear clics redundantes en fase de captura para botones de formularios en envío
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest('button[type="submit"], input[type="submit"], .btn-submit-protect');
+                if (!btn) return;
+                const form = btn.form || btn.closest('form');
+                if (form && form.dataset.submitting === 'true') {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
+            }, true);
+
+            // Restaurar estado si el usuario regresa con el botón Atrás del navegador (BFCache)
+            window.addEventListener('pageshow', function(event) {
+                document.querySelectorAll('form').forEach(form => {
+                    delete form.dataset.submitting;
+                    const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type="button"]):not([type="reset"])');
+                    submitButtons.forEach(btn => {
+                        btn.disabled = false;
+                        btn.style.pointerEvents = '';
+                        btn.style.opacity = '';
+                        if (btn.dataset.originalHtml) {
+                            btn.innerHTML = btn.dataset.originalHtml;
+                            delete btn.dataset.originalHtml;
+                        }
+                    });
+                });
+            });
+        })();
     </script>
     {% block scripts %}{% endblock %}
 </body>

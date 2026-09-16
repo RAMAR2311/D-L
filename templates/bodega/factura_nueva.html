@@ -405,6 +405,18 @@
             document.getElementById('skuBuscador').focus();
             return;
         }
+
+        const form = document.getElementById('facturaForm');
+        if (form && form.dataset.submitting === 'true') return;
+        if (form) form.dataset.submitting = 'true';
+
+        const btnEnvio = document.querySelector('button[onclick="validarEnvio()"]');
+        if (btnEnvio) {
+            btnEnvio.disabled = true;
+            btnEnvio.style.pointerEvents = 'none';
+            btnEnvio.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Procesando y Subiendo Factura...';
+        }
+
         document.getElementById('facturaForm').submit();
     }
 

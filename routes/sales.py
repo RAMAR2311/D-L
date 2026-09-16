@@ -772,9 +772,11 @@ def caja_visual():
     
     is_admin = (current_user.rol == 'admin')
     if is_admin:
-        active_local = str(request.args.get('local', '1')).strip()
-        if active_local not in ['1', '2', '3']:
-            active_local = '1'
+        local_param = request.args.get('local')
+        if local_param in ['1', '2', '3']:
+            active_local = local_param
+        else:
+            active_local = None
     else:
         active_local = str(getattr(current_user, 'local_asignado', 1) or '1')
 

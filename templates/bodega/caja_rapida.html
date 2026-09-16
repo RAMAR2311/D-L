@@ -526,6 +526,16 @@
             return;
         }
 
+        if (form.dataset.submitting === 'true') return;
+        form.dataset.submitting = 'true';
+
+        const btnCheckout = document.querySelector('button[onclick="processCheckout()"]');
+        if (btnCheckout) {
+            btnCheckout.disabled = true;
+            btnCheckout.style.pointerEvents = 'none';
+            btnCheckout.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Generando Factura...';
+        }
+
         // Convertir cart a JSON para el hidden input
         document.getElementById('cartDataInput').value = JSON.stringify(carrito);
         form.submit();

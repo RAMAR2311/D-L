@@ -6,7 +6,11 @@
         <h2 class="fw-bold text-brand-black mb-0">Dashboard Operativo Multisede</h2>
         <p class="text-muted mb-0">¡Bienvenido al panel central, {{ current_user.nombre }}!</p>
     </div>
-    <div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <a href="{{ url_for('admin_bp.tesoreria') }}" class="btn btn-dark rounded-pill fw-bold shadow-sm px-4 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-vault text-warning"></i>
+            <span>Tesorería y Flujo de Caja</span>
+        </a>
         <button type="button" class="btn btn-blue rounded-pill fw-bold shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#modalBalance">
             <i class="fa-solid fa-scale-balanced me-2"></i>Generar Balance
         </button>

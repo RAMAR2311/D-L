@@ -1,12 +1,15 @@
-from flask import Blueprint, render_template, abort, request, redirect, url_for, flash
+from flask import Blueprint, render_template, abort, request, redirect, url_for, flash, Response, jsonify
 from flask_login import login_required, current_user
-from models import db, Product, ProductVariant, Sale, User, Maneo, SaleDetail, SalePayment, StockAdjustment, Expense, ArqueoCaja, obtener_hora_bogota
+from models import db, Product, ProductVariant, Sale, User, Maneo, SaleDetail, SalePayment, StockAdjustment, Expense, ArqueoCaja, Provider, ProviderPayment, PuntoTransaction, obtener_hora_bogota
 from sqlalchemy.sql import func
 from sqlalchemy import or_
 from werkzeug.security import generate_password_hash
 from decorators import admin_required
 from decimal import Decimal
-from datetime import timedelta
+from datetime import datetime, date, timedelta
+import calendar
+import io
+import csv
 
 admin_bp = Blueprint('admin_bp', __name__)
 
@@ -774,3 +777,431 @@ def balance_financiero():
         active_local=active_local,
         nombre_sede=nombre_sede
     )
+
+# =========================================================================
+# MÓDULO CENTRALIZADO: TESORERÍA Y FLUJO DE CAJA CONSOLIDADO
+# =========================================================================
+
+def normalizar_metodo_pago(metodo_raw):
+    """Normaliza las cadenas de métodos de pago a identificadores estándar."""
+    if not metodo_raw:
+        return 'efectivo'
+    m = str(metodo_raw).strip().lower()
+    if 'efectivo' in m:
+        return 'efectivo'
+    if 'nequi' in m:
+        return 'nequi'
+    if 'bancolombia' in m:
+        return 'bancolombia'
+    if 'daviplata' in m:
+        return 'daviplata'
+    if 'bold' in m or 'bolt' in m or 'tarjeta' in m or 'datafono' in m:
+        return 'bold'
+    if 'addi' in m:
+        return 'addi'
+    if 'transf' in m:
+        return 'transferencia'
+    return 'otros'
+
+def obtener_datos_tesoreria(args):
+    """Procesa filtros, consolida movimientos de todas las sedes y calcula los KPIs de tesorería."""
+    hoy = obtener_hora_bogota()
+    periodo = args.get('periodo', 'mes').lower()
+    fecha_inicio_str = args.get('fecha_inicio', '').strip()
+    fecha_fin_str = args.get('fecha_fin', '').strip()
+    active_local = args.get('local', 'todos').lower()
+    tipo_flujo = args.get('tipo_flujo', 'todos').lower()
+    tipo_operacion = args.get('tipo_operacion', 'todos').strip()
+    if hasattr(args, 'getlist'):
+        metodos_raw = args.getlist('metodos') or args.get('metodos', '')
+    else:
+        metodos_raw = args.get('metodos', '')
+
+    if isinstance(metodos_raw, str) and metodos_raw:
+        metodos_filtro = [m.strip().lower() for m in metodos_raw.split(',') if m.strip()]
+    elif isinstance(metodos_raw, (list, tuple)):
+        metodos_filtro = [m.strip().lower() for m in metodos_raw if m.strip()]
+    else:
+        metodos_filtro = []
+
+    query_search = args.get('q', '').strip().lower()
+
+    # Lista completa de pasarelas soportadas por el sistema
+    metodos_disponibles = ['efectivo', 'nequi', 'bancolombia', 'daviplata', 'bold', 'addi', 'transferencia']
+
+    # 1. Determinación del Rango de Fechas
+    if periodo == 'hoy':
+        inicio_dt = hoy.replace(hour=0, minute=0, second=0, microsecond=0)
+        fin_dt = hoy.replace(hour=23, minute=59, second=59, microsecond=999999)
+        fecha_inicio_str = inicio_dt.strftime('%Y-%m-%d')
+        fecha_fin_str = fin_dt.strftime('%Y-%m-%d')
+    elif periodo == 'semana':
+        lunes = (hoy - timedelta(days=hoy.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        domingo = (lunes + timedelta(days=6)).replace(hour=23, minute=59, second=59, microsecond=999999)
+        inicio_dt = lunes
+        fin_dt = domingo
+        fecha_inicio_str = inicio_dt.strftime('%Y-%m-%d')
+        fecha_fin_str = fin_dt.strftime('%Y-%m-%d')
+    elif periodo == 'quincena':
+        if hoy.day <= 15:
+            inicio_dt = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            fin_dt = hoy.replace(day=15, hour=23, minute=59, second=59, microsecond=999999)
+        else:
+            ultimo_dia = calendar.monthrange(hoy.year, hoy.month)[1]
+            inicio_dt = hoy.replace(day=16, hour=0, minute=0, second=0, microsecond=0)
+            fin_dt = hoy.replace(day=ultimo_dia, hour=23, minute=59, second=59, microsecond=999999)
+        fecha_inicio_str = inicio_dt.strftime('%Y-%m-%d')
+        fecha_fin_str = fin_dt.strftime('%Y-%m-%d')
+    elif periodo == 'mes':
+        ultimo_dia = calendar.monthrange(hoy.year, hoy.month)[1]
+        inicio_dt = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        fin_dt = hoy.replace(day=ultimo_dia, hour=23, minute=59, second=59, microsecond=999999)
+        fecha_inicio_str = inicio_dt.strftime('%Y-%m-%d')
+        fecha_fin_str = fin_dt.strftime('%Y-%m-%d')
+    else:
+        periodo = 'personalizado'
+        try:
+            inicio_dt = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').replace(hour=0, minute=0, second=0, microsecond=0)
+            fin_dt = datetime.strptime(fecha_fin_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999)
+        except (ValueError, TypeError):
+            periodo = 'mes'
+            ultimo_dia = calendar.monthrange(hoy.year, hoy.month)[1]
+            inicio_dt = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            fin_dt = hoy.replace(day=ultimo_dia, hour=23, minute=59, second=59, microsecond=999999)
+            fecha_inicio_str = inicio_dt.strftime('%Y-%m-%d')
+            fecha_fin_str = fin_dt.strftime('%Y-%m-%d')
+
+    movimientos_brutos = []
+
+    # 2. Consolidar Ventas POS (Ingresos)
+    q_sales = Sale.query.filter(Sale.fecha_venta >= inicio_dt, Sale.fecha_venta <= fin_dt)
+    if active_local in ['1', '2', '3']:
+        q_sales = q_sales.filter(Sale.local_id == int(active_local))
+
+    for sale in q_sales.all():
+        loc_id = sale.local_id or 1
+        cajero_nombre = sale.vendedor.nombre if sale.vendedor else 'Cajero'
+        if sale.pagos and len(sale.pagos) > 0:
+            for p in sale.pagos:
+                met = normalizar_metodo_pago(p.metodo_pago)
+                monto = float(p.monto or 0)
+                if monto > 0:
+                    movimientos_brutos.append({
+                        'id': f"V-{sale.id}-{p.id}",
+                        'fecha': sale.fecha_venta or inicio_dt,
+                        'fecha_str': (sale.fecha_venta or inicio_dt).strftime('%d/%m/%Y %I:%M %p'),
+                        'local_id': loc_id,
+                        'tipo_flujo': 'ingreso',
+                        'tipo_operacion': 'Venta',
+                        'concepto': f"Venta POS #{sale.id:05d}" + (f" ({len(sale.detalles)} productos)" if sale.detalles else ""),
+                        'metodo_pago': met,
+                        'monto': monto,
+                        'usuario': cajero_nombre,
+                        'referencia': f"Ticket #{sale.id:05d}",
+                        'referencia_id': sale.id,
+                        'link_recibo': f"/sales/recibo/{sale.id}"
+                    })
+        else:
+            met = normalizar_metodo_pago(sale.metodo_pago)
+            monto = float(sale.monto_total or 0)
+            if monto > 0:
+                movimientos_brutos.append({
+                    'id': f"V-{sale.id}",
+                    'fecha': sale.fecha_venta or inicio_dt,
+                    'fecha_str': (sale.fecha_venta or inicio_dt).strftime('%d/%m/%Y %I:%M %p'),
+                    'local_id': loc_id,
+                    'tipo_flujo': 'ingreso',
+                    'tipo_operacion': 'Venta',
+                    'concepto': f"Venta POS #{sale.id:05d}" + (f" ({len(sale.detalles)} productos)" if sale.detalles else ""),
+                    'metodo_pago': met,
+                    'monto': monto,
+                    'usuario': cajero_nombre,
+                    'referencia': f"Ticket #{sale.id:05d}",
+                    'referencia_id': sale.id,
+                    'link_recibo': f"/sales/recibo/{sale.id}"
+                })
+
+    # 3. Consolidar Egresos (Gastos Operativos, Pagos a Puntos y Proveedores)
+    q_expenses = Expense.query.filter(Expense.fecha_gasto >= inicio_dt, Expense.fecha_gasto <= fin_dt)
+    if active_local in ['1', '2', '3']:
+        q_expenses = q_expenses.filter(Expense.local_id == int(active_local))
+
+    for g in q_expenses.all():
+        loc_id = g.local_id or 1
+        cat_lower = (g.categoria or '').strip().lower()
+        if 'punto' in cat_lower or 'abono a punto' in cat_lower:
+            op_tipo = 'Pago a Punto'
+        elif 'proveedor' in cat_lower or 'factura prov' in cat_lower:
+            op_tipo = 'Abono a Proveedor'
+        else:
+            op_tipo = 'Gasto Operativo'
+
+        met = normalizar_metodo_pago(g.metodo_pago)
+        monto = float(g.monto or 0)
+        if monto > 0:
+            movimientos_brutos.append({
+                'id': f"G-{g.id}",
+                'fecha': g.fecha_gasto or inicio_dt,
+                'fecha_str': (g.fecha_gasto or inicio_dt).strftime('%d/%m/%Y %I:%M %p'),
+                'local_id': loc_id,
+                'tipo_flujo': 'egreso',
+                'tipo_operacion': op_tipo,
+                'concepto': f"[{g.categoria}] {g.descripcion or 'Gasto operativo'}",
+                'metodo_pago': met,
+                'monto': monto,
+                'usuario': g.usuario.nombre if g.usuario else 'Admin/Usuario',
+                'referencia': f"Gasto #{g.id}",
+                'referencia_id': g.id,
+                'link_recibo': None
+            })
+
+    # 4. Consolidar Ajustes de Arqueo de Caja (Discrepancias Físicas)
+    q_arqueos = ArqueoCaja.query.filter(ArqueoCaja.fecha_arqueo >= inicio_dt.date(), ArqueoCaja.fecha_arqueo <= fin_dt.date())
+    if active_local in ['1', '2', '3']:
+        q_arqueos = q_arqueos.filter(ArqueoCaja.local_id == int(active_local))
+
+    for arq in q_arqueos.all():
+        dif = float(arq.diferencia or 0)
+        if abs(dif) >= 1.0:
+            loc_id = arq.local_id or 1
+            dt_arq = arq.fecha_creacion or datetime.combine(arq.fecha_arqueo, datetime.min.time())
+            cajero_arq = arq.cajero.nombre if arq.cajero else 'Cajero'
+            if dif > 0:
+                movimientos_brutos.append({
+                    'id': f"A-{arq.id}-S",
+                    'fecha': dt_arq,
+                    'fecha_str': dt_arq.strftime('%d/%m/%Y %I:%M %p'),
+                    'local_id': loc_id,
+                    'tipo_flujo': 'ingreso',
+                    'tipo_operacion': 'Ajuste de Arqueo',
+                    'concepto': f"Sobrante en Arqueo de Caja del {arq.fecha_arqueo.strftime('%d/%m/%Y')} (D&L {loc_id})",
+                    'metodo_pago': 'efectivo',
+                    'monto': abs(dif),
+                    'usuario': cajero_arq,
+                    'referencia': f"Arqueo #{arq.id}",
+                    'referencia_id': arq.id,
+                    'link_recibo': None
+                })
+            else:
+                movimientos_brutos.append({
+                    'id': f"A-{arq.id}-F",
+                    'fecha': dt_arq,
+                    'fecha_str': dt_arq.strftime('%d/%m/%Y %I:%M %p'),
+                    'local_id': loc_id,
+                    'tipo_flujo': 'egreso',
+                    'tipo_operacion': 'Ajuste de Arqueo',
+                    'concepto': f"Faltante en Arqueo de Caja del {arq.fecha_arqueo.strftime('%d/%m/%Y')} (D&L {loc_id})",
+                    'metodo_pago': 'efectivo',
+                    'monto': abs(dif),
+                    'usuario': cajero_arq,
+                    'referencia': f"Arqueo #{arq.id}",
+                    'referencia_id': arq.id,
+                    'link_recibo': None
+                })
+
+    # 5. Aplicación de Filtros en Memoria
+    movimientos_base = []
+    for m in movimientos_brutos:
+        # Filtro Tipo de Flujo
+        if tipo_flujo in ['ingreso', 'egreso'] and m['tipo_flujo'] != tipo_flujo:
+            continue
+
+        # Filtro Tipo de Operación
+        if tipo_operacion != 'todos' and tipo_operacion:
+            op_low = tipo_operacion.lower()
+            if op_low in ['ingreso', 'ingresos']:
+                if m['tipo_flujo'] != 'ingreso':
+                    continue
+            elif op_low in ['egreso', 'egresos', 'salida', 'salidas']:
+                if m['tipo_flujo'] != 'egreso':
+                    continue
+            elif m['tipo_operacion'].lower() != op_low:
+                continue
+
+        # Filtro de Búsqueda de Texto
+        if query_search:
+            match_txt = f"{m['concepto']} {m['usuario']} {m['referencia']} {m['tipo_operacion']}".lower()
+            if query_search not in match_txt:
+                continue
+
+        movimientos_base.append(m)
+
+    # Cálculo de métricas por Pasarela (previo al filtro individual de método para mantener visibles los totales)
+    desglose_pasarelas = {}
+    for met in metodos_disponibles:
+        ing_met = sum(m['monto'] for m in movimientos_base if m['tipo_flujo'] == 'ingreso' and m['metodo_pago'] == met)
+        egr_met = sum(m['monto'] for m in movimientos_base if m['tipo_flujo'] == 'egreso' and m['metodo_pago'] == met)
+        desglose_pasarelas[met] = {
+            'ingresos': ing_met,
+            'egresos': egr_met,
+            'neto': ing_met - egr_met,
+            'total_transacciones': sum(1 for m in movimientos_base if m['metodo_pago'] == met)
+        }
+
+    # Filtro específico de Método de Pago si fue seleccionado
+    movimientos_filtrados = []
+    for m in movimientos_base:
+        if metodos_filtro and len(metodos_filtro) > 0:
+            if m['metodo_pago'] not in metodos_filtro:
+                continue
+        movimientos_filtrados.append(m)
+
+    # Ordenar cronológicamente descendente (más reciente primero)
+    movimientos_filtrados.sort(key=lambda x: x['fecha'], reverse=True)
+
+    # 6. Cálculo de KPIs y Desgloses Financieros para la tabla y balances
+    total_ingresos = sum(m['monto'] for m in movimientos_filtrados if m['tipo_flujo'] == 'ingreso')
+    total_egresos = sum(m['monto'] for m in movimientos_filtrados if m['tipo_flujo'] == 'egreso')
+    total_neto = total_ingresos - total_egresos
+    conteo_ingresos = sum(1 for m in movimientos_filtrados if m['tipo_flujo'] == 'ingreso')
+    conteo_egresos = sum(1 for m in movimientos_filtrados if m['tipo_flujo'] == 'egreso')
+
+    # Desglose por Sede
+    desglose_sedes = {
+        1: {'ingresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 1 and m['tipo_flujo'] == 'ingreso'),
+            'egresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 1 and m['tipo_flujo'] == 'egreso')},
+        2: {'ingresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 2 and m['tipo_flujo'] == 'ingreso'),
+            'egresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 2 and m['tipo_flujo'] == 'egreso')},
+        3: {'ingresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 3 and m['tipo_flujo'] == 'ingreso'),
+            'egresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 3 and m['tipo_flujo'] == 'egreso')}
+    }
+
+    return {
+        'periodo': periodo,
+        'fecha_inicio': fecha_inicio_str,
+        'fecha_fin': fecha_fin_str,
+        'active_local': active_local,
+        'tipo_flujo': tipo_flujo,
+        'tipo_operacion': tipo_operacion,
+        'metodos_filtro': metodos_filtro,
+        'metodos_disponibles': metodos_disponibles,
+        'query_search': query_search,
+        'movimientos': movimientos_filtrados,
+        'total_movimientos': len(movimientos_filtrados),
+        'total_ingresos': total_ingresos,
+        'total_egresos': total_egresos,
+        'total_neto': total_neto,
+        'conteo_ingresos': conteo_ingresos,
+        'conteo_egresos': conteo_egresos,
+        'desglose_pasarelas': desglose_pasarelas,
+        'desglose_sedes': desglose_sedes
+    }
+
+@admin_bp.route('/tesoreria', methods=['GET'])
+@login_required
+@admin_required
+def tesoreria():
+    data = obtener_datos_tesoreria(request.args)
+    
+    # Paginación en servidor
+    try:
+        page = int(request.args.get('page', 1))
+    except (ValueError, TypeError):
+        page = 1
+    per_page = 50
+    
+    todos_movs = data['movimientos']
+    total_items = len(todos_movs)
+    total_pages = max((total_items + per_page - 1) // per_page, 1)
+    page = max(1, min(page, total_pages))
+    
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    movimientos_paginados = todos_movs[start_idx:end_idx]
+
+    return render_template(
+        'admin/tesoreria.html',
+        data=data,
+        movimientos=movimientos_paginados,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        per_page=per_page
+    )
+
+@admin_bp.route('/tesoreria/exportar', methods=['GET'])
+@login_required
+@admin_required
+def tesoreria_exportar():
+    data = obtener_datos_tesoreria(request.args)
+    movimientos = data['movimientos']
+
+    output = io.StringIO()
+    # Escribir BOM UTF-8 para que Microsoft Excel lo abra sin problemas de codificación
+    output.write('\ufeff')
+    writer = csv.writer(output, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+
+    # Encabezado del reporte
+    writer.writerow(["D&L - REPORTE CONSOLIDADO DE TESORERÍA Y FLUJO DE CAJA"])
+    writer.writerow([f"Período: {data['periodo'].upper()} ({data['fecha_inicio']} al {data['fecha_fin']})"])
+    writer.writerow([f"Sede: {('Todas las Sedes' if data['active_local'] == 'todos' else f'D&L {data['active_local']}')}"])
+    writer.writerow([f"Generado el: {obtener_hora_bogota().strftime('%d/%m/%Y %I:%M %p')} por {current_user.nombre}"])
+    writer.writerow([])
+
+    # Columnas de la tabla
+    writer.writerow([
+        "Fecha y Hora",
+        "Sede",
+        "Tipo de Flujo",
+        "Tipo de Operación",
+        "Concepto / Descripción",
+        "Método de Pago",
+        "Ingreso (+)",
+        "Egreso (-)",
+        "Monto Neto ($)",
+        "Usuario / Cajero",
+        "Referencia"
+    ])
+
+    for m in movimientos:
+        ing_val = m['monto'] if m['tipo_flujo'] == 'ingreso' else 0
+        egr_val = m['monto'] if m['tipo_flujo'] == 'egreso' else 0
+        neto_val = ing_val - egr_val
+
+        writer.writerow([
+            m['fecha_str'],
+            f"D&L {m['local_id']}",
+            m['tipo_flujo'].upper(),
+            m['tipo_operacion'],
+            m['concepto'],
+            m['metodo_pago'].upper(),
+            f"{ing_val:.0f}",
+            f"{egr_val:.0f}",
+            f"{neto_val:.0f}",
+            m['usuario'],
+            m['referencia']
+        ])
+
+    # Fila de Totales Generales
+    writer.writerow([])
+    writer.writerow([
+        "TOTALES GENERALES",
+        "",
+        "",
+        "",
+        f"Total {len(movimientos)} transacciones",
+        "",
+        f"{data['total_ingresos']:.0f}",
+        f"{data['total_egresos']:.0f}",
+        f"{data['total_neto']:.0f}",
+        "",
+        ""
+    ])
+
+    # Desglose por Cuentas / Pasarelas
+    writer.writerow([])
+    writer.writerow(["DESGLOSE POR PASARELA / CUENTA"])
+    writer.writerow(["Método de Pago", "Total Ingresos (+)", "Total Egresos (-)", "Saldo Neto"])
+    for met, vals in data['desglose_pasarelas'].items():
+        writer.writerow([
+            met.upper(),
+            f"{vals['ingresos']:.0f}",
+            f"{vals['egresos']:.0f}",
+            f"{vals['neto']:.0f}"
+        ])
+
+    filename = f"flujo_caja_DL_{data['fecha_inicio']}_al_{data['fecha_fin']}.csv"
+    response = Response(output.getvalue(), mimetype='text/csv; charset=utf-8-sig')
+    response.headers['Content-Disposition'] = f"attachment; filename={filename}"
+    return response
+
