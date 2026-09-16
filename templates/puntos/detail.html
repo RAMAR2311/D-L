@@ -22,31 +22,31 @@
     color: #fff !important;
 }
 
-/* Optimización para Teléfonos y Tablets */
+/* Optimización para Teléfonos, Tablets y PWA */
+.table-responsive {
+    -webkit-overflow-scrolling: touch;
+}
+.filter-card-abono, .filter-card-cargo, .filter-card-pendiente, .filter-metodo-abono {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.filter-card-abono:active, .filter-card-cargo:active, .filter-card-pendiente:active, .filter-metodo-abono:active {
+    transform: scale(0.97);
+}
 @media (max-width: 767.98px) {
-    .modal-fullscreen-md-down .modal-content {
-        border-radius: 0 !important;
-        min-height: 100vh;
+    .modal-fullscreen-md-down .modal-body {
+        padding: 1rem !important;
     }
-    .modal-fullscreen-md-down .modal-header {
-        position: sticky;
-        top: 0;
-        z-index: 1055;
-        background-color: #ffffff !important;
-        border-bottom: 2px solid #e9ecef !important;
-    }
+    .modal-fullscreen-md-down .modal-header,
     .modal-fullscreen-md-down .modal-footer {
-        position: sticky;
-        bottom: 0;
-        z-index: 1055;
-        background-color: #ffffff !important;
-        border-top: 2px solid #e9ecef !important;
-    }
-    .table-responsive {
-        -webkit-overflow-scrolling: touch;
+        padding: 0.75rem 1rem !important;
     }
     .fs-mobile-small {
         font-size: 0.8rem !important;
+    }
+    .table-custom td, .table-custom th {
+        white-space: nowrap;
     }
 }
 </style>
