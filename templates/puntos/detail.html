@@ -584,9 +584,17 @@
                                     ${{ '{:,.0f}'.format(a.monto) }}
                                 </td>
                                 <td class="text-center pe-3">
-                                    <button class="btn btn-sm btn-outline-primary px-2 py-1 rounded-circle" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalEditarTransaccion{{ a.id }}" title="Editar abono">
-                                        <i class="fa-solid fa-pen"></i>
-                                    </button>
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <button class="btn btn-sm btn-outline-primary px-2 py-1 rounded-circle" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalEditarTransaccion{{ a.id }}" title="Editar abono">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <form action="{{ url_for('puntos_bp.eliminar_transaccion', t_id=a.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este abono de ${{ '{:,.0f}'.format(a.monto) }}? Se recalculará la deuda y se anulará el egreso en caja.');" class="m-0">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1 rounded-circle" title="Eliminar abono">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                             {% else %}
@@ -719,17 +727,28 @@
                                     ${{ '{:,.0f}'.format(c.saldo_pendiente or 0) }}
                                 </td>
                                 <td class="text-center pe-3">
-                                    {% if (c.saldo_pendiente or 0) <= 0 %}
-                                        <span class="badge bg-success text-white rounded-pill px-3 py-1 fw-bold">
-                                            <i class="fa-solid fa-check-circle me-1"></i>PAGADO ($0)
-                                        </span>
-                                    {% else %}
-                                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 fw-bold btn-abonar-producto" 
-                                                data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalAbonarPunto" 
-                                                data-sale-id="{{ c.sale_id or c.id }}" data-saldo="{{ (c.saldo_pendiente or 0)|int }}">
-                                            <i class="fa-solid fa-hand-holding-dollar me-1"></i>Abonar (${{ '{:,.0f}'.format(c.saldo_pendiente or 0) }})
+                                    <div class="d-flex justify-content-center align-items-center gap-2">
+                                        {% if (c.saldo_pendiente or 0) <= 0 %}
+                                            <span class="badge bg-success text-white rounded-pill px-3 py-1 fw-bold">
+                                                <i class="fa-solid fa-check-circle me-1"></i>PAGADO ($0)
+                                            </span>
+                                        {% else %}
+                                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 fw-bold btn-abonar-producto" 
+                                                    data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalAbonarPunto" 
+                                                    data-sale-id="{{ c.sale_id or c.id }}" data-saldo="{{ (c.saldo_pendiente or 0)|int }}">
+                                                <i class="fa-solid fa-hand-holding-dollar me-1"></i>Abonar (${{ '{:,.0f}'.format(c.saldo_pendiente or 0) }})
+                                            </button>
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-outline-primary px-2 py-1 rounded-circle" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalEditarTransaccion{{ c.id }}" title="Editar cargo">
+                                            <i class="fa-solid fa-pen"></i>
                                         </button>
-                                    {% endif %}
+                                        <form action="{{ url_for('puntos_bp.eliminar_transaccion', t_id=c.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este cargo? Esta acción afectará el saldo pendiente.');" class="m-0">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1 rounded-circle" title="Eliminar cargo">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                             {% else %}
@@ -1096,10 +1115,18 @@
                     </div>
                     {% endif %}
                 </div>
-                <div class="modal-footer border-0 bg-light">
-                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary text-white rounded-pill px-4 fw-bold">Guardar Cambios</button>
+                <div class="modal-footer border-0 bg-light d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-danger rounded-pill px-3" onclick="if(confirm('¿Estás seguro de que deseas eliminar este {{ 'abono' if t.tipo_movimiento == 'abono' else 'cargo' }} definitivamente?')) { document.getElementById('formEliminarTransaccionModal{{ t.id }}').submit(); }">
+                        <i class="fa-solid fa-trash me-1"></i> Eliminar
+                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary text-white rounded-pill px-4 fw-bold">Guardar Cambios</button>
+                    </div>
                 </div>
+            </form>
+            <form id="formEliminarTransaccionModal{{ t.id }}" action="{{ url_for('puntos_bp.eliminar_transaccion', t_id=t.id) }}" method="POST" style="display:none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             </form>
         </div>
     </div>

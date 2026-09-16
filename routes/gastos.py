@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from models import db, Expense, obtener_hora_bogota
+from models import db, Expense, PuntoTransaction, obtener_hora_bogota
 from decorators import admin_required
 from sqlalchemy import extract
 from datetime import datetime
@@ -145,6 +145,19 @@ def eliminar_gasto(id):
     gasto = Expense.query.get_or_404(id)
     descripcion = gasto.descripcion or gasto.categoria
     try:
+        # Si el gasto corresponde a un Abono a Punto, sincronizar y eliminar la transaccion del Punto
+        if gasto.categoria == 'Abono a Punto/Local' or (gasto.descripcion and 'Abono a Punto' in gasto.descripcion):
+            tx = PuntoTransaction.query.filter(
+                PuntoTransaction.tipo_movimiento == 'abono',
+                PuntoTransaction.local_id == gasto.local_id,
+                PuntoTransaction.monto == gasto.monto
+            ).filter(
+                db.func.date(PuntoTransaction.fecha) == db.func.date(gasto.fecha_gasto)
+            ).order_by(PuntoTransaction.id.desc()).first()
+
+            if tx:
+                db.session.delete(tx)
+
         db.session.delete(gasto)
         db.session.commit()
         flash(f'Gasto "{descripcion}" eliminado correctamente.', 'success')

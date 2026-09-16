@@ -363,10 +363,9 @@ def eliminar_transaccion(t_id):
             punto_nombre = punto.nombre if punto else ''
             prefijo_desc = f"Abono a Punto {punto_nombre}"
             gasto_asociado = Expense.query.filter(
-                Expense.categoria == 'Abono a Punto/Local',
+                (Expense.categoria == 'Abono a Punto/Local') | (Expense.descripcion.like(f"{prefijo_desc}%")),
                 Expense.local_id == transaccion.local_id,
-                Expense.monto == transaccion.monto,
-                Expense.descripcion.like(f"{prefijo_desc}%")
+                Expense.monto == transaccion.monto
             ).filter(
                 db.func.date(Expense.fecha_gasto) == db.func.date(transaccion.fecha)
             ).order_by(Expense.id.desc()).first()
@@ -442,6 +441,9 @@ def agregar_cargo(id):
 def editar_transaccion(t_id):
     transaccion = PuntoTransaction.query.get_or_404(t_id)
     punto_id = transaccion.punto_id
+    monto_anterior = transaccion.monto
+    local_anterior = transaccion.local_id
+    fecha_anterior = transaccion.fecha
     
     descripcion = request.form.get('descripcion', '').strip()
     metodo_pago = request.form.get('metodo_pago', 'efectivo')
@@ -473,6 +475,25 @@ def editar_transaccion(t_id):
     transaccion.descripcion = descripcion
     if transaccion.tipo_movimiento == 'abono':
         transaccion.metodo_pago = metodo_pago
+        
+        # Sincronizar gasto asociado si existe
+        punto = Punto.query.get(punto_id)
+        punto_nombre = punto.nombre if punto else ''
+        prefijo_desc = f"Abono a Punto {punto_nombre}"
+        gasto_asociado = Expense.query.filter(
+            (Expense.categoria == 'Abono a Punto/Local') | (Expense.descripcion.like(f"{prefijo_desc}%")),
+            Expense.local_id == local_anterior,
+            Expense.monto == monto_anterior
+        ).filter(
+            db.func.date(Expense.fecha_gasto) == db.func.date(fecha_anterior)
+        ).order_by(Expense.id.desc()).first()
+
+        if gasto_asociado:
+            gasto_asociado.monto = transaccion.monto
+            gasto_asociado.local_id = transaccion.local_id
+            gasto_asociado.metodo_pago = transaccion.metodo_pago
+            gasto_asociado.fecha_gasto = transaccion.fecha
+            gasto_asociado.descripcion = f"Abono a Punto {punto_nombre}" + (f" ({transaccion.descripcion})" if transaccion.descripcion else "")
         
     try:
         db.session.commit()
