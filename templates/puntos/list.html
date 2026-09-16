@@ -79,17 +79,44 @@
         </div>
     </div>
 
-    <!-- TABLA DE PUNTOS -->
+    <!-- TABLA DE PUNTOS CON BUSCADOR EN TIEMPO REAL -->
     <div class="card card-custom p-0 overflow-hidden shadow-sm border-0 bg-white">
-        <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
-            <h5 class="fw-bold text-brand-black mb-0">
-                <i class="fa-solid fa-list text-primary me-2"></i>Directorio de Puntos y Estados de Cuenta
-            </h5>
-            <span class="badge bg-primary rounded-pill px-3 py-1">{{ puntos|length }} registrados</span>
+        <div class="p-3 bg-light border-bottom">
+            <div class="row g-2 align-items-center">
+                <div class="col-lg-4 col-md-12">
+                    <h5 class="fw-bold text-brand-black mb-0 d-flex align-items-center">
+                        <i class="fa-solid fa-list text-primary me-2"></i>Directorio de Puntos y Estados de Cuenta
+                        <span class="badge bg-primary rounded-pill px-3 py-1 ms-2" id="badgeTotalPuntos">{{ puntos|length }} registrados</span>
+                    </h5>
+                </div>
+                <!-- Input de búsqueda en vivo -->
+                <div class="col-lg-5 col-md-7">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                        <input type="text" id="inputBuscarPunto" class="form-control border-start-0 border-end-0 ps-0" placeholder="🔍 Escribe para buscar punto por nombre, teléfono, dirección..." autocomplete="off">
+                        <button class="btn btn-outline-secondary border-start-0 bg-white" type="button" id="btnLimpiarBusqueda" style="display: none;" title="Limpiar búsqueda">
+                            <i class="fa-solid fa-times text-muted"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Filtros rápidos por estado de deuda -->
+                <div class="col-lg-3 col-md-5 text-md-end">
+                    <div class="btn-group btn-group-sm w-100" role="group">
+                        <input type="radio" class="btn-check" name="filtroSaldo" id="filtroTodos" autocomplete="off" checked>
+                        <label class="btn btn-outline-secondary fw-semibold" for="filtroTodos">Todos</label>
+
+                        <input type="radio" class="btn-check" name="filtroSaldo" id="filtroConDeuda" autocomplete="off">
+                        <label class="btn btn-outline-danger fw-semibold" for="filtroConDeuda">Con Deuda</label>
+
+                        <input type="radio" class="btn-check" name="filtroSaldo" id="filtroAlDia" autocomplete="off">
+                        <label class="btn btn-outline-success fw-semibold" for="filtroAlDia">Al Día ($0)</label>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0" id="tablaPuntos">
                 <thead class="bg-light text-muted small text-uppercase">
                     <tr>
                         <th class="ps-4 py-3" width="25%">Nombre del Local / Punto</th>
@@ -103,7 +130,11 @@
                 <tbody>
                     {% for item in puntos %}
                     {% set p = item.punto %}
-                    <tr>
+                    <tr class="fila-punto-item" 
+                        data-nombre="{{ p.nombre|lower }}" 
+                        data-telefono="{{ (p.telefono or '')|lower }}" 
+                        data-direccion="{{ (p.direccion or '')|lower }}" 
+                        data-saldo="{{ item.saldo_pendiente }}">
                         <td class="ps-4">
                             <a href="{{ url_for('puntos_bp.detalle', id=p.id) }}" class="fw-bold text-primary text-decoration-none fs-6 d-block">
                                 <i class="fa-solid fa-shop me-1 text-muted"></i>{{ p.nombre }}
@@ -167,6 +198,14 @@
                         </td>
                     </tr>
                     {% endfor %}
+                    <!-- Fila oculta para cuando no hay coincidencias en la búsqueda -->
+                    <tr id="filaSinResultados" style="display: none;">
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-magnifying-glass fa-2x mb-2 text-black-50"></i>
+                            <h6 class="fw-bold text-dark mb-1">No se encontraron Puntos</h6>
+                            <p class="small text-muted mb-0">No hay ningún local o punto que coincida con el texto o filtro seleccionado.</p>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -209,4 +248,87 @@
         </div>
     </div>
 </div>
+
+<!-- SCRIPT DE BÚSQUEDA Y FILTRADO EN VIVO -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const inputBuscar = document.getElementById('inputBuscarPunto');
+    const btnLimpiar = document.getElementById('btnLimpiarBusqueda');
+    const radioFiltros = document.querySelectorAll('input[name="filtroSaldo"]');
+    const filas = document.querySelectorAll('.fila-punto-item');
+    const filaSinResultados = document.getElementById('filaSinResultados');
+    const badgeTotal = document.getElementById('badgeTotalPuntos');
+    const totalOriginal = filas.length;
+
+    function filtrarPuntos() {
+        const query = (inputBuscar ? inputBuscar.value : '').toLowerCase().trim();
+        let filtroSeleccionado = 'todos';
+        if (document.getElementById('filtroConDeuda') && document.getElementById('filtroConDeuda').checked) {
+            filtroSeleccionado = 'deuda';
+        } else if (document.getElementById('filtroAlDia') && document.getElementById('filtroAlDia').checked) {
+            filtroSeleccionado = 'aldia';
+        }
+
+        let visibles = 0;
+
+        filas.forEach(fila => {
+            const nombre = (fila.getAttribute('data-nombre') || '').toLowerCase();
+            const tel = (fila.getAttribute('data-telefono') || '').toLowerCase();
+            const dir = (fila.getAttribute('data-direccion') || '').toLowerCase();
+            const saldo = parseFloat(fila.getAttribute('data-saldo') || '0');
+
+            const coincideTexto = !query || nombre.includes(query) || tel.includes(query) || dir.includes(query);
+
+            let coincideEstado = true;
+            if (filtroSeleccionado === 'deuda') {
+                coincideEstado = saldo > 0;
+            } else if (filtroSeleccionado === 'aldia') {
+                coincideEstado = saldo <= 0;
+            }
+
+            if (coincideTexto && coincideEstado) {
+                fila.style.display = '';
+                visibles++;
+            } else {
+                fila.style.display = 'none';
+            }
+        });
+
+        if (btnLimpiar) {
+            btnLimpiar.style.display = query.length > 0 ? 'inline-block' : 'none';
+        }
+
+        if (filaSinResultados) {
+            filaSinResultados.style.display = (visibles === 0 && totalOriginal > 0) ? '' : 'none';
+        }
+
+        if (badgeTotal) {
+            if (query.length > 0 || filtroSeleccionado !== 'todos') {
+                badgeTotal.textContent = `${visibles} de ${totalOriginal}`;
+                badgeTotal.className = 'badge bg-warning text-dark rounded-pill px-3 py-1 ms-2';
+            } else {
+                badgeTotal.textContent = `${totalOriginal} registrados`;
+                badgeTotal.className = 'badge bg-primary rounded-pill px-3 py-1 ms-2';
+            }
+        }
+    }
+
+    if (inputBuscar) {
+        inputBuscar.addEventListener('input', filtrarPuntos);
+        inputBuscar.addEventListener('keyup', filtrarPuntos);
+    }
+
+    if (btnLimpiar) {
+        btnLimpiar.addEventListener('click', function() {
+            inputBuscar.value = '';
+            filtrarPuntos();
+            inputBuscar.focus();
+        });
+    }
+
+    radioFiltros.forEach(radio => {
+        radio.addEventListener('change', filtrarPuntos);
+    });
+});
+</script>
 {% endblock %}

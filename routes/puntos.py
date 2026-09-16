@@ -74,6 +74,109 @@ def crear():
 
     return redirect(url_for('puntos_bp.index'))
 
+def calcular_cartera_punto(transacciones):
+    """
+    Calcula los saldos individuales de productos/cargos de un Punto.
+    Aplica imputación contable inteligente:
+    1. Aplica primero abonos específicos dirigidos a un producto (sale_id).
+    2. Distribuye los abonos generales (sin sale_id) o excedentes de forma cronológica (FIFO)
+       cubriendo los cargos más antiguos pendientes de pago.
+    De este modo, la suma de los saldos pendientes de los productos coincide exactamente
+    con la deuda pendiente total del cliente.
+    """
+    cargos_registros = [t for t in transacciones if t.tipo_movimiento == 'cargo']
+    abonos_lista = [t for t in transacciones if t.tipo_movimiento == 'abono']
+
+    cargos = sum((t.monto for t in cargos_registros), Decimal('0.00'))
+    abonos = sum((t.monto for t in abonos_lista), Decimal('0.00'))
+    saldo_pendiente = max(cargos - abonos, Decimal('0.00'))
+
+    # Ordenar cronológicamente (antiguos primero) para imputación FIFO
+    cargos_cronologicos = sorted(cargos_registros, key=lambda c: (c.fecha or datetime.min, c.id))
+
+    # 1. Separar abonos específicos y generales
+    abonos_especificos = {}
+    total_abonos_generales = Decimal('0.00')
+
+    for a in abonos_lista:
+        if a.sale_id:
+            abonos_especificos[a.sale_id] = abonos_especificos.get(a.sale_id, Decimal('0.00')) + a.monto
+        else:
+            total_abonos_generales += a.monto
+
+    # 2. Asignar primero abonos específicos a cada cargo
+    cargo_data = {}
+    pool_general = total_abonos_generales
+
+    for c in cargos_cronologicos:
+        s_id = c.sale_id or c.id
+        abono_esp = abonos_especificos.get(s_id, Decimal('0.00'))
+        if not c.sale_id and c.id in abonos_especificos:
+            abono_esp += abonos_especificos[c.id]
+
+        abono_esp_aplicable = min(abono_esp, c.monto)
+        sobrante = max(abono_esp - c.monto, Decimal('0.00'))
+        pool_general += sobrante
+
+        cargo_data[c.id] = {
+            'monto': c.monto,
+            'abono_especifico': abono_esp_aplicable,
+            'abono_general': Decimal('0.00'),
+            'total_abonado': abono_esp_aplicable,
+            'saldo_pendiente': max(c.monto - abono_esp_aplicable, Decimal('0.00'))
+        }
+
+    # 3. Aplicar pool general (FIFO) a los cargos pendientes más antiguos
+    for c in cargos_cronologicos:
+        info = cargo_data[c.id]
+        if info['saldo_pendiente'] > Decimal('0.00') and pool_general > Decimal('0.00'):
+            aplicar = min(info['saldo_pendiente'], pool_general)
+            info['abono_general'] = aplicar
+            info['total_abonado'] += aplicar
+            info['saldo_pendiente'] -= aplicar
+            pool_general -= aplicar
+
+    # 4. Construir productos_cartera
+    productos_cartera = []
+    for c in cargos_registros:
+        info = cargo_data.get(c.id, {
+            'monto': c.monto,
+            'total_abonado': Decimal('0.00'),
+            'saldo_pendiente': c.monto
+        })
+        tot_abono = info['total_abonado']
+        saldo_prod = info['saldo_pendiente']
+        porcentaje_pagado = int((tot_abono / c.monto * 100) if c.monto > 0 else 100)
+
+        c.total_abonado = tot_abono
+        c.saldo_pendiente = saldo_prod
+        c.porcentaje_pagado = min(porcentaje_pagado, 100)
+
+        s_id = c.sale_id or c.id
+        productos_cartera.append({
+            'cargo_id': c.id,
+            'sale_id': s_id,
+            'descripcion': c.descripcion or f'Venta #{s_id}',
+            'monto_cargo': c.monto,
+            'total_abonado': tot_abono,
+            'saldo_pendiente': saldo_prod,
+            'porcentaje_pagado': c.porcentaje_pagado,
+            'fecha': c.fecha,
+            'local_id': c.local_id or 1,
+            'usuario': c.usuario.nombre if c.usuario else 'Sistema',
+            'pagado_completo': (saldo_prod <= Decimal('0.00'))
+        })
+
+    return {
+        'cargos': cargos,
+        'abonos': abonos,
+        'saldo_pendiente': saldo_pendiente,
+        'cargo_data': cargo_data,
+        'productos_cartera': productos_cartera,
+        'cargos_registros': cargos_registros,
+        'abonos_lista': abonos_lista
+    }
+
 @puntos_bp.route('/<int:id>', methods=['GET'])
 @login_required
 def detalle(id):
@@ -81,9 +184,14 @@ def detalle(id):
 
     transacciones = PuntoTransaction.query.filter_by(punto_id=punto.id).order_by(PuntoTransaction.fecha.desc()).all()
 
-    cargos = sum((t.monto for t in transacciones if t.tipo_movimiento == 'cargo'), Decimal('0.00'))
-    abonos = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono'), Decimal('0.00'))
-    saldo_pendiente = cargos - abonos
+    cartera_info = calcular_cartera_punto(transacciones)
+    cargos = cartera_info['cargos']
+    abonos = cartera_info['abonos']
+    saldo_pendiente = cartera_info['saldo_pendiente']
+    productos_cartera = cartera_info['productos_cartera']
+    cargos_registros = cartera_info['cargos_registros']
+    abonos_lista = cartera_info['abonos_lista']
+    cargo_data = cartera_info['cargo_data']
 
     # Desglose de Abonos por Sede
     abonos_l1 = sum((t.monto for t in transacciones if t.tipo_movimiento == 'abono' and (t.local_id or 1) == 1), Decimal('0.00'))
@@ -103,57 +211,25 @@ def detalle(id):
 
     # Desglose de Abonos por Método de Pago
     abonos_por_metodo = {}
-    abonos_lista = [t for t in transacciones if t.tipo_movimiento == 'abono']
     for a in abonos_lista:
         met = (a.metodo_pago or 'efectivo').lower().strip()
         abonos_por_metodo[met] = abonos_por_metodo.get(met, Decimal('0.00')) + a.monto
 
-    # Calcular saldo individual por producto / sale_id
-    abonos_por_sale_id = {}
-    for a in abonos_lista:
-        if a.sale_id:
-            abonos_por_sale_id[a.sale_id] = abonos_por_sale_id.get(a.sale_id, Decimal('0.00')) + a.monto
-
-    productos_cartera = []
-    cargos_registros = [t for t in transacciones if t.tipo_movimiento == 'cargo']
-    for c in cargos_registros:
-        s_id = c.sale_id or c.id
-        tot_abono = abonos_por_sale_id.get(s_id, Decimal('0.00'))
-        if not c.sale_id and c.id in abonos_por_sale_id:
-            tot_abono += abonos_por_sale_id[c.id]
-        
-        saldo_prod = max(c.monto - tot_abono, Decimal('0.00'))
-        porcentaje_pagado = int((tot_abono / c.monto * 100) if c.monto > 0 else 100)
-        c.total_abonado = tot_abono
-        c.saldo_pendiente = saldo_prod
-        c.porcentaje_pagado = min(porcentaje_pagado, 100)
-
-        productos_cartera.append({
-            'cargo_id': c.id,
-            'sale_id': s_id,
-            'descripcion': c.descripcion or f'Venta #{s_id}',
-            'monto_cargo': c.monto,
-            'total_abonado': tot_abono,
-            'saldo_pendiente': saldo_prod,
-            'porcentaje_pagado': c.porcentaje_pagado,
-            'fecha': c.fecha,
-            'local_id': c.local_id or 1,
-            'usuario': c.usuario.nombre if c.usuario else 'Sistema',
-            'pagado_completo': (saldo_prod <= Decimal('0.00'))
-        })
-
     # Inyectar variables de saldo de producto en las transacciones para la tabla principal
     for t in transacciones:
         if t.tipo_movimiento == 'cargo':
-            s_id = t.sale_id or t.id
-            tot_ab = abonos_por_sale_id.get(s_id, Decimal('0.00'))
-            t.total_abonado_producto = tot_ab
-            t.saldo_pendiente_producto = max(t.monto - tot_ab, Decimal('0.00'))
+            info = cargo_data.get(t.id)
+            if info:
+                t.total_abonado_producto = info['total_abonado']
+                t.saldo_pendiente_producto = info['saldo_pendiente']
+            else:
+                t.total_abonado_producto = Decimal('0.00')
+                t.saldo_pendiente_producto = t.monto
         elif t.tipo_movimiento == 'abono' and t.sale_id:
             cargo_asoc = next((c for c in cargos_registros if (c.sale_id == t.sale_id or c.id == t.sale_id)), None)
             if cargo_asoc:
-                tot_ab = abonos_por_sale_id.get(t.sale_id, Decimal('0.00'))
-                t.saldo_pendiente_producto = max(cargo_asoc.monto - tot_ab, Decimal('0.00'))
+                info = cargo_data.get(cargo_asoc.id)
+                t.saldo_pendiente_producto = info['saldo_pendiente'] if info else Decimal('0.00')
                 t.monto_cargo_producto = cargo_asoc.monto
                 t.cargo_asociado_desc = cargo_asoc.descripcion
             else:
@@ -211,7 +287,7 @@ def abonar(id):
     transacciones_existentes = PuntoTransaction.query.filter_by(punto_id=punto.id).all()
     cargos = sum((t.monto for t in transacciones_existentes if t.tipo_movimiento == 'cargo'), Decimal('0.00'))
     abonos = sum((t.monto for t in transacciones_existentes if t.tipo_movimiento == 'abono'), Decimal('0.00'))
-    saldo_pendiente = cargos - abonos
+    saldo_pendiente = max(cargos - abonos, Decimal('0.00'))
 
     if saldo_pendiente <= 0:
         flash(f'El punto "{punto.nombre}" ya se encuentra al día ($0 saldo pendiente). No es posible registrar abonos.', 'warning')
@@ -257,24 +333,18 @@ def abonar(id):
 
     # Validación estricta a nivel de producto / venta específica si se seleccionó uno
     if sale_id:
+        cartera_info = calcular_cartera_punto(transacciones_existentes)
         cargo_ref = next((t for t in transacciones_existentes if t.tipo_movimiento == 'cargo' and (t.sale_id == sale_id or (not t.sale_id and t.id == sale_id))), None)
         if not cargo_ref:
             flash('No se encontró el cargo o producto seleccionado para este punto.', 'danger')
             return redirect(url_for('puntos_bp.detalle', id=punto.id))
 
-        cargos_producto = sum(
-            (t.monto for t in transacciones_existentes if t.tipo_movimiento == 'cargo' and (t.sale_id == sale_id or (not t.sale_id and t.id == sale_id))),
-            Decimal('0.00')
-        )
-        abonos_producto = sum(
-            (t.monto for t in transacciones_existentes if t.tipo_movimiento == 'abono' and t.sale_id == sale_id),
-            Decimal('0.00')
-        )
-        saldo_pendiente_prod = max(cargos_producto - abonos_producto, Decimal('0.00'))
+        prod_info = cartera_info['cargo_data'].get(cargo_ref.id)
+        saldo_pendiente_prod = prod_info['saldo_pendiente'] if prod_info else Decimal('0.00')
 
         # Si el producto ya quedó en 0, BLOQUEAR abonos adicionales
         if saldo_pendiente_prod <= Decimal('0.00'):
-            flash(f'El producto/ítem "{cargo_ref.descripcion or f"Venta #{sale_id}"}" ya se encuentra completamente pagado ($0 saldo pendiente). No es posible realizar más abonos a este producto.', 'warning')
+            flash(f'El producto/ítem "{cargo_ref.descripcion or f"Venta #{sale_id}"}" ya se encuentra cubierto/pagado ($0 saldo pendiente). No es posible realizar más abonos a este producto.', 'warning')
             return redirect(url_for('puntos_bp.detalle', id=punto.id))
 
         # Si el monto ingresado supera lo que falta por pagar de ese producto, BLOQUEAR
