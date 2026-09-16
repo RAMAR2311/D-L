@@ -447,6 +447,7 @@
 </div>
 
 <!-- ================================================================= -->
+<!-- ================================================================= -->
 <!-- MODAL: DESGLOSE DETALLADO Y COMPLETO DE ABONOS REALIZADOS          -->
 <!-- ================================================================= -->
 <div class="modal fade" id="modalDetalleAbonos" tabindex="-1" aria-hidden="true">
@@ -462,39 +463,48 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <!-- Tarjetas de Resumen de Abonos por Sede Pagadora -->
+                <!-- Tarjetas de Resumen de Abonos por Sede Pagadora (Clic para filtrar) -->
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <div class="p-3 bg-light rounded-3 border-start border-4 border-primary">
-                            <small class="text-muted fw-bold d-block text-uppercase">🏪 Desembolsado por D&L 1</small>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-primary filter-card-abono shadow-sm" data-filter="d&l 1" role="button" title="Clic para filtrar abonos de D&L 1">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted fw-bold text-uppercase">🏪 Desembolsado por D&L 1</small>
+                                <i class="fa-solid fa-filter text-primary small opacity-50"></i>
+                            </div>
                             <h4 class="fw-bolder text-primary m-0">${{ '{:,.0f}'.format(abonos_l1) }}</h4>
                             <small class="text-muted">{{ count_abonos_l1 }} abono{% if count_abonos_l1 != 1 %}s{% endif %}</small>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-light rounded-3 border-start border-4 border-info">
-                            <small class="text-muted fw-bold d-block text-uppercase">🏪 Desembolsado por D&L 2</small>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-info filter-card-abono shadow-sm" data-filter="d&l 2" role="button" title="Clic para filtrar abonos de D&L 2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted fw-bold text-uppercase">🏪 Desembolsado por D&L 2</small>
+                                <i class="fa-solid fa-filter text-info small opacity-50"></i>
+                            </div>
                             <h4 class="fw-bolder text-info m-0">${{ '{:,.0f}'.format(abonos_l2) }}</h4>
                             <small class="text-muted">{{ count_abonos_l2 }} abono{% if count_abonos_l2 != 1 %}s{% endif %}</small>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-light rounded-3 border-start border-4 border-success">
-                            <small class="text-muted fw-bold d-block text-uppercase">🏪 Desembolsado por D&L 3</small>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-success filter-card-abono shadow-sm" data-filter="d&l 3" role="button" title="Clic para filtrar abonos de D&L 3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted fw-bold text-uppercase">🏪 Desembolsado por D&L 3</small>
+                                <i class="fa-solid fa-filter text-success small opacity-50"></i>
+                            </div>
                             <h4 class="fw-bolder text-success m-0">${{ '{:,.0f}'.format(abonos_l3) }}</h4>
                             <small class="text-muted">{{ count_abonos_l3 }} abono{% if count_abonos_l3 != 1 %}s{% endif %}</small>
                         </div>
                     </div>
                 </div>
 
-                <!-- Resumen por Métodos de Pago -->
+                <!-- Resumen por Métodos de Pago (Clic para filtrar) -->
                 <div class="p-3 bg-white rounded-3 border mb-3">
                     <small class="fw-bold text-muted text-uppercase d-block mb-2">
-                        <i class="fa-solid fa-wallet me-1 text-primary"></i>Desglose por Métodos de Pago Empleados:
+                        <i class="fa-solid fa-wallet me-1 text-primary"></i>Desglose por Métodos de Pago Empleados (Clic para filtrar):
                     </small>
                     <div class="d-flex flex-wrap gap-2">
                         {% for met, m_val in abonos_por_metodo.items() %}
-                        <span class="badge bg-light text-dark border px-3 py-2 fs-6 fw-semibold">
+                        <span class="badge bg-light text-dark border px-3 py-2 fs-6 fw-semibold filter-metodo-abono shadow-sm" data-filter="{{ met }}" role="button" title="Clic para filtrar por {{ met|capitalize }}">
                             {% if met == 'efectivo' %}💵 Efectivo (Caja):
                             {% elif met == 'nequi' %}📱 Nequi:
                             {% elif met == 'bancolombia' %}🏦 Bancolombia:
@@ -517,7 +527,7 @@
                     </div>
                 </div>
 
-                <!-- Tabla Detallada de Abonos -->
+                <!-- Tabla Detallada de Abonos (Solo Consulta y Filtro) -->
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="tablaDetalleAbonos">
                         <thead class="bg-light text-muted small text-uppercase">
@@ -528,8 +538,7 @@
                                 <th class="py-2">CAJERO / REGISTRADO POR</th>
                                 <th class="text-center py-2">MÉTODO DE PAGO</th>
                                 <th class="py-2">CONCEPTO / DESTINO</th>
-                                <th class="text-end py-2">MONTO ABONADO</th>
-                                <th class="text-center pe-3 py-2">ACCIÓN</th>
+                                <th class="text-end pe-3 py-2">MONTO ABONADO</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -576,30 +585,17 @@
                                     <span class="fw-semibold text-dark">{{ a.descripcion or 'Abono general a cuenta' }}</span>
                                     {% if a.sale_id %}
                                         <small class="text-primary d-block fw-bold" style="font-size: 0.72rem;">
-                                            <i class="fa-solid fa-tag me-1"></i>Aplicado a Venta #{{ a.sale_id }}
+                                             <i class="fa-solid fa-tag me-1"></i>Aplicado a Venta #{{ a.sale_id }}
                                         </small>
                                     {% endif %}
                                 </td>
-                                <td class="text-end fw-bolder text-success fs-6">
+                                <td class="text-end pe-3 fw-bolder text-success fs-6">
                                     ${{ '{:,.0f}'.format(a.monto) }}
-                                </td>
-                                <td class="text-center pe-3">
-                                    <div class="d-flex justify-content-center gap-2">
-                                        <button class="btn btn-sm btn-outline-primary px-2 py-1 rounded-circle" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalEditarTransaccion{{ a.id }}" title="Editar abono">
-                                            <i class="fa-solid fa-pen"></i>
-                                        </button>
-                                        <form action="{{ url_for('puntos_bp.eliminar_transaccion', t_id=a.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este abono de ${{ '{:,.0f}'.format(a.monto) }}? Se recalculará la deuda y se anulará el egreso en caja.');" class="m-0">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                            <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1 rounded-circle" title="Eliminar abono">
-                                                <i class="fa-solid fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
                                 </td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="8" class="text-center py-5 text-muted">
+                                <td colspan="7" class="text-center py-5 text-muted">
                                     <i class="fa-solid fa-hand-holding-dollar fa-2x mb-2 text-black-50"></i><br>
                                     No hay abonos registrados para este Punto.
                                 </td>
@@ -611,11 +607,6 @@
             </div>
             <div class="modal-footer bg-light border-0">
                 <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
-                {% if saldo_pendiente > 0 %}
-                <button type="button" class="btn btn-success rounded-pill px-4 fw-bold" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalAbonarPunto">
-                    <i class="fa-solid fa-plus-circle me-1"></i> Registrar Nuevo Abono
-                </button>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -637,25 +628,34 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <!-- Tarjetas de Resumen de Cargos por Sede Receptora -->
+                <!-- Tarjetas de Resumen de Cargos por Sede Receptora (Clic para filtrar) -->
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <div class="p-3 bg-light rounded-3 border-start border-4 border-primary">
-                            <small class="text-muted fw-bold d-block text-uppercase">🏪 Ingresado en D&L 1</small>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-primary filter-card-cargo shadow-sm" data-filter="d&l 1" role="button" title="Clic para filtrar cargos de D&L 1">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted fw-bold text-uppercase">🏪 Ingresado en D&L 1</small>
+                                <i class="fa-solid fa-filter text-primary small opacity-50"></i>
+                            </div>
                             <h4 class="fw-bolder text-primary m-0">${{ '{:,.0f}'.format(cargos_l1) }}</h4>
                             <small class="text-muted">{{ count_cargos_l1 }} cargo{% if count_cargos_l1 != 1 %}s{% endif %}</small>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-light rounded-3 border-start border-4 border-info">
-                            <small class="text-muted fw-bold d-block text-uppercase">🏪 Ingresado en D&L 2</small>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-info filter-card-cargo shadow-sm" data-filter="d&l 2" role="button" title="Clic para filtrar cargos de D&L 2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted fw-bold text-uppercase">🏪 Ingresado en D&L 2</small>
+                                <i class="fa-solid fa-filter text-info small opacity-50"></i>
+                            </div>
                             <h4 class="fw-bolder text-info m-0">${{ '{:,.0f}'.format(cargos_l2) }}</h4>
                             <small class="text-muted">{{ count_cargos_l2 }} cargo{% if count_cargos_l2 != 1 %}s{% endif %}</small>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-light rounded-3 border-start border-4 border-success">
-                            <small class="text-muted fw-bold d-block text-uppercase">🏪 Ingresado en D&L 3</small>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-success filter-card-cargo shadow-sm" data-filter="d&l 3" role="button" title="Clic para filtrar cargos de D&L 3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted fw-bold text-uppercase">🏪 Ingresado en D&L 3</small>
+                                <i class="fa-solid fa-filter text-success small opacity-50"></i>
+                            </div>
                             <h4 class="fw-bolder text-success m-0">${{ '{:,.0f}'.format(cargos_l3) }}</h4>
                             <small class="text-muted">{{ count_cargos_l3 }} cargo{% if count_cargos_l3 != 1 %}s{% endif %}</small>
                         </div>
@@ -670,7 +670,7 @@
                     </div>
                 </div>
 
-                <!-- Tabla Detallada de Cargos -->
+                <!-- Tabla Detallada de Cargos (Solo Consulta y Filtro) -->
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="tablaDetalleCargos">
                         <thead class="bg-light text-muted small text-uppercase">
@@ -683,7 +683,7 @@
                                 <th class="text-end py-2">VALOR CARGO</th>
                                 <th class="text-end py-2">TOTAL ABONADO</th>
                                 <th class="text-end py-2">SALDO RESTANTE</th>
-                                <th class="text-center pe-3 py-2">ESTADO / ACCIÓN</th>
+                                <th class="text-center pe-3 py-2">ESTADO</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -727,28 +727,15 @@
                                     ${{ '{:,.0f}'.format(c.saldo_pendiente or 0) }}
                                 </td>
                                 <td class="text-center pe-3">
-                                    <div class="d-flex justify-content-center align-items-center gap-2">
-                                        {% if (c.saldo_pendiente or 0) <= 0 %}
-                                            <span class="badge bg-success text-white rounded-pill px-3 py-1 fw-bold">
-                                                <i class="fa-solid fa-check-circle me-1"></i>PAGADO ($0)
-                                            </span>
-                                        {% else %}
-                                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 fw-bold btn-abonar-producto" 
-                                                    data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalAbonarPunto" 
-                                                    data-sale-id="{{ c.sale_id or c.id }}" data-saldo="{{ (c.saldo_pendiente or 0)|int }}">
-                                                <i class="fa-solid fa-hand-holding-dollar me-1"></i>Abonar (${{ '{:,.0f}'.format(c.saldo_pendiente or 0) }})
-                                            </button>
-                                        {% endif %}
-                                        <button class="btn btn-sm btn-outline-primary px-2 py-1 rounded-circle" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalEditarTransaccion{{ c.id }}" title="Editar cargo">
-                                            <i class="fa-solid fa-pen"></i>
-                                        </button>
-                                        <form action="{{ url_for('puntos_bp.eliminar_transaccion', t_id=c.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este cargo? Esta acción afectará el saldo pendiente.');" class="m-0">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                            <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1 rounded-circle" title="Eliminar cargo">
-                                                <i class="fa-solid fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
+                                    {% if (c.saldo_pendiente or 0) <= 0 %}
+                                        <span class="badge bg-success text-white rounded-pill px-3 py-1 fw-bold">
+                                            <i class="fa-solid fa-check-circle me-1"></i>PAGADO ($0)
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning bg-opacity-10 text-dark border border-warning rounded-pill px-3 py-1 fw-bold">
+                                            <i class="fa-solid fa-clock me-1 text-warning"></i>PENDIENTE (${{ '{:,.0f}'.format(c.saldo_pendiente or 0) }})
+                                        </span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% else %}
@@ -765,9 +752,6 @@
             </div>
             <div class="modal-footer bg-light border-0">
                 <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-warning rounded-pill px-4 fw-bold text-dark" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalNuevoCargo">
-                    <i class="fa-solid fa-plus-circle me-1"></i> Registrar Nuevo Cargo / Saldo
-                </button>
             </div>
         </div>
     </div>
@@ -790,25 +774,34 @@
             </div>
             <div class="modal-body p-4">
                 {% if saldo_pendiente > 0 %}
-                <!-- Tarjetas de Resumen de Deuda Pendiente por Sede donde se Originó -->
+                <!-- Tarjetas de Resumen de Deuda Pendiente por Sede donde se Originó (Clic para filtrar) -->
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <div class="p-3 bg-light rounded-3 border-start border-4 border-primary">
-                            <small class="text-muted fw-bold d-block text-uppercase">🏪 Deuda Originada en D&L 1</small>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-primary filter-card-pendiente shadow-sm" data-filter="d&l 1" role="button" title="Clic para filtrar deuda de D&L 1">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted fw-bold text-uppercase">🏪 Deuda Originada en D&L 1</small>
+                                <i class="fa-solid fa-filter text-primary small opacity-50"></i>
+                            </div>
                             <h4 class="fw-bolder text-primary m-0">${{ '{:,.0f}'.format(deuda_l1) }}</h4>
                             <small class="text-muted">Sede 1</small>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-light rounded-3 border-start border-4 border-info">
-                            <small class="text-muted fw-bold d-block text-uppercase">🏪 Deuda Originada en D&L 2</small>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-info filter-card-pendiente shadow-sm" data-filter="d&l 2" role="button" title="Clic para filtrar deuda de D&L 2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted fw-bold text-uppercase">🏪 Deuda Originada en D&L 2</small>
+                                <i class="fa-solid fa-filter text-info small opacity-50"></i>
+                            </div>
                             <h4 class="fw-bolder text-info m-0">${{ '{:,.0f}'.format(deuda_l2) }}</h4>
                             <small class="text-muted">Sede 2</small>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-light rounded-3 border-start border-4 border-success">
-                            <small class="text-muted fw-bold d-block text-uppercase">🏪 Deuda Originada en D&L 3</small>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-success filter-card-pendiente shadow-sm" data-filter="d&l 3" role="button" title="Clic para filtrar deuda de D&L 3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted fw-bold text-uppercase">🏪 Deuda Originada en D&L 3</small>
+                                <i class="fa-solid fa-filter text-success small opacity-50"></i>
+                            </div>
                             <h4 class="fw-bolder text-success m-0">${{ '{:,.0f}'.format(deuda_l3) }}</h4>
                             <small class="text-muted">Sede 3</small>
                         </div>
@@ -823,7 +816,7 @@
                     </div>
                 </div>
 
-                <!-- Tabla Detallada de Ítems Pendientes -->
+                <!-- Tabla Detallada de Ítems Pendientes (Solo Consulta y Filtro) -->
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="tablaDetallePendientes">
                         <thead class="bg-light text-muted small text-uppercase">
@@ -834,8 +827,7 @@
                                 <th class="py-2">PRODUCTO / CARGO PENDIENTE</th>
                                 <th class="text-end py-2">VALOR TOTAL</th>
                                 <th class="text-end py-2">YA ABONADO</th>
-                                <th class="text-end py-2">SALDO QUE FALTA</th>
-                                <th class="text-center pe-3 py-2">ACCIÓN RÁPIDA</th>
+                                <th class="text-end pe-3 py-2">SALDO QUE FALTA</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -870,15 +862,8 @@
                                 </td>
                                 <td class="text-end fw-semibold text-dark">${{ '{:,.0f}'.format(p.monto_cargo) }}</td>
                                 <td class="text-end fw-semibold text-success">${{ '{:,.0f}'.format(p.total_abonado) }}</td>
-                                <td class="text-end fw-bolder text-danger fs-6">
+                                <td class="text-end pe-3 fw-bolder text-danger fs-6">
                                     ${{ '{:,.0f}'.format(p.saldo_pendiente) }}
-                                </td>
-                                <td class="text-center pe-3">
-                                    <button type="button" class="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold btn-abonar-producto" 
-                                            data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalAbonarPunto" 
-                                            data-sale-id="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}">
-                                        <i class="fa-solid fa-hand-holding-dollar me-1"></i>Abonar (${{ '{:,.0f}'.format(p.saldo_pendiente) }})
-                                    </button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -897,11 +882,6 @@
             </div>
             <div class="modal-footer bg-light border-0">
                 <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
-                {% if saldo_pendiente > 0 %}
-                <button type="button" class="btn btn-success rounded-pill px-4 fw-bold" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#modalAbonarPunto">
-                    <i class="fa-solid fa-hand-holding-dollar me-1"></i> Registrar Abono General
-                </button>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -1254,6 +1234,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Filtros interactivos por clic en tarjetas y métodos dentro del modal de Abonos
+    document.querySelectorAll('.filter-card-abono, .filter-metodo-abono').forEach(function(el) {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function() {
+            const filterVal = (this.getAttribute('data-filter') || '').trim();
+            if (inputBuscadorAbonos) {
+                if (inputBuscadorAbonos.value.toLowerCase() === filterVal.toLowerCase()) {
+                    inputBuscadorAbonos.value = '';
+                } else {
+                    inputBuscadorAbonos.value = filterVal;
+                }
+                inputBuscadorAbonos.dispatchEvent(new Event('input'));
+            }
+        });
+    });
+
     // 5. Buscador en vivo en el modal de Cargos / Nuevos Saldos
     const inputBuscadorCargos = document.getElementById('buscadorCargosModal');
     if (inputBuscadorCargos) {
@@ -1267,6 +1263,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Filtros interactivos por clic en tarjetas dentro del modal de Cargos
+    document.querySelectorAll('.filter-card-cargo').forEach(function(el) {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function() {
+            const filterVal = (this.getAttribute('data-filter') || '').trim();
+            if (inputBuscadorCargos) {
+                if (inputBuscadorCargos.value.toLowerCase() === filterVal.toLowerCase()) {
+                    inputBuscadorCargos.value = '';
+                } else {
+                    inputBuscadorCargos.value = filterVal;
+                }
+                inputBuscadorCargos.dispatchEvent(new Event('input'));
+            }
+        });
+    });
+
     // 6. Buscador en vivo en el modal de Saldos Pendientes
     const inputBuscadorPendientes = document.getElementById('buscadorPendientesModal');
     if (inputBuscadorPendientes) {
@@ -1279,6 +1291,22 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // Filtros interactivos por clic en tarjetas dentro del modal de Pendientes
+    document.querySelectorAll('.filter-card-pendiente').forEach(function(el) {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function() {
+            const filterVal = (this.getAttribute('data-filter') || '').trim();
+            if (inputBuscadorPendientes) {
+                if (inputBuscadorPendientes.value.toLowerCase() === filterVal.toLowerCase()) {
+                    inputBuscadorPendientes.value = '';
+                } else {
+                    inputBuscadorPendientes.value = filterVal;
+                }
+                inputBuscadorPendientes.dispatchEvent(new Event('input'));
+            }
+        });
+    });
 
     // 7. Apertura automática según parámetro en la URL (?ver=abonos, ?ver=cargos, ?ver=pendientes)
     const urlParams = new URLSearchParams(window.location.search);
