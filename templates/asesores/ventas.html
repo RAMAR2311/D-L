@@ -76,73 +76,156 @@
     <!-- TARJETAS DE KPIS FINANCIEROS Y COMERCIALES -->
     <div class="row g-3 mb-4">
         <!-- KPI 1: Total Facturado -->
-        <div class="col-md-3">
-            <div class="card card-custom h-100 p-3 border-start border-4 border-success shadow-sm bg-white">
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom h-100 p-3 border-start border-4 border-dark shadow-sm bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <span class="text-muted small fw-bold text-uppercase">Total Facturado</span>
-                    <div class="rounded-circle bg-success bg-opacity-10 p-2 text-success">
-                        <i class="fa-solid fa-sack-dollar fs-5"></i>
+                    <div class="rounded-circle bg-dark bg-opacity-10 p-2 text-dark">
+                        <i class="fa-solid fa-cash-register fs-5"></i>
                     </div>
                 </div>
-                <h3 class="fw-bolder text-success mb-0">${{ total_ventas_asesor|cop }}</h3>
+                <h3 class="fw-bolder text-dark mb-0">${{ total_ventas_asesor|cop }}</h3>
                 <small class="text-muted" style="font-size: 0.72rem;">Recaudado en el rango seleccionado</small>
             </div>
         </div>
 
-        <!-- KPI 2: Ventas Registradas -->
-        <div class="col-md-3">
+        <!-- KPI 2: Utilidad Estimada (Resaltada en Verde Esmeralda) -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom h-100 p-3 shadow-sm border-0 position-relative overflow-hidden" 
+                 style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-left: 5px solid #059669 !important;">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-success fw-bold small text-uppercase">
+                        <i class="fa-solid fa-chart-pie me-1"></i>Utilidad Estimada
+                    </span>
+                    <div class="rounded-circle bg-success text-white p-2 shadow-sm d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                        <i class="fa-solid fa-hand-holding-dollar fs-6"></i>
+                    </div>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h3 class="fw-bolder mb-0 text-success">${{ total_utilidad_asesor|cop }}</h3>
+                    {% if total_ventas_asesor and total_ventas_asesor > 0 %}
+                    <span class="badge bg-success text-white fw-bold px-2 py-1 rounded-pill shadow-sm" style="font-size: 0.75rem;">
+                        {{ "%.1f"|format((total_utilidad_asesor / total_ventas_asesor) * 100) }}% Margen
+                    </span>
+                    {% endif %}
+                </div>
+                <small class="text-success text-opacity-75 fw-semibold" style="font-size: 0.72rem;">Ganancia neta sobre costo mercancía</small>
+            </div>
+        </div>
+
+        <!-- KPI 3: Ventas Registradas -->
+        <div class="col-xl-2 col-md-4">
             <div class="card card-custom h-100 p-3 border-start border-4 border-primary shadow-sm bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small fw-bold text-uppercase">Ventas Registradas</span>
+                    <span class="text-muted small fw-bold text-uppercase">Ventas</span>
                     <div class="rounded-circle bg-primary bg-opacity-10 p-2 text-primary">
                         <i class="fa-solid fa-receipt fs-5"></i>
                     </div>
                 </div>
                 <h3 class="fw-bolder text-primary mb-0">{{ conteo_ventas_asesor }}</h3>
-                <small class="text-muted" style="font-size: 0.72rem;">Transacciones con asesor asignado</small>
+                <small class="text-muted" style="font-size: 0.72rem;">Transacciones totales</small>
             </div>
         </div>
 
-        <!-- KPI 3: Asesor Filtrado -->
-        <div class="col-md-3">
-            <div class="card card-custom h-100 p-3 border-start border-4 border-info shadow-sm bg-white">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small fw-bold text-uppercase">Asesor Comercial</span>
-                    <div class="rounded-circle bg-info bg-opacity-10 p-2 text-info">
-                        <i class="fa-solid fa-user-check fs-5"></i>
-                    </div>
-                </div>
-                <h4 class="fw-bolder text-dark mb-0 text-truncate">
-                    {{ asesor_seleccionado.nombre if asesor_seleccionado else 'Todos los Asesores' }}
-                </h4>
-                <small class="text-muted" style="font-size: 0.72rem;">
-                    {% if asesor_seleccionado %}Sede: Local {{ asesor_seleccionado.local_id }}{% else %}Filtro consolidado{% endif %}
-                </small>
-            </div>
-        </div>
-
-        <!-- KPI 4: Promedio por Ticket -->
-        <div class="col-md-3">
+        <!-- KPI 4: Ticket Promedio -->
+        <div class="col-xl-2 col-md-4">
             <div class="card card-custom h-100 p-3 border-start border-4 border-warning shadow-sm bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small fw-bold text-uppercase">Ticket Promedio</span>
+                    <span class="text-muted small fw-bold text-uppercase">Ticket Prom.</span>
                     <div class="rounded-circle bg-warning bg-opacity-10 p-2 text-warning">
                         <i class="fa-solid fa-chart-line fs-5"></i>
                     </div>
                 </div>
-                <h3 class="fw-bolder text-dark mb-0">
+                <h4 class="fw-bolder text-dark mb-0">
                     ${{ ((total_ventas_asesor / conteo_ventas_asesor) if conteo_ventas_asesor > 0 else 0)|cop }}
-                </h3>
-                <small class="text-muted" style="font-size: 0.72rem;">Monto promedio por factura</small>
+                </h4>
+                <small class="text-muted" style="font-size: 0.72rem;">Monto promedio x factura</small>
+            </div>
+        </div>
+
+        <!-- KPI 5: Asesor Filtrado -->
+        <div class="col-xl-2 col-md-4">
+            <div class="card card-custom h-100 p-3 border-start border-4 border-info shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small fw-bold text-uppercase">Asesor</span>
+                    <div class="rounded-circle bg-info bg-opacity-10 p-2 text-info">
+                        <i class="fa-solid fa-user-check fs-5"></i>
+                    </div>
+                </div>
+                <h5 class="fw-bolder text-dark mb-0 text-truncate">
+                    {{ asesor_seleccionado.nombre if asesor_seleccionado else 'Todos' }}
+                </h5>
+                <small class="text-muted" style="font-size: 0.72rem;">
+                    {% if asesor_seleccionado %}Local {{ asesor_seleccionado.local_id }}{% else %}Filtro consolidado{% endif %}
+                </small>
             </div>
         </div>
     </div>
+
+    <!-- TABLA DE RESUMEN CONSOLIDADO POR ASESOR (Solo visible si hay asesores con ventas) -->
+    {% if lista_resumen_asesores and lista_resumen_asesores|length > 0 %}
+    <div class="card card-custom p-0 overflow-hidden shadow-sm border-0 bg-white mb-4">
+        <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-brand-black mb-0">
+                <i class="fa-solid fa-users-viewfinder text-primary me-2"></i>Resumen de Rendimiento y Utilidad por Asesor
+            </h5>
+            <span class="badge bg-primary rounded-pill px-3 py-1">{{ lista_resumen_asesores|length }} asesores activos</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4 py-3" width="28%">Asesor Comercial</th>
+                        <th width="14%">Sede / Local</th>
+                        <th class="text-center" width="12%">N° Facturas</th>
+                        <th class="text-end" width="20%">Venta Neta Total</th>
+                        <th class="text-end pe-4" width="26%">Utilidad Ganada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in lista_resumen_asesores %}
+                    <tr>
+                        <td class="ps-4">
+                            {% if item.id > 0 %}
+                                <div class="fw-bold text-dark">
+                                    <i class="fa-solid fa-user-check text-primary me-2"></i>{{ item.nombre }}
+                                </div>
+                            {% else %}
+                                <span class="badge bg-light text-muted border px-2 py-1">
+                                    <i class="fa-solid fa-circle-question me-1"></i>{{ item.nombre }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-secondary border">
+                                {% if item.local_id == 0 %}Todas las Sedes{% else %}Local {{ item.local_id }}{% endif %}
+                            </span>
+                        </td>
+                        <td class="text-center fw-bold text-secondary">{{ item.conteo }}</td>
+                        <td class="text-end fw-bold text-dark fs-6">${{ item.total_ventas|cop }}</td>
+                        <td class="text-end pe-4">
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 fs-6 fw-bold shadow-sm">
+                                <i class="fa-solid fa-arrow-trend-up me-1"></i>${{ item.total_utilidad|cop }}
+                            </span>
+                            {% if item.total_ventas and item.total_ventas > 0 %}
+                                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
+                                    Margen: <strong class="text-success">{{ "%.1f"|format((item.total_utilidad / item.total_ventas) * 100) }}%</strong>
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- TABLA DETALLADA DE VENTAS POR ASESOR -->
     <div class="card card-custom p-0 overflow-hidden shadow-sm border-0 bg-white">
         <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
             <h5 class="fw-bold text-brand-black mb-0">
-                <i class="fa-solid fa-list-check text-primary me-2"></i>Tirilla Digital de Ventas por Asesor
+                <i class="fa-solid fa-list-check text-primary me-2"></i>Tirilla Digital de Ventas Detalladas
             </h5>
             <span class="badge bg-dark rounded-pill px-3 py-1">{{ ventas|length }} facturas</span>
         </div>
@@ -151,12 +234,13 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="bg-light text-muted small text-uppercase">
                     <tr>
-                        <th class="ps-4 py-3" width="10%">Ticket</th>
-                        <th width="15%">Fecha y Hora</th>
-                        <th width="20%">Asesor Comercial</th>
-                        <th width="15%">Método Pago</th>
-                        <th width="28%">Productos / Servicios</th>
-                        <th class="text-end pe-4" width="12%">Total</th>
+                        <th class="ps-4 py-3" width="9%">Ticket</th>
+                        <th width="14%">Fecha y Hora</th>
+                        <th width="16%">Asesor Comercial</th>
+                        <th width="12%">Método Pago</th>
+                        <th width="24%">Productos / Servicios</th>
+                        <th class="text-end" width="12%">Venta Neta</th>
+                        <th class="text-end pe-4" width="13%">Utilidad Ganada</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -197,17 +281,40 @@
                                 {% endfor %}
                             </div>
                         </td>
-                        <td class="text-end pe-4 fw-bolder text-dark fs-6">${{ v.monto_total|cop }}</td>
+                        <td class="text-end fw-bolder text-dark fs-6">${{ v.monto_total|cop }}</td>
+                        <td class="text-end pe-4">
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2.5 py-1.5 fs-6 fw-bold shadow-sm">
+                                +${{ v.utilidad|cop }}
+                            </span>
+                            {% if v.monto_total and v.monto_total > 0 %}
+                                <div class="text-muted small mt-1" style="font-size: 0.72rem;">
+                                    Margen: <strong class="text-success">{{ "%.1f"|format((v.utilidad / v.monto_total) * 100) }}%</strong>
+                                </div>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="text-center py-5 text-muted">
+                        <td colspan="7" class="text-center py-5 text-muted">
                             <i class="fa-solid fa-inbox fs-1 text-muted opacity-50 mb-2 d-block"></i>
                             No se registraron ventas para los filtros seleccionados.
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
+                {% if ventas and ventas|length > 0 %}
+                <tfoot class="bg-light fw-bold border-top">
+                    <tr>
+                        <td colspan="5" class="ps-4 py-3 text-uppercase text-secondary small">Totales del período filtrado</td>
+                        <td class="text-end py-3 text-dark fs-6">${{ total_ventas_asesor|cop }}</td>
+                        <td class="text-end pe-4 py-3">
+                            <span class="badge bg-success text-white px-3 py-2 fs-6 fw-bold shadow-sm">
+                                +${{ total_utilidad_asesor|cop }}
+                            </span>
+                        </td>
+                    </tr>
+                </tfoot>
+                {% endif %}
             </table>
         </div>
     </div>

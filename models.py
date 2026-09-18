@@ -185,6 +185,27 @@ class Sale(db.Model):
             return self.pagos[0].metodo_pago.capitalize()
         return 'Pago Mixto'
 
+    @property
+    def costo_total(self):
+        """Calcula el costo total de la mercancía vendida en esta factura."""
+        if not self.detalles:
+            return Decimal('0.00')
+        return sum((d.costo_total for d in self.detalles), Decimal('0.00'))
+
+    @property
+    def utilidad(self):
+        """Calcula la utilidad bruta de la venta (Total facturado - Costo de mercancía)."""
+        monto = Decimal(str(self.monto_total or 0))
+        return monto - self.costo_total
+
+    @property
+    def margen_porcentaje(self):
+        """Calcula el porcentaje de rentabilidad sobre la venta neta."""
+        monto = Decimal(str(self.monto_total or 0))
+        if monto > 0:
+            return (self.utilidad / monto) * Decimal('100.0')
+        return Decimal('0.00')
+
 class SalePayment(db.Model):
     """Modelo para soportar pagos mixtos/parciales por venta.
     Permite registrar múltiples métodos de pago en una sola venta.
@@ -220,6 +241,33 @@ class SaleDetail(db.Model):
 
     def __init__(self, **kwargs):
         super(SaleDetail, self).__init__(**kwargs)
+
+    @property
+    def costo_unitario(self):
+        """Obtiene el costo unitario según si es manual, con variante o producto base."""
+        if self.nombre_manual:
+            return Decimal(str(self.precio_costo_manual or 0))
+        elif self.variant_id and self.variante:
+            if self.variante.precio_costo is not None:
+                return Decimal(str(self.variante.precio_costo))
+            elif self.producto and self.producto.precio_costo is not None:
+                return Decimal(str(self.producto.precio_costo))
+        elif self.product_id and self.producto:
+            if self.producto.precio_costo is not None:
+                return Decimal(str(self.producto.precio_costo))
+        return Decimal('0.00')
+
+    @property
+    def costo_total(self):
+        return self.costo_unitario * self.cantidad_vendida
+
+    @property
+    def subtotal(self):
+        return Decimal(str(self.precio_venta_final or 0)) * self.cantidad_vendida
+
+    @property
+    def utilidad(self):
+        return self.subtotal - self.costo_total
 
 
 class Punto(db.Model):

@@ -186,7 +186,32 @@ def ventas_asesor():
     ventas = query_ventas.order_by(Sale.fecha_venta.desc()).all()
 
     total_ventas_asesor = sum((v.monto_total for v in ventas), Decimal('0.00'))
+    total_utilidad_asesor = sum((v.utilidad for v in ventas), Decimal('0.00'))
     conteo_ventas_asesor = len(ventas)
+
+    # Resumen comparativo de ventas y utilidad por asesor
+    resumen_por_asesor = {}
+    for v in ventas:
+        if v.asesor:
+            key = (v.asesor.id, v.asesor.nombre, v.asesor.local_id)
+        else:
+            key = (0, 'Sin Asesor Asignado', v.local_id or 0)
+
+        if key not in resumen_por_asesor:
+            resumen_por_asesor[key] = {
+                'id': key[0],
+                'nombre': key[1],
+                'local_id': key[2],
+                'conteo': 0,
+                'total_ventas': Decimal('0.00'),
+                'total_utilidad': Decimal('0.00'),
+            }
+        resumen_por_asesor[key]['conteo'] += 1
+        resumen_por_asesor[key]['total_ventas'] += Decimal(str(v.monto_total or 0))
+        resumen_por_asesor[key]['total_utilidad'] += v.utilidad
+
+    lista_resumen_asesores = list(resumen_por_asesor.values())
+    lista_resumen_asesores.sort(key=lambda x: x['total_ventas'], reverse=True)
 
     return render_template(
         'asesores/ventas.html',
@@ -198,5 +223,7 @@ def ventas_asesor():
         fecha_inicio=fecha_inicio_str,
         fecha_fin=fecha_fin_str,
         total_ventas_asesor=total_ventas_asesor,
-        conteo_ventas_asesor=conteo_ventas_asesor
+        total_utilidad_asesor=total_utilidad_asesor,
+        conteo_ventas_asesor=conteo_ventas_asesor,
+        lista_resumen_asesores=lista_resumen_asesores
     )
