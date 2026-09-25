@@ -406,15 +406,27 @@ def api_lista_puntos():
 @login_required
 def eliminar_punto(id):
     punto = Punto.query.get_or_404(id)
+    punto_nombre = punto.nombre
     try:
-        # Eliminar las transacciones asociadas primero para evitar problemas de FK si no hay cascade
+        # Eliminar las transacciones asociadas y sus gastos asociados en caja
         transacciones = PuntoTransaction.query.filter_by(punto_id=punto.id).all()
         for t in transacciones:
+            if t.tipo_movimiento == 'abono':
+                gasto = Expense.query.filter(
+                    (Expense.categoria.ilike('%abono%')) | 
+                    (Expense.categoria.ilike('%punto%')) | 
+                    (Expense.descripcion.ilike(f"%{punto_nombre}%")),
+                    Expense.monto == t.monto
+                ).filter(
+                    (Expense.local_id == t.local_id) | (Expense.local_id.is_(None))
+                ).order_by(Expense.id.desc()).first()
+                if gasto:
+                    db.session.delete(gasto)
             db.session.delete(t)
         
         db.session.delete(punto)
         db.session.commit()
-        flash(f'Punto "{punto.nombre}" eliminado exitosamente.', 'success')
+        flash(f'Punto "{punto.nombre}" y sus transacciones asociadas eliminados exitosamente.', 'success')
     except Exception as e:
         db.session.rollback()
         flash('Error al intentar eliminar el Punto.', 'danger')
@@ -430,15 +442,32 @@ def eliminar_transaccion(t_id):
         # Si la transacción es un abono, eliminar también el Gasto Diario correspondiente en caja
         if transaccion.tipo_movimiento == 'abono':
             punto = Punto.query.get(punto_id)
-            punto_nombre = punto.nombre if punto else ''
-            prefijo_desc = f"Abono a Punto {punto_nombre}"
-            gasto_asociado = Expense.query.filter(
-                (Expense.categoria == 'Abono a Punto/Local') | (Expense.descripcion.like(f"{prefijo_desc}%")),
-                Expense.local_id == transaccion.local_id,
+            punto_nombre = (punto.nombre if punto else '').strip()
+            
+            # Búsqueda robusta del gasto asociado
+            query_gasto = Expense.query.filter(
+                (Expense.categoria.ilike('%abono%')) | 
+                (Expense.categoria.ilike('%punto%')) | 
+                (Expense.descripcion.ilike(f"%{punto_nombre}%")) |
+                (Expense.descripcion.ilike('%abono%')),
                 Expense.monto == transaccion.monto
-            ).filter(
+            )
+            
+            if transaccion.local_id:
+                query_gasto = query_gasto.filter(
+                    (Expense.local_id == transaccion.local_id) | (Expense.local_id.is_(None))
+                )
+            
+            # Buscar primero por coincidencia de fecha
+            gasto_asociado = query_gasto.filter(
                 db.func.date(Expense.fecha_gasto) == db.func.date(transaccion.fecha)
             ).order_by(Expense.id.desc()).first()
+
+            # Si no se encuentra por fecha exacta (ej: desfase de hora o zona horaria), buscar por nombre de punto y monto
+            if not gasto_asociado and punto_nombre:
+                gasto_asociado = query_gasto.filter(
+                    Expense.descripcion.ilike(f"%{punto_nombre}%")
+                ).order_by(Expense.id.desc()).first()
 
             if gasto_asociado:
                 db.session.delete(gasto_asociado)
@@ -548,15 +577,28 @@ def editar_transaccion(t_id):
         
         # Sincronizar gasto asociado si existe
         punto = Punto.query.get(punto_id)
-        punto_nombre = punto.nombre if punto else ''
-        prefijo_desc = f"Abono a Punto {punto_nombre}"
-        gasto_asociado = Expense.query.filter(
-            (Expense.categoria == 'Abono a Punto/Local') | (Expense.descripcion.like(f"{prefijo_desc}%")),
-            Expense.local_id == local_anterior,
+        punto_nombre = (punto.nombre if punto else '').strip()
+        
+        query_gasto = Expense.query.filter(
+            (Expense.categoria.ilike('%abono%')) | 
+            (Expense.categoria.ilike('%punto%')) | 
+            (Expense.descripcion.ilike(f"%{punto_nombre}%")) |
+            (Expense.descripcion.ilike('%abono%')),
             Expense.monto == monto_anterior
-        ).filter(
+        )
+        if local_anterior:
+            query_gasto = query_gasto.filter(
+                (Expense.local_id == local_anterior) | (Expense.local_id.is_(None))
+            )
+
+        gasto_asociado = query_gasto.filter(
             db.func.date(Expense.fecha_gasto) == db.func.date(fecha_anterior)
         ).order_by(Expense.id.desc()).first()
+
+        if not gasto_asociado and punto_nombre:
+            gasto_asociado = query_gasto.filter(
+                Expense.descripcion.ilike(f"%{punto_nombre}%")
+            ).order_by(Expense.id.desc()).first()
 
         if gasto_asociado:
             gasto_asociado.monto = transaccion.monto

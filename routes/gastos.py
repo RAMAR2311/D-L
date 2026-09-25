@@ -146,14 +146,28 @@ def eliminar_gasto(id):
     descripcion = gasto.descripcion or gasto.categoria
     try:
         # Si el gasto corresponde a un Abono a Punto, sincronizar y eliminar la transaccion del Punto
-        if gasto.categoria == 'Abono a Punto/Local' or (gasto.descripcion and 'Abono a Punto' in gasto.descripcion):
-            tx = PuntoTransaction.query.filter(
+        es_abono_punto = False
+        if gasto.categoria and ('abono' in gasto.categoria.lower() or 'punto' in gasto.categoria.lower()):
+            es_abono_punto = True
+        elif gasto.descripcion and ('abono a punto' in gasto.descripcion.lower() or 'abono' in gasto.descripcion.lower()):
+            es_abono_punto = True
+
+        if es_abono_punto:
+            query_tx = PuntoTransaction.query.filter(
                 PuntoTransaction.tipo_movimiento == 'abono',
-                PuntoTransaction.local_id == gasto.local_id,
                 PuntoTransaction.monto == gasto.monto
-            ).filter(
+            )
+            if gasto.local_id:
+                query_tx = query_tx.filter(
+                    (PuntoTransaction.local_id == gasto.local_id) | (PuntoTransaction.local_id.is_(None))
+                )
+
+            tx = query_tx.filter(
                 db.func.date(PuntoTransaction.fecha) == db.func.date(gasto.fecha_gasto)
             ).order_by(PuntoTransaction.id.desc()).first()
+
+            if not tx:
+                tx = query_tx.order_by(PuntoTransaction.id.desc()).first()
 
             if tx:
                 db.session.delete(tx)
