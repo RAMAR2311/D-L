@@ -192,7 +192,7 @@ def reporte():
     nombre_sede = local_nombres.get(active_local, 'D&L CENTRAL')
 
     fecha_inicio_str = request.args.get('fecha_inicio', obtener_hora_bogota().strftime('%Y-%m-%d'))
-    fecha_fin_str = request.args.get('fecha_fin', obtener_hora_bogota().strftime('%Y-%m-%d'))
+    fecha_fin_str = request.args.get('fecha_fin', fecha_inicio_str)
 
     try:
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
@@ -200,13 +200,8 @@ def reporte():
     except ValueError:
         fecha_inicio = obtener_hora_bogota().date()
         fecha_fin = obtener_hora_bogota().date()
-
-    if not is_admin:
-        hoy = obtener_hora_bogota().date()
-        fecha_inicio = hoy
-        fecha_fin = hoy
-        fecha_inicio_str = hoy.strftime('%Y-%m-%d')
-        fecha_fin_str = hoy.strftime('%Y-%m-%d')
+        fecha_inicio_str = fecha_inicio.strftime('%Y-%m-%d')
+        fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
 
     query = ArqueoCaja.query.filter(
         ArqueoCaja.fecha_arqueo >= fecha_inicio,
