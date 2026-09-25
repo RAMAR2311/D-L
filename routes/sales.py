@@ -665,9 +665,22 @@ def eliminar_venta(sale_id):
                     )
                     db.session.add(ajuste)
                     
-        # Eliminar Transacciones de Punto (Deudas) generadas por esta venta
+        # Eliminar Transacciones de Punto (Deudas y Abonos) generadas por esta venta
         transacciones_punto = PuntoTransaction.query.filter_by(sale_id=venta.id).all()
         for transaccion in transacciones_punto:
+            if transaccion.tipo_movimiento == 'abono':
+                punto = Punto.query.get(transaccion.punto_id)
+                punto_nombre = (punto.nombre if punto else '').strip()
+                gasto = Expense.query.filter(
+                    (Expense.categoria.ilike('%abono%')) | 
+                    (Expense.categoria.ilike('%punto%')) | 
+                    (Expense.descripcion.ilike(f"%{punto_nombre}%")),
+                    Expense.monto == transaccion.monto
+                ).filter(
+                    (Expense.local_id == transaccion.local_id) | (Expense.local_id.is_(None))
+                ).order_by(Expense.id.desc()).first()
+                if gasto:
+                    db.session.delete(gasto)
             db.session.delete(transaccion)
 
         # Eliminar Traslados automáticos generados por esta venta para prevenir error de llave foránea
