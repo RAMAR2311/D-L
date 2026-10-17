@@ -244,9 +244,16 @@
                 <small class="text-muted" style="font-size:0.72rem;">Seguimiento individual del valor de cada artículo, lo abonado y el saldo pendiente</small>
             </div>
         </div>
-        <span class="badge bg-dark text-white rounded-pill px-3 py-1" style="font-size: 0.75rem;">
-            <i class="fa-solid fa-tag me-1 text-warning"></i> {{ productos_cartera|length }} producto{% if productos_cartera|length > 1 %}s{% endif %}
-        </span>
+        <div class="d-flex align-items-center gap-2">
+            {% if saldo_pendiente > 0 %}
+            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAbonarPunto" id="btnAbonarCarteraMulti">
+                <i class="fa-solid fa-list-check me-1"></i>Abonar a Productos
+            </button>
+            {% endif %}
+            <span class="badge bg-dark text-white rounded-pill px-3 py-1" style="font-size: 0.75rem;">
+                <i class="fa-solid fa-tag me-1 text-warning"></i> {{ productos_cartera|length }} producto{% if productos_cartera|length > 1 %}s{% endif %}
+            </span>
+        </div>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
@@ -337,6 +344,7 @@
                     <th class="py-2">TIPO MOVIMIENTO</th>
                     <th class="text-center py-2">SEDE / LOCAL</th>
                     <th class="py-2">DESCRIPCIÓN / PRODUCTO</th>
+                    <th class="text-center py-2">ASESOR RESPONSABLE</th>
                     <th class="text-center py-2">MÉTODO PAGO</th>
                     <th class="text-end py-2">MONTO</th>
                     <th class="text-center pe-4 py-2">ACCIÓN</th>
@@ -400,6 +408,15 @@
                         {% endif %}
                     </td>
                     <td class="text-center">
+                        {% if t.asesor %}
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold" style="font-size: 0.75rem;">
+                                <i class="fa-solid fa-id-badge me-1"></i>{{ t.asesor.nombre }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-light text-muted border rounded-pill px-2 py-1" style="font-size: 0.7rem;">Sin Asesor</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
                         {% if t.tipo_movimiento == 'abono' %}
                             {% set met = (t.metodo_pago or 'efectivo')|lower %}
                             <span class="badge bg-light text-dark border rounded-pill px-3 py-1" style="font-size: 0.72rem;">
@@ -409,6 +426,7 @@
                                 {% elif met == 'daviplata' %}📱 Daviplata
                                 {% elif met == 'bold' %}💳 Bold
                                 {% elif met == 'addi' %}🛍️ Addi
+                                {% elif met == 'qr_llave' %}🔑 QR / Llave
                                 {% else %}{{ t.metodo_pago|capitalize }}
                                 {% endif %}
                             </span>
@@ -435,7 +453,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="text-center py-5 text-muted">
+                    <td colspan="8" class="text-center py-5 text-muted">
                         <i class="fa-solid fa-receipt fa-2x mb-2 text-black-50"></i><br>
                         No hay movimientos registrados para este Punto.
                     </td>
@@ -511,6 +529,7 @@
                             {% elif met == 'daviplata' %}📱 Daviplata:
                             {% elif met == 'bold' %}💳 Bold:
                             {% elif met == 'addi' %}🛍️ Addi:
+                            {% elif met == 'qr_llave' %}🔑 QR / Llave:
                             {% else %}{{ met|capitalize }}:
                             {% endif %}
                             <strong class="text-success ms-1">${{ '{:,.0f}'.format(m_val) }}</strong>
@@ -536,6 +555,7 @@
                                 <th class="py-2">FECHA Y HORA</th>
                                 <th class="text-center py-2">SEDE PAGADORA</th>
                                 <th class="py-2">CAJERO / REGISTRADO POR</th>
+                                <th class="py-2">ASESOR RESPONSABLE</th>
                                 <th class="text-center py-2">MÉTODO DE PAGO</th>
                                 <th class="py-2">CONCEPTO / DESTINO</th>
                                 <th class="text-end pe-3 py-2">MONTO ABONADO</th>
@@ -568,6 +588,15 @@
                                         <i class="fa-solid fa-user-check me-1 text-success"></i>{{ a.usuario.nombre if a.usuario else 'Sistema' }}
                                     </span>
                                 </td>
+                                <td>
+                                    {% if a.asesor %}
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                                            <i class="fa-solid fa-id-badge me-1"></i>{{ a.asesor.nombre }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted border rounded-pill px-2 py-1 small">Sin Asesor</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-center">
                                     {% set met = (a.metodo_pago or 'efectivo')|lower %}
                                     <span class="badge bg-light text-dark border rounded-pill px-3 py-1">
@@ -577,6 +606,7 @@
                                         {% elif met == 'daviplata' %}📱 Daviplata
                                         {% elif met == 'bold' %}💳 Bold
                                         {% elif met == 'addi' %}🛍️ Addi
+                                        {% elif met == 'qr_llave' %}🔑 QR / Llave
                                         {% else %}{{ a.metodo_pago|capitalize }}
                                         {% endif %}
                                     </span>
@@ -595,7 +625,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="7" class="text-center py-5 text-muted">
+                                <td colspan="8" class="text-center py-5 text-muted">
                                     <i class="fa-solid fa-hand-holding-dollar fa-2x mb-2 text-black-50"></i><br>
                                     No hay abonos registrados para este Punto.
                                 </td>
@@ -944,94 +974,243 @@
 <!-- MODAL: REGISTRAR ABONO AL PUNTO                                   -->
 <!-- ================================================================= -->
 <div class="modal fade" id="modalAbonarPunto" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow rounded-4">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-md-down">
+        <div class="modal-content border-0 shadow-lg rounded-4">
             <form method="POST" id="formAbonarPunto" action="{{ url_for('puntos_bp.abonar', id=punto.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <div class="modal-header border-0 bg-light">
-                    <h5 class="modal-title fw-bold text-success">
-                        <i class="fa-solid fa-hand-holding-dollar me-2"></i>Registrar Abono a {{ punto.nombre }}
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header border-0 bg-light py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle bg-success bg-opacity-10 text-success p-2 px-3 fw-bold fs-5">
+                            <i class="fa-solid fa-hand-holding-dollar"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-success m-0">Registrar Abono a {{ punto.nombre }}</h5>
+                            <small class="text-muted" style="font-size: 0.75rem;">Abonos a múltiples productos y soporte para pagos divididos</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-3 py-2 fw-bold" style="font-size: 0.8rem;">
+                            <i class="fa-solid fa-scale-balanced me-1"></i>Deuda Total: ${{ '{:,.0f}'.format(saldo_pendiente) }}
+                        </span>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
                 </div>
                 <div class="modal-body p-4">
-                    <div class="alert alert-info border-0 rounded-3 mb-3">
+                    <div class="alert alert-info border-0 rounded-3 mb-3 py-2 px-3">
                         <small class="fw-bold d-block"><i class="fa-solid fa-info-circle me-1"></i>Información Importante:</small>
-                        <small>Este abono reducirá el saldo pendiente con <strong>{{ punto.nombre }}</strong> y registrará automáticamente un <strong>Gasto Diario</strong> en la caja para cuadrar el desembolso.</small>
+                        <small>Este abono reducirá el saldo deudor del punto y generará automáticamente el <strong>Gasto Diario</strong> correspondiente en la sede seleccionada para mantener la tesorería cuadrada.</small>
                     </div>
 
+                    <!-- 1. DESTINO DEL ABONO (GENERAL VS PRODUCTOS ESPECÍFICOS) -->
                     <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted"><i class="fa-regular fa-calendar me-1"></i>Fecha del Abono *</label>
-                        <input type="date" name="fecha_abono" class="form-control bg-light border-0 fw-bold" value="{{ hoy }}" required>
+                        <label class="form-label fw-bold small text-muted d-block mb-1">
+                            <i class="fa-solid fa-crosshairs me-1 text-primary"></i>¿A qué deseas aplicar este abono? *
+                        </label>
+                        <div class="btn-group w-100 p-1 bg-light rounded-pill border" role="group">
+                            <input type="radio" class="btn-check" name="tipo_aplicacion" id="app_general" value="general" checked autocomplete="off" onchange="alternarTipoAplicacionAbono('general')">
+                            <label class="btn btn-sm btn-outline-primary rounded-pill fw-bold py-2" for="app_general" id="label_app_general" onclick="alternarTipoAplicacionAbono('general')">
+                                🌐 Abono General a la Deuda Global
+                            </label>
+                            <input type="radio" class="btn-check" name="tipo_aplicacion" id="app_especifico" value="especifico" autocomplete="off" onchange="alternarTipoAplicacionAbono('especifico')">
+                            <label class="btn btn-sm btn-outline-primary rounded-pill fw-bold py-2" for="app_especifico" id="label_app_especifico" onclick="alternarTipoAplicacionAbono('especifico')">
+                                📦 Seleccionar Producto(s) Específico(s)
+                            </label>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">Monto del Abono ($) *</label>
-                        <input type="number" name="monto" id="inputMontoAbono" class="form-control form-control-lg bg-light border-0 fw-bold text-success" min="1" max="{{ saldo_pendiente|int if saldo_pendiente > 0 else 0 }}" step="1" placeholder="Ej: 50000" value="{{ saldo_pendiente if saldo_pendiente > 0 else '' }}" {% if saldo_pendiente <= 0 %}disabled{% else %}required{% endif %}>
-                        <small id="helperMontoMax" class="text-muted d-block mt-1" style="font-size: 0.72rem;">Monto máximo permitido para este abono: ${{ '{:,.0f}'.format(saldo_pendiente) }}</small>
+                    <!-- CONTENEDOR CHECKLIST DE PRODUCTOS (Oculto por defecto en general) -->
+                    <div id="contenedorProductosEspecificos" class="mb-3 p-3 bg-light bg-opacity-50 rounded-4 border" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <div>
+                                <span class="small fw-bold text-dark">
+                                    <i class="fa-solid fa-boxes-stacked me-1 text-primary"></i>Selecciona los productos que deseas abonar:
+                                </span>
+                                <small class="text-muted d-block" style="font-size: 0.7rem;">Puedes marcar más de uno para cubrirlos en un solo desembolso</small>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-2 py-0 me-1" id="btnSelectAllProds">
+                                    <i class="fa-solid fa-check-double me-1"></i>Todos
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2 py-0" id="btnUnselectAllProds">
+                                    <i class="fa-solid fa-xmark me-1"></i>Ninguno
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive rounded-3 border bg-white shadow-sm" style="max-height: 220px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.8rem;">
+                                <thead class="table-light sticky-top shadow-sm">
+                                    <tr>
+                                        <th class="ps-3 py-2 text-center" style="width: 40px;">Sel.</th>
+                                        <th class="py-2">Producto / Venta</th>
+                                        <th class="text-center py-2">Sede</th>
+                                        <th class="text-end py-2">Valor Cargo</th>
+                                        <th class="text-end py-2">Abonado</th>
+                                        <th class="text-end pe-3 py-2">Saldo Pendiente</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodySeleccionProductos">
+                                    {% set prods_pendientes = productos_cartera|rejectattr('pagado_completo')|list %}
+                                    {% if prods_pendientes %}
+                                        {% for p in prods_pendientes %}
+                                        <tr class="fila-producto-check" data-sale-id="{{ p.sale_id }}" style="cursor: pointer;">
+                                            <td class="text-center ps-3">
+                                                <input type="checkbox" name="sale_ids" value="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}" data-desc="{{ p.descripcion }}" class="form-check-input check-prod-abono" id="chk_prod_{{ loop.index }}">
+                                            </td>
+                                            <td class="fw-bold text-dark">
+                                                <label for="chk_prod_{{ loop.index }}" class="m-0" style="cursor: pointer;">
+                                                    {{ p.descripcion }}
+                                                    <small class="text-muted d-block fw-normal" style="font-size: 0.68rem;">
+                                                        <i class="fa-regular fa-calendar me-1"></i>{{ p.fecha.strftime('%d/%m/%Y %H:%M') if p.fecha else '' }}
+                                                    </small>
+                                                </label>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-secondary rounded-pill" style="font-size: 0.65rem;">D&L {{ p.local_id or 1 }}</span>
+                                            </td>
+                                            <td class="text-end text-muted">${{ '{:,.0f}'.format(p.monto_cargo) }}</td>
+                                            <td class="text-end text-success">${{ '{:,.0f}'.format(p.total_abonado) }}</td>
+                                            <td class="text-end pe-3 fw-bold text-danger">${{ '{:,.0f}'.format(p.saldo_pendiente) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="6" class="text-center py-3 text-muted">No hay productos con saldo pendiente.</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                            <small class="text-muted fw-semibold" id="conteoSeleccionados">0 productos seleccionados</small>
+                            <div class="fw-bold text-dark small">
+                                Deuda total de los seleccionados: <span class="text-primary fw-bolder fs-6" id="totalDeudaSeleccionada">$0</span>
+                            </div>
+                        </div>
                     </div>
 
+                    <!-- 2. MODALIDAD DE PAGO (ÚNICO VS DIVIDIDO) -->
                     <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">Método de Pago *</label>
-                        <select name="metodo_pago" class="form-select bg-light border-0" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
-                            <option value="efectivo">💵 Efectivo (Caja)</option>
-                            <option value="nequi">📱 Nequi</option>
-                            <option value="bancolombia">🏦 Bancolombia</option>
-                            <option value="daviplata">📱 Daviplata</option>
-                            <option value="bold">💳 Bold</option>
-                            <option value="addi">🛍️ Addi</option>
-                        </select>
+                        <label class="form-label fw-bold small text-muted d-block mb-1">
+                            <i class="fa-solid fa-money-bill-transfer me-1 text-success"></i>Modalidad de Pago *
+                        </label>
+                        <div class="btn-group w-100 p-1 bg-light rounded-pill border" role="group">
+                            <input type="radio" class="btn-check" name="modo_pago" id="modo_unico" value="unico" checked autocomplete="off" onchange="alternarModoPagoAbono('unico')">
+                            <label class="btn btn-sm btn-outline-success rounded-pill fw-bold py-2" for="modo_unico" id="label_modo_unico" onclick="alternarModoPagoAbono('unico')">
+                                💵 Un Solo Método de Pago
+                            </label>
+                            <input type="radio" class="btn-check" name="modo_pago" id="modo_dividido" value="dividido" autocomplete="off" onchange="alternarModoPagoAbono('dividido')">
+                            <label class="btn btn-sm btn-outline-success rounded-pill fw-bold py-2" for="modo_dividido" id="label_modo_dividido" onclick="alternarModoPagoAbono('dividido')">
+                                🔀 Pago Dividido (Múltiples Cuentas)
+                            </label>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted"><i class="fa-solid fa-box me-1 text-primary"></i>Abonar a un Producto / Venta Específica (Opcional)</label>
-                        <select name="sale_id" id="selectSaleIdAbono" class="form-select bg-light border-0 fw-semibold" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
-                            <option value="" data-saldo="{{ saldo_pendiente|int }}" data-desc="" selected>🌐 Abono General a la Deuda Global (Saldo total: ${{ '{:,.0f}'.format(saldo_pendiente) }})</option>
-                            
-                            {% set prods_pendientes = productos_cartera|rejectattr('pagado_completo')|list %}
-                            {% set prods_pagados = productos_cartera|selectattr('pagado_completo')|list %}
+                    <!-- MODO ÚNICO: MONTO Y MÉTODO -->
+                    <div id="contenedorPagoUnico" class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Monto del Abono ($) *</label>
+                            <input type="number" name="monto" id="inputMontoAbono" class="form-control form-control-lg bg-light border-0 fw-bold text-success" min="1" max="{{ saldo_pendiente|int if saldo_pendiente > 0 else 0 }}" step="1" placeholder="Ej: 50000" value="{{ saldo_pendiente if saldo_pendiente > 0 else '' }}" {% if saldo_pendiente <= 0 %}disabled{% else %}required{% endif %}>
+                            <small id="helperMontoMax" class="text-muted d-block mt-1" style="font-size: 0.72rem;">Monto máximo permitido: ${{ '{:,.0f}'.format(saldo_pendiente) }}</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Método de Pago *</label>
+                            <select name="metodo_pago" id="selectMetodoPagoAbono" class="form-select form-select-lg bg-light border-0 fw-semibold" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
+                                <option value="efectivo" selected>💵 Efectivo (Caja)</option>
+                                <option value="nequi">📱 Nequi</option>
+                                <option value="bancolombia">🏦 Bancolombia</option>
+                                <option value="daviplata">📱 Daviplata</option>
+                                <option value="bold">💳 Bold</option>
+                                <option value="addi">🛍️ Addi</option>
+                                <option value="qr_llave">🔑 QR / Llave</option>
+                            </select>
+                        </div>
+                    </div>
 
-                            {% if prods_pendientes %}
-                            <optgroup label="📦 Productos con Saldo Pendiente por Pagar">
-                                {% for p in prods_pendientes %}
-                                    <option value="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}" data-desc="{{ p.descripcion }}">
-                                        🏷️ {{ p.descripcion }} — Pendiente: ${{ '{:,.0f}'.format(p.saldo_pendiente) }} (Cargo: ${{ '{:,.0f}'.format(p.monto_cargo) }} | Abonado: ${{ '{:,.0f}'.format(p.total_abonado) }})
-                                    </option>
+                    <!-- MODO DIVIDIDO: DESGLOSE POR MÉTODOS -->
+                    <div id="contenedorPagoDividido" class="p-3 bg-light rounded-4 border mb-3" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <small class="fw-bold text-dark text-uppercase">
+                                <i class="fa-solid fa-list-check me-1 text-primary"></i>Ingresa el valor desembolsado por cada método:
+                            </small>
+                            <span class="badge bg-white text-muted border shadow-sm px-3 py-1" id="badgeObjetivoDividido" style="font-size: 0.75rem;">
+                                Objetivo: ${{ '{:,.0f}'.format(saldo_pendiente) }}
+                            </span>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small text-muted mb-1 fw-semibold">💵 Efectivo (Caja)</label>
+                                <input type="number" name="monto_efectivo" class="form-control form-control-sm border-0 input-dividido-abono shadow-sm" placeholder="$0" min="0" step="1">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small text-muted mb-1 fw-semibold">📱 Nequi</label>
+                                <input type="number" name="monto_nequi" class="form-control form-control-sm border-0 input-dividido-abono shadow-sm" placeholder="$0" min="0" step="1">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small text-muted mb-1 fw-semibold">🏦 Bancolombia</label>
+                                <input type="number" name="monto_bancolombia" class="form-control form-control-sm border-0 input-dividido-abono shadow-sm" placeholder="$0" min="0" step="1">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small text-muted mb-1 fw-semibold">📱 Daviplata</label>
+                                <input type="number" name="monto_daviplata" class="form-control form-control-sm border-0 input-dividido-abono shadow-sm" placeholder="$0" min="0" step="1">
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-muted mb-1 fw-semibold">💳 Bold</label>
+                                <input type="number" name="monto_bold" class="form-control form-control-sm border-0 input-dividido-abono shadow-sm" placeholder="$0" min="0" step="1">
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-muted mb-1 fw-semibold">🛍️ Addi</label>
+                                <input type="number" name="monto_addi" class="form-control form-control-sm border-0 input-dividido-abono shadow-sm" placeholder="$0" min="0" step="1">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small text-muted mb-1 fw-semibold">🔑 QR / Llave</label>
+                                <input type="number" name="monto_qr_llave" class="form-control form-control-sm border-0 input-dividido-abono shadow-sm" placeholder="$0" min="0" step="1" style="background-color: #f3e8ff;">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                            <span class="small fw-semibold text-muted">Suma total ingresada:</span>
+                            <span class="fw-bold fs-5 text-success" id="labelTotalDivididoAbono">$0</span>
+                        </div>
+                        <small id="helperDivididoAbono" class="text-muted d-block mt-1" style="font-size: 0.72rem;"></small>
+                    </div>
+
+                    <!-- 3. DATOS DE CONTROL Y AUDITORÍA -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted"><i class="fa-regular fa-calendar me-1"></i>Fecha del Abono *</label>
+                            <input type="date" name="fecha_abono" class="form-control bg-light border-0 fw-bold" value="{{ hoy }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted"><i class="fa-solid fa-id-badge me-1 text-primary"></i>Asesor Responsable *</label>
+                            <select name="asesor_id" class="form-select bg-light border-0 fw-semibold" required {% if saldo_pendiente <= 0 %}disabled{% endif %}>
+                                <option value="" disabled selected>-- Seleccione Asesor --</option>
+                                {% for asesor in asesores %}
+                                    <option value="{{ asesor.id }}">{{ asesor.nombre }} ({{ asesor.cargo or 'Asesor' }})</option>
                                 {% endfor %}
-                            </optgroup>
-                            {% endif %}
-
-                            {% if prods_pagados %}
-                            <optgroup label="✅ Productos ya Totalmente Pagados ($0 pendiente - Bloqueados)">
-                                {% for p in prods_pagados %}
-                                    <option value="{{ p.sale_id }}" data-saldo="0" disabled class="text-muted">
-                                        ✔ {{ p.descripcion }} — TOTALMENTE PAGADO ($0 pendiente)
-                                    </option>
-                                {% endfor %}
-                            </optgroup>
-                            {% endif %}
-                        </select>
-                        <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Al seleccionar un producto específico, el valor se limitará estrictamente a lo que falta por pagar de ese producto.</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">Sede / Caja que realiza el desembolso *</label>
-                        <select name="local_id" class="form-select bg-light border-0 fw-semibold" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
-                            <option value="1" {% if current_user.local_asignado == 1 %}selected{% endif %}>🏪 D&L 1</option>
-                            <option value="2" {% if current_user.local_asignado == 2 %}selected{% endif %}>🏪 D&L 2</option>
-                            <option value="3" {% if current_user.local_asignado == 3 %}selected{% endif %}>🏪 D&L 3</option>
-                        </select>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted">Sede / Desembolso *</label>
+                            <select name="local_id" class="form-select bg-light border-0 fw-semibold" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
+                                <option value="1" {% if current_user.local_asignado == 1 %}selected{% endif %}>🏪 D&L 1</option>
+                                <option value="2" {% if current_user.local_asignado == 2 %}selected{% endif %}>🏪 D&L 2</option>
+                                <option value="3" {% if current_user.local_asignado == 3 %}selected{% endif %}>🏪 D&L 3</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-muted">Descripción / Nota Adicional</label>
-                        <input type="text" name="descripcion" class="form-control bg-light border-0" placeholder="Ej: Pago parcial de funda o cargador" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
+                        <input type="text" name="descripcion" class="form-control bg-light border-0" placeholder="Ej: Pago de cargadores y accesorios prestados" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
                     </div>
                 </div>
-                <div class="modal-footer border-0 bg-light">
+                <div class="modal-footer border-0 bg-light py-3 px-4">
                     <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                     {% if saldo_pendiente > 0 %}
-                        <button type="submit" id="btnSubmitAbono" class="btn btn-success text-white rounded-pill px-4 fw-bold">Registrar Abono</button>
+                        <button type="submit" id="btnSubmitAbono" class="btn btn-success text-white rounded-pill px-4 fw-bold shadow-sm">
+                            <i class="fa-solid fa-check me-1"></i>Registrar Abono
+                        </button>
                     {% else %}
                         <button type="button" class="btn btn-secondary rounded-pill px-4 fw-bold opacity-50" disabled title="Saldo en $0">Registrar Abono</button>
                     {% endif %}
@@ -1081,6 +1260,16 @@
                         <input type="datetime-local" name="fecha" class="form-control bg-light border-0" value="{{ t.fecha.strftime('%Y-%m-%dT%H:%M') }}">
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted"><i class="fa-solid fa-id-badge me-1 text-primary"></i>Asesor Responsable</label>
+                        <select name="asesor_id" class="form-select bg-light border-0 fw-semibold">
+                            <option value="">-- Sin Asesor Asignado --</option>
+                            {% for asesor in asesores %}
+                                <option value="{{ asesor.id }}" {% if t.asesor_id == asesor.id %}selected{% endif %}>{{ asesor.nombre }} ({{ asesor.cargo or 'Asesor' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
                     {% if t.tipo_movimiento == 'abono' %}
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-muted">Método de Pago *</label>
@@ -1091,6 +1280,7 @@
                             <option value="daviplata" {% if t.metodo_pago == 'daviplata' %}selected{% endif %}>📱 Daviplata</option>
                             <option value="bold" {% if t.metodo_pago == 'bold' %}selected{% endif %}>💳 Bold</option>
                             <option value="addi" {% if t.metodo_pago == 'addi' %}selected{% endif %}>🛍️ Addi</option>
+                            <option value="qr_llave" {% if t.metodo_pago == 'qr_llave' %}selected{% endif %}>🔑 QR / Llave</option>
                         </select>
                     </div>
                     {% endif %}
@@ -1117,37 +1307,268 @@
 <!-- SCRIPTS DE INTERACCIÓN, FILTROS Y APERTURA AUTOMÁTICA             -->
 <!-- ================================================================= -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // 1. Selector de Abono a producto en modalAbonarPunto
-    const selectSale = document.getElementById('selectSaleIdAbono');
+// Funciones globales expuestas para los toggles del modal
+window.alternarTipoAplicacionAbono = function(tipo) {
+    const radioGen = document.getElementById('app_general');
+    const radioEsp = document.getElementById('app_especifico');
+    const contenedor = document.getElementById('contenedorProductosEspecificos');
     const inputMonto = document.getElementById('inputMontoAbono');
     const helperMontoMax = document.getElementById('helperMontoMax');
     const globalSaldoMax = parseInt('{{ saldo_pendiente|int }}', 10) || 0;
 
-    if (selectSale && inputMonto) {
-        selectSale.addEventListener('change', function() {
-            const selectedOpt = selectSale.options[selectSale.selectedIndex];
-            if (!selectedOpt || selectedOpt.disabled) return;
-            const saldoAttr = selectedOpt.getAttribute('data-saldo');
-            if (saldoAttr !== null && saldoAttr !== '') {
-                const saldoVal = parseInt(saldoAttr, 10);
-                if (!isNaN(saldoVal) && saldoVal > 0) {
-                    inputMonto.value = saldoVal;
-                    inputMonto.max = saldoVal;
-                    if (helperMontoMax) {
-                        const esGeneral = !selectedOpt.value;
-                        if (esGeneral) {
-                            helperMontoMax.textContent = 'Monto máximo permitido (Deuda global): $' + saldoVal.toLocaleString('es-CO');
-                            helperMontoMax.className = 'text-muted d-block mt-1';
-                        } else {
-                            helperMontoMax.textContent = 'Monto máximo permitido para este producto: $' + saldoVal.toLocaleString('es-CO');
-                            helperMontoMax.className = 'text-primary fw-bold d-block mt-1';
-                        }
-                    }
-                }
+    if (tipo === 'especifico') {
+        if (radioEsp) radioEsp.checked = true;
+        if (contenedor) contenedor.style.display = 'block';
+        let alguno = false;
+        document.querySelectorAll('.check-prod-abono').forEach(c => { if (c.checked) alguno = true; });
+        if (!alguno) {
+            document.querySelectorAll('.check-prod-abono').forEach(c => c.checked = true);
+        }
+        if (typeof window.recalcularSeleccionProductosFn === 'function') {
+            window.recalcularSeleccionProductosFn();
+        }
+    } else {
+        if (radioGen) radioGen.checked = true;
+        if (contenedor) contenedor.style.display = 'none';
+        if (inputMonto) {
+            inputMonto.max = globalSaldoMax;
+            inputMonto.value = globalSaldoMax;
+        }
+        if (helperMontoMax) {
+            helperMontoMax.textContent = 'Monto máximo permitido (Deuda global): $' + globalSaldoMax.toLocaleString('es-CO');
+            helperMontoMax.className = 'text-muted d-block mt-1';
+        }
+        const badgeObj = document.getElementById('badgeObjetivoDividido');
+        if (badgeObj) badgeObj.textContent = 'Objetivo: $' + globalSaldoMax.toLocaleString('es-CO');
+        if (typeof window.calcularTotalDivididoAbonoFn === 'function') {
+            window.calcularTotalDivididoAbonoFn();
+        }
+    }
+};
+
+window.alternarModoPagoAbono = function(modo) {
+    const radioUnico = document.getElementById('modo_unico');
+    const radioDiv = document.getElementById('modo_dividido');
+    const contUnico = document.getElementById('contenedorPagoUnico');
+    const contDiv = document.getElementById('contenedorPagoDividido');
+    const inputMonto = document.getElementById('inputMontoAbono');
+
+    if (modo === 'dividido') {
+        if (radioDiv) radioDiv.checked = true;
+        if (contUnico) contUnico.style.display = 'none';
+        if (contDiv) contDiv.style.display = 'block';
+        if (inputMonto) inputMonto.disabled = true;
+        if (typeof window.calcularTotalDivididoAbonoFn === 'function') {
+            window.calcularTotalDivididoAbonoFn();
+        }
+    } else {
+        if (radioUnico) radioUnico.checked = true;
+        if (contUnico) contUnico.style.display = 'flex';
+        if (contDiv) contDiv.style.display = 'none';
+        if (inputMonto) inputMonto.disabled = false;
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // ==========================================
+    // LOGICA AVANZADA MODAL ABONAR PUNTO
+    // ==========================================
+    const formAbonar = document.getElementById('formAbonarPunto');
+    const btnSubmitAbono = document.getElementById('btnSubmitAbono');
+    const inputMonto = document.getElementById('inputMontoAbono');
+    const helperMontoMax = document.getElementById('helperMontoMax');
+    const globalSaldoMax = parseInt('{{ saldo_pendiente|int }}', 10) || 0;
+
+    const radioAppGeneral = document.getElementById('app_general');
+    const radioAppEspecifico = document.getElementById('app_especifico');
+    const contenedorEspecifico = document.getElementById('contenedorProductosEspecificos');
+    const checkProds = document.querySelectorAll('.check-prod-abono');
+    const conteoSeleccionados = document.getElementById('conteoSeleccionados');
+    const totalDeudaSeleccionada = document.getElementById('totalDeudaSeleccionada');
+    const btnSelectAllProds = document.getElementById('btnSelectAllProds');
+    const btnUnselectAllProds = document.getElementById('btnUnselectAllProds');
+
+    const radioModoUnico = document.getElementById('modo_unico');
+    const radioModoDividido = document.getElementById('modo_dividido');
+    const contenedorUnico = document.getElementById('contenedorPagoUnico');
+    const contenedorDividido = document.getElementById('contenedorPagoDividido');
+    const badgeObjetivoDividido = document.getElementById('badgeObjetivoDividido');
+    const labelTotalDividido = document.getElementById('labelTotalDivididoAbono');
+    const helperDividido = document.getElementById('helperDivididoAbono');
+    const inputsDividido = document.querySelectorAll('.input-dividido-abono');
+
+    function obtenerSaldoMaximoActual() {
+        if (radioAppGeneral && radioAppGeneral.checked) {
+            return globalSaldoMax;
+        }
+        let sumaSel = 0;
+        checkProds.forEach(chk => {
+            if (chk.checked) {
+                const s = parseInt(chk.getAttribute('data-saldo'), 10) || 0;
+                sumaSel += s;
+            }
+        });
+        return sumaSel;
+    }
+
+    function recalcularSeleccionProductos() {
+        let count = 0;
+        let sumaSel = 0;
+        checkProds.forEach(chk => {
+            if (chk.checked) {
+                count++;
+                const s = parseInt(chk.getAttribute('data-saldo'), 10) || 0;
+                sumaSel += s;
             }
         });
 
+        if (conteoSeleccionados) {
+            conteoSeleccionados.textContent = count + ' producto' + (count === 1 ? '' : 's') + ' seleccionado' + (count === 1 ? '' : 's');
+        }
+        if (totalDeudaSeleccionada) {
+            totalDeudaSeleccionada.textContent = '$' + sumaSel.toLocaleString('es-CO');
+        }
+
+        const maxActual = (radioAppGeneral && radioAppGeneral.checked) ? globalSaldoMax : sumaSel;
+
+        if (inputMonto) {
+            inputMonto.max = maxActual;
+            if (radioAppEspecifico && radioAppEspecifico.checked) {
+                inputMonto.value = sumaSel > 0 ? sumaSel : '';
+            }
+            if (helperMontoMax) {
+                if (radioAppGeneral && radioAppGeneral.checked) {
+                    helperMontoMax.textContent = 'Monto máximo permitido (Deuda global): $' + maxActual.toLocaleString('es-CO');
+                    helperMontoMax.className = 'text-muted d-block mt-1';
+                } else {
+                    helperMontoMax.textContent = 'Monto máximo permitido para los productos seleccionados: $' + maxActual.toLocaleString('es-CO');
+                    helperMontoMax.className = 'text-primary fw-bold d-block mt-1';
+                }
+            }
+        }
+
+        if (badgeObjetivoDividido) {
+            badgeObjetivoDividido.textContent = 'Objetivo: $' + maxActual.toLocaleString('es-CO');
+        }
+
+        calcularTotalDivididoAbono();
+    }
+
+    function calcularTotalDivididoAbono() {
+        if (!inputsDividido || inputsDividido.length === 0) return 0;
+        let suma = 0;
+        inputsDividido.forEach(inp => {
+            const v = parseInt(inp.value, 10);
+            if (!isNaN(v) && v > 0) suma += v;
+        });
+
+        if (labelTotalDividido) {
+            labelTotalDividido.textContent = '$' + suma.toLocaleString('es-CO');
+        }
+
+        const maxActual = obtenerSaldoMaximoActual();
+        if (helperDividido) {
+            if (suma === 0) {
+                helperDividido.textContent = 'Ingresa el monto en una o más cuentas para completar el abono.';
+                helperDividido.className = 'text-muted d-block mt-1';
+            } else if (suma === maxActual) {
+                helperDividido.textContent = '✓ La suma coincide exactamente con el valor objetivo ($' + suma.toLocaleString('es-CO') + ').';
+                helperDividido.className = 'text-success fw-bold d-block mt-1';
+            } else if (suma < maxActual) {
+                const faltante = maxActual - suma;
+                helperDividido.textContent = 'ℹ️ Abono parcial: falta $' + faltante.toLocaleString('es-CO') + ' para cubrir el total ($' + maxActual.toLocaleString('es-CO') + ').';
+                helperDividido.className = 'text-info fw-semibold d-block mt-1';
+            } else {
+                const exceso = suma - maxActual;
+                helperDividido.textContent = '⚠️ La suma excede el saldo permitido por $' + exceso.toLocaleString('es-CO') + '. Ajusta los montos.';
+                helperDividido.className = 'text-danger fw-bold d-block mt-1';
+            }
+        }
+        return suma;
+    }
+
+    window.recalcularSeleccionProductosFn = recalcularSeleccionProductos;
+    window.calcularTotalDivididoAbonoFn = calcularTotalDivididoAbono;
+
+    if (radioAppGeneral && radioAppEspecifico) {
+        radioAppGeneral.addEventListener('change', function() {
+            if (this.checked) {
+                if (contenedorEspecifico) contenedorEspecifico.style.display = 'none';
+                if (inputMonto) {
+                    inputMonto.max = globalSaldoMax;
+                    inputMonto.value = globalSaldoMax;
+                }
+                recalcularSeleccionProductos();
+            }
+        });
+
+        radioAppEspecifico.addEventListener('change', function() {
+            if (this.checked) {
+                if (contenedorEspecifico) contenedorEspecifico.style.display = 'block';
+                let alguno = false;
+                checkProds.forEach(chk => { if (chk.checked) alguno = true; });
+                if (!alguno && checkProds.length > 0) {
+                    checkProds[0].checked = true;
+                }
+                recalcularSeleccionProductos();
+            }
+        });
+    }
+
+    if (radioModoUnico && radioModoDividido) {
+        radioModoUnico.addEventListener('change', function() {
+            if (this.checked) {
+                if (contenedorUnico) contenedorUnico.style.display = 'flex';
+                if (contenedorDividido) contenedorDividido.style.display = 'none';
+                if (inputMonto) inputMonto.disabled = false;
+            }
+        });
+
+        radioModoDividido.addEventListener('change', function() {
+            if (this.checked) {
+                if (contenedorUnico) contenedorUnico.style.display = 'none';
+                if (contenedorDividido) contenedorDividido.style.display = 'block';
+                if (inputMonto) inputMonto.disabled = true;
+                calcularTotalDivididoAbono();
+            }
+        });
+    }
+
+    inputsDividido.forEach(inp => {
+        inp.addEventListener('input', calcularTotalDivididoAbono);
+    });
+
+    checkProds.forEach(chk => {
+        chk.addEventListener('change', recalcularSeleccionProductos);
+    });
+
+    if (btnSelectAllProds) {
+        btnSelectAllProds.addEventListener('click', function(e) {
+            e.preventDefault();
+            checkProds.forEach(c => c.checked = true);
+            recalcularSeleccionProductos();
+        });
+    }
+    if (btnUnselectAllProds) {
+        btnUnselectAllProds.addEventListener('click', function(e) {
+            e.preventDefault();
+            checkProds.forEach(c => c.checked = false);
+            recalcularSeleccionProductos();
+        });
+    }
+
+    document.querySelectorAll('.fila-producto-check').forEach(row => {
+        row.addEventListener('click', function(e) {
+            if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'label') return;
+            const chk = this.querySelector('.check-prod-abono');
+            if (chk) {
+                chk.checked = !chk.checked;
+                recalcularSeleccionProductos();
+            }
+        });
+    });
+
+    if (inputMonto) {
         inputMonto.addEventListener('input', function() {
             const val = parseInt(this.value, 10);
             const maxVal = parseInt(this.max, 10);
@@ -1162,29 +1583,72 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 2. Botones de abonar rápido a producto desde la tabla de Cartera
     document.querySelectorAll('.btn-abonar-producto').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const saleId = this.getAttribute('data-sale-id');
-            const saldo = this.getAttribute('data-saldo');
-            if (selectSale && saleId) {
-                selectSale.value = saleId;
-                selectSale.dispatchEvent(new Event('change'));
+            if (radioAppEspecifico) {
+                radioAppEspecifico.checked = true;
+                radioAppEspecifico.dispatchEvent(new Event('change'));
             }
+            checkProds.forEach(chk => {
+                chk.checked = (chk.value === String(saleId));
+            });
+            recalcularSeleccionProductos();
         });
     });
 
-    // 2b. Protección contra doble clic / doble envío de formulario en abonos
-    const formAbonar = document.getElementById('formAbonarPunto');
-    const btnSubmitAbono = document.getElementById('btnSubmitAbono');
+    const btnAbonarCarteraMulti = document.getElementById('btnAbonarCarteraMulti');
+    if (btnAbonarCarteraMulti) {
+        btnAbonarCarteraMulti.addEventListener('click', function() {
+            if (radioAppEspecifico) {
+                radioAppEspecifico.checked = true;
+                radioAppEspecifico.dispatchEvent(new Event('change'));
+            }
+            checkProds.forEach(chk => chk.checked = true);
+            recalcularSeleccionProductos();
+        });
+    }
+
     if (formAbonar && btnSubmitAbono) {
         formAbonar.addEventListener('submit', function(e) {
-            const val = parseInt(inputMonto.value, 10);
-            const maxVal = parseInt(inputMonto.max, 10);
-            if (!isNaN(val) && !isNaN(maxVal) && maxVal > 0 && val > maxVal) {
-                e.preventDefault();
-                alert('El monto ingresado excede el saldo pendiente permitido ($' + maxVal.toLocaleString('es-CO') + '). Por favor ajusta el valor.');
-                return false;
+            const esDividido = radioModoDividido && radioModoDividido.checked;
+            const esEspecifico = radioAppEspecifico && radioAppEspecifico.checked;
+            const maxActual = obtenerSaldoMaximoActual();
+
+            if (esEspecifico) {
+                let algunoSel = false;
+                checkProds.forEach(c => { if (c.checked) algunoSel = true; });
+                if (!algunoSel) {
+                    e.preventDefault();
+                    alert('Debes seleccionar al menos un producto a abonar.');
+                    return false;
+                }
+            }
+
+            if (esDividido) {
+                const suma = calcularTotalDivididoAbono();
+                if (suma <= 0) {
+                    e.preventDefault();
+                    alert('En pago dividido debes ingresar al menos un valor mayor a $0 en algún método de pago.');
+                    return false;
+                }
+                if (suma > maxActual) {
+                    e.preventDefault();
+                    alert('La suma de pagos divididos ($' + suma.toLocaleString('es-CO') + ') supera el saldo permitido ($' + maxActual.toLocaleString('es-CO') + ').');
+                    return false;
+                }
+            } else {
+                const val = parseInt(inputMonto.value, 10);
+                if (isNaN(val) || val <= 0) {
+                    e.preventDefault();
+                    alert('Por favor ingresa un monto válido mayor a 0.');
+                    return false;
+                }
+                if (maxActual > 0 && val > maxActual) {
+                    e.preventDefault();
+                    alert('El monto ingresado excede el saldo pendiente permitido ($' + maxActual.toLocaleString('es-CO') + ').');
+                    return false;
+                }
             }
 
             if (btnSubmitAbono.disabled) {

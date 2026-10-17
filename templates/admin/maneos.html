@@ -104,6 +104,18 @@
                             </label>
                             <input type="text" name="local_vecino" id="modal_maneo_local_vecino" class="form-control bg-light border-0 fw-semibold" placeholder="Ej: Fundas Alex / Sebastián" required autocomplete="off">
                         </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-dark mb-1">
+                                <i class="fa-solid fa-user-tie text-primary me-1"></i>Asesor Responsable *
+                            </label>
+                            <select name="asesor_id" id="modal_maneo_asesor_id" class="form-select bg-light border-0 fw-semibold" required>
+                                <option value="" disabled selected>-- Selecciona el Asesor Responsable --</option>
+                                {% for a in asesores %}
+                                    <option value="{{ a.id }}">{{ a.nombre }} (Local {{ a.local_id }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
 
                     <!-- Buscador para agregar más productos dentro del modal -->
@@ -171,6 +183,7 @@
                     <th class="ps-4 text-center" style="color: var(--mario-red);">CANTIDAD</th>
                     <th style="color: var(--mario-red);">VALOR</th>
                     <th class="text-center" style="color: var(--mario-red);">SEDE ORIGEN</th>
+                    <th style="color: var(--mario-red);">ASESOR RESPONSABLE</th>
                     <th style="color: var(--mario-red);">LOCAL VECINO</th>
                     <th style="color: var(--mario-red);">PRODUCTO (SKU)</th>
                     <th class="text-center" style="color: var(--mario-red);">ESTADO</th>
@@ -201,6 +214,15 @@
                         {% endif %}
                         {% if m.usuario %}
                             <small class="d-block text-muted" style="font-size:0.7rem;"><i class="fa-solid fa-user me-1"></i>{{ m.usuario.nombre }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if m.asesor %}
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold small">
+                                <i class="fa-solid fa-user-tie me-1"></i>{{ m.asesor.nombre }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-light text-muted border rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">Sin Asesor</span>
                         {% endif %}
                     </td>
                     <td class="fw-bold text-brand-black"><i class="fa-solid fa-store text-muted me-2"></i>{{ m.local_vecino }}</td>
@@ -241,7 +263,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="text-center py-5 text-muted">
+                    <td colspan="8" class="text-center py-5 text-muted">
                         <i class="fa-solid fa-handshake-slash fs-2 mb-3 text-warning opacity-50"></i>
                         <p class="mb-0">No hay maneos o préstamos registrados para {{ active_local|upper }}.</p>
                     </td>
@@ -300,6 +322,16 @@
                                     <option value="daviplata">📱 Ingresará a Medio Digital (Daviplata)</option>
                                     <option value="bold">💳 Ingresará a Medio Digital (Bold)</option>
                                     <option value="addi">🛍️ Ingresará a Medio Digital (Addi)</option>
+                                </select>
+                            </div>
+
+                            <div class="mt-3">
+                                <label class="form-label fw-bold"><i class="fa-solid fa-user-tie text-primary me-1"></i>Asesor Responsable *</label>
+                                <select name="asesor_id" class="form-select bg-light border-0" required>
+                                    <option value="" disabled>-- Selecciona el Asesor --</option>
+                                    {% for a in asesores %}
+                                        <option value="{{ a.id }}" {% if m.asesor_id == a.id %}selected{% endif %}>{{ a.nombre }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                             <div>
@@ -701,6 +733,13 @@
             e.preventDefault();
             alert('Por favor indica el local vecino o persona receptora.');
             document.getElementById('modal_maneo_local_vecino').focus();
+            return false;
+        }
+        const asesorSelect = document.getElementById('modal_maneo_asesor_id');
+        if (asesorSelect && !asesorSelect.value) {
+            e.preventDefault();
+            alert('Por favor selecciona obligatoriamente un Asesor Responsable.');
+            asesorSelect.focus();
             return false;
         }
         updateLoanSummary();

@@ -20,19 +20,36 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     rol = db.Column(db.String(50), nullable=False, default='vendedor')
     local_asignado = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
+    permitir_fecha_retroactiva = db.Column(db.Boolean, nullable=False, default=False)
     
     ventas = db.relationship('Sale', backref='vendedor', lazy=True)
     ajustes_stock = db.relationship('StockAdjustment', backref='admin', lazy=True)
     arqueos = db.relationship('ArqueoCaja', backref='cajero', lazy=True)
 
-    def __init__(self, nombre=None, email=None, telefono=None, password_hash=None, rol=None, local_asignado=None, **kwargs):
+    def __init__(self, nombre=None, email=None, telefono=None, password_hash=None, rol=None, local_asignado=None, permitir_fecha_retroactiva=None, **kwargs):
         if nombre is not None: kwargs['nombre'] = nombre
         if email is not None: kwargs['email'] = email
         if telefono is not None: kwargs['telefono'] = telefono
         if password_hash is not None: kwargs['password_hash'] = password_hash
         if rol is not None: kwargs['rol'] = rol
         if local_asignado is not None: kwargs['local_asignado'] = local_asignado
+        if permitir_fecha_retroactiva is not None: kwargs['permitir_fecha_retroactiva'] = permitir_fecha_retroactiva
         super(User, self).__init__(**kwargs)
+
+    def puede_cambiar_fecha_venta(self):
+        """Determina si el usuario tiene autorización para emitir ventas con fecha modificada o retroactiva."""
+        if self.rol == 'admin':
+            return True
+        if getattr(self, 'permitir_fecha_retroactiva', False):
+            return True
+        loc_id = getattr(self, 'local_asignado', 1) or 1
+        try:
+            cfg = LocalConfig.query.filter_by(local_id=loc_id).first()
+            if cfg and getattr(cfg, 'permitir_fecha_retroactiva', False):
+                return True
+        except Exception:
+            pass
+        return False
 
 class Product(db.Model):
     __tablename__ = 'products'
@@ -299,6 +316,7 @@ class PuntoTransaction(db.Model):
     punto_id = db.Column(db.Integer, db.ForeignKey('puntos.id'), nullable=False)
     sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
     tipo_movimiento = db.Column(db.String(20), nullable=False)  # 'cargo' o 'abono'
     monto = db.Column(db.Numeric(12, 2), nullable=False)
     metodo_pago = db.Column(db.String(50), nullable=True, default='efectivo')
@@ -308,6 +326,7 @@ class PuntoTransaction(db.Model):
 
     usuario = db.relationship('User', backref='punto_transacciones', lazy=True)
     venta = db.relationship('Sale', backref='punto_transacciones', lazy=True)
+    asesor = db.relationship('Asesor', backref='punto_transacciones', lazy=True)
 
     def __init__(self, **kwargs):
         super(PuntoTransaction, self).__init__(**kwargs)
@@ -357,6 +376,7 @@ class ArqueoCaja(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     vendedor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
     fecha_arqueo = db.Column(db.Date, nullable=False)
 
     base_inicial = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
@@ -372,6 +392,8 @@ class ArqueoCaja(db.Model):
     diferencia = db.Column(db.Numeric(10, 2), nullable=True, default=0.0)
 
     fecha_creacion = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    asesor = db.relationship('Asesor', backref='arqueos', lazy=True)
 
     @property
     def efectivo_esperado(self):
@@ -416,12 +438,14 @@ class Maneo(db.Model):
     estado = db.Column(db.String(50), nullable=False, default='PENDIENTE') # PENDIENTE, FACTURADO, DEVUELTO
     local_id = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
     usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
     fecha_prestamo = db.Column(db.DateTime, default=obtener_hora_bogota)
     fecha_resolucion = db.Column(db.DateTime, nullable=True)
 
     producto = db.relationship('Product', backref='maneos', lazy=True)
     variante = db.relationship('ProductVariant', backref='maneos_rel', lazy=True)
     usuario = db.relationship('User', backref='maneos', lazy=True)
+    asesor = db.relationship('Asesor', backref='maneos', lazy=True)
 
     def __init__(self, **kwargs):
         super(Maneo, self).__init__(**kwargs)
@@ -535,12 +559,14 @@ class AbonoBodega(db.Model):
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
     factura_id = db.Column(db.Integer, db.ForeignKey('facturas_bodega.id'), nullable=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
     monto = db.Column(db.Numeric(10, 2), nullable=False)
     metodo_pago = db.Column(db.String(50), nullable=False, default='efectivo')
     observacion = db.Column(db.String(255), nullable=True)
     fecha_abono = db.Column(db.DateTime, default=obtener_hora_bogota)
 
     usuario = db.relationship('User', backref='abonos_registrados', lazy=True)
+    asesor = db.relationship('Asesor', backref='abonos_bodega', lazy=True)
 
     def __init__(self, **kwargs):
         super(AbonoBodega, self).__init__(**kwargs)
@@ -551,6 +577,7 @@ class LocalConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     local_id = db.Column(db.Integer, unique=True, nullable=False) # 1, 2, 3
     descontar_inventario = db.Column(db.Boolean, nullable=False, default=False)
+    permitir_fecha_retroactiva = db.Column(db.Boolean, nullable=False, default=False)
     fecha_actualizacion = db.Column(db.DateTime, default=obtener_hora_bogota, onupdate=obtener_hora_bogota)
 
     def __init__(self, **kwargs):
@@ -593,12 +620,36 @@ class ProviderPayment(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     provider_id = db.Column(db.Integer, db.ForeignKey('providers.id', ondelete='CASCADE'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
+    local_id = db.Column(db.Integer, nullable=True, default=1) # 1, 2, 3
+    expense_id = db.Column(db.Integer, db.ForeignKey('expenses.id', ondelete='SET NULL'), nullable=True)
     monto_abonado = db.Column(db.Numeric(12, 2), nullable=False)
+    metodo_pago = db.Column(db.String(50), nullable=False, default='efectivo')
     observacion = db.Column(db.String(255), nullable=True)
+    comprobante = db.Column(db.String(255), nullable=True)
     fecha_pago = db.Column(db.DateTime, default=obtener_hora_bogota)
+
+    usuario = db.relationship('User', backref='provider_payments', lazy=True)
+    expense = db.relationship('Expense', backref='provider_payment_rel', lazy=True)
+    asesor = db.relationship('Asesor', backref='pagos_proveedores', lazy=True)
+
+    @property
+    def metodo_pago_display(self):
+        mapa = {
+            'efectivo': 'Efectivo',
+            'nequi': 'Nequi',
+            'bancolombia': 'Bancolombia',
+            'daviplata': 'Daviplata',
+            'bold': 'Bold',
+            'addi': 'Addi',
+            'qr_llave': 'QR / Llave'
+        }
+        return mapa.get((self.metodo_pago or '').lower(), (self.metodo_pago or 'Efectivo').capitalize())
 
     def __init__(self, **kwargs):
         super(ProviderPayment, self).__init__(**kwargs)
+
 
 
 class Asesor(db.Model):
@@ -626,6 +677,33 @@ class ServerPayment(db.Model):
 
     def __init__(self, **kwargs):
         super(ServerPayment, self).__init__(**kwargs)
+
+
+class TreasuryAdjustment(db.Model):
+    """Modelo para registrar saldos a favor, cadenas, aportes de capital y ajustes
+    de liquidez en cuentas bancarias/efectivo sin inflar las ventas de las sedes."""
+    __tablename__ = 'treasury_adjustments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tipo_movimiento = db.Column(db.String(20), nullable=False, default='ingreso') # 'ingreso' o 'egreso'
+    categoria = db.Column(db.String(100), nullable=False) # 'Saldo a Favor', 'Cadena / Ahorro', 'Aporte de Capital', 'Reintegro Bancario', 'Otros Ingresos'
+    concepto = db.Column(db.String(255), nullable=False)
+    monto = db.Column(db.Numeric(12, 2), nullable=False)
+    metodo_pago = db.Column(db.String(50), nullable=False) # 'nequi', 'bancolombia', 'efectivo', 'daviplata', 'bold', 'addi'
+    local_id = db.Column(db.Integer, nullable=True) # 1, 2, 3 o None (Bolsa General)
+    fecha_efectiva = db.Column(db.DateTime, nullable=False, default=obtener_hora_bogota)
+    fecha_registro = db.Column(db.DateTime, default=obtener_hora_bogota)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    asesor_id = db.Column(db.Integer, db.ForeignKey('asesores.id'), nullable=True)
+    comprobante = db.Column(db.String(255), nullable=True)
+    grupo_operacion_id = db.Column(db.String(50), nullable=True)
+
+    usuario = db.relationship('User', backref='ajustes_tesoreria', lazy=True)
+    asesor = db.relationship('Asesor', backref='ajustes_tesoreria', lazy=True)
+
+    def __init__(self, **kwargs):
+        super(TreasuryAdjustment, self).__init__(**kwargs)
+
 
 
 

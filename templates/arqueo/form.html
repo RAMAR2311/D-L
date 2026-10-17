@@ -40,7 +40,8 @@
                 <i class="fa-solid fa-lock text-warning me-2 fs-4"></i>Caja del Día Cerrada
             </h5>
             <p class="mb-0 text-muted small">
-                Este arqueo fue cerrado por <strong>{{ arqueo_existente.cajero.nombre if arqueo_existente.cajero else 'Usuario' }}</strong> 
+                Este arqueo fue cerrado con el asesor responsable <strong>{{ arqueo_existente.asesor.nombre if arqueo_existente.asesor else 'Sin Asesor' }}</strong> 
+                (Cajero: <strong>{{ arqueo_existente.cajero.nombre if arqueo_existente.cajero else 'Usuario' }}</strong>) 
                 el <strong>{{ arqueo_existente.fecha_creacion.strftime('%d/%m/%Y a las %H:%M') if arqueo_existente.fecha_creacion else arqueo_existente.fecha_arqueo }}</strong>. 
                 Los campos de escritura han sido inhabilitados por seguridad.
             </p>
@@ -369,6 +370,12 @@
                         </div>
                         <div class="col-6 col-md-4">
                             <div class="p-2 border rounded bg-light text-center">
+                                <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;"><i class="fa-solid fa-qrcode me-1" style="color: #6f42c1;"></i>QR / LLAVE</small>
+                                <span class="fw-bold fs-6 text-dark">${{ (desglose_digital.qr_llave if desglose_digital else 0)|cop }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="p-2 border rounded bg-light text-center">
                                 <small class="text-muted d-block fw-bold" style="font-size: 0.7rem;"><i class="fa-solid fa-clock-rotate-left me-1" style="color: var(--brand-pink);"></i>OTROS / HIST</small>
                                 <span class="fw-bold fs-6 text-dark">${{ (desglose_digital.transferencia if desglose_digital else 0)|cop }}</span>
                             </div>
@@ -423,6 +430,22 @@
                         <h6 class="fw-bold text-brand-black border-bottom pb-2 mb-3">
                             <i class="fa-solid fa-cash-register me-2 text-danger"></i>2. Conciliación Física en Caja
                         </h6>
+
+                        <!-- Asesor / Responsable del Arqueo (Obligatorio) -->
+                        <div class="mb-3">
+                            <label for="asesor_id" class="form-label small fw-bold text-brand-black">
+                                <i class="fa-solid fa-user-check text-primary me-1"></i>Asesor Responsable del Cuadre <span class="text-danger">*</span>
+                            </label>
+                            <select name="asesor_id" id="asesor_id" class="form-select bg-light border-0 fw-bold" {% if arqueo_existente %}disabled{% else %}required{% endif %}>
+                                <option value="" disabled {% if not arqueo_existente or not arqueo_existente.asesor_id %}selected{% endif %}>-- Seleccionar Asesor Responsable (Obligatorio) * --</option>
+                                {% for a in asesores %}
+                                    <option value="{{ a.id }}" {% if arqueo_existente and arqueo_existente.asesor_id == a.id %}selected{% endif %}>
+                                        {{ a.nombre }} (Local {{ a.local_id }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted" style="font-size: 0.7rem;">Asesor comercial que realiza y entrega el arqueo</small>
+                        </div>
 
                         <!-- Base Inicial -->
                         <div class="mb-3">

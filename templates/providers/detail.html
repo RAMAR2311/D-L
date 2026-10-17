@@ -225,20 +225,64 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="bg-light text-muted small text-uppercase sticky-top" style="z-index: 5;">
                             <tr>
-                                <th class="ps-3 py-3" width="25%">Fecha</th>
-                                <th width="45%">Observaciones / Notas</th>
-                                <th class="text-end" width="18%">Monto</th>
-                                <th class="text-center pe-3" width="12%">Acciones</th>
+                                <th class="ps-3 py-3" width="16%">Fecha</th>
+                                <th width="18%">Método / Sede</th>
+                                <th width="18%">Asesor Responsable</th>
+                                <th width="22%">Detalle / Soporte</th>
+                                <th class="text-end" width="16%">Monto</th>
+                                <th class="text-center pe-3" width="10%">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for p in pagos %}
                             <tr>
                                 <td class="ps-3 small text-muted">
-                                    <i class="fa-regular fa-calendar me-1"></i>{{ p.fecha_pago.strftime('%d/%m/%Y %H:%M') }}
+                                    <div class="fw-semibold text-dark">{{ p.fecha_pago.strftime('%d/%m/%Y') }}</div>
+                                    <small class="text-muted"><i class="fa-regular fa-clock me-1"></i>{{ p.fecha_pago.strftime('%H:%M') }}</small>
                                 </td>
                                 <td>
-                                    <span class="small text-dark">{{ p.observacion if p.observacion else 'Abono a cuenta corriente' }}</span>
+                                    {% set met = (p.metodo_pago or 'efectivo')|lower %}
+                                    <div class="d-flex flex-column align-items-start gap-1">
+                                        {% if met == 'efectivo' %}
+                                            <span class="badge bg-success text-white rounded-pill px-2.5 py-1">💵 Efectivo</span>
+                                        {% elif met == 'nequi' %}
+                                            <span class="badge text-white rounded-pill px-2.5 py-1" style="background-color: #FF007A;">📱 Nequi</span>
+                                        {% elif met == 'bancolombia' %}
+                                            <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1">🏦 Bancolombia</span>
+                                        {% elif met == 'daviplata' %}
+                                            <span class="badge bg-danger text-white rounded-pill px-2.5 py-1">📱 Daviplata</span>
+                                        {% elif met == 'bold' %}
+                                            <span class="badge bg-dark text-white rounded-pill px-2.5 py-1">💳 Bold</span>
+                                        {% elif met == 'addi' %}
+                                            <span class="badge bg-info text-white rounded-pill px-2.5 py-1">🛍️ Addi</span>
+                                        {% elif met == 'qr_llave' %}
+                                            <span class="badge text-white rounded-pill px-2.5 py-1" style="background-color: #6f42c1;">🔑 QR / Llave</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary text-white rounded-pill px-2.5 py-1">🌐 {{ p.metodo_pago_display }}</span>
+                                        {% endif %}
+                                        <span class="badge bg-light text-secondary border small fw-normal">D&L {{ p.local_id or 1 }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if p.asesor %}
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1 fw-bold small">
+                                            <i class="fa-solid fa-id-badge me-1"></i>{{ p.asesor.nombre }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted border rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">Sin Asesor</span>
+                                    {% endif %}
+                                    <small class="text-muted d-block" style="font-size: 0.68rem;">Usuario: {{ p.usuario.nombre if p.usuario else 'Sistema' }}</small>
+                                </td>
+                                <td>
+                                    <span class="small text-dark d-block fw-semibold">{{ p.observacion if p.observacion else 'Abono a cuenta' }}</span>
+                                    {% if p.comprobante %}
+                                        <a href="{{ url_for('static', filename='uploads/providers/' ~ p.comprobante) }}" target="_blank" class="d-inline-flex align-items-center text-primary small text-decoration-none mt-1" style="font-size: 0.76rem;" title="Ver Soporte Adjunto">
+                                            <i class="fa-solid fa-paperclip me-1"></i>Soporte adjunto
+                                        </a>
+                                    {% endif %}
+                                    {% if p.expense_id %}
+                                        <small class="text-success d-block" style="font-size: 0.72rem;"><i class="fa-solid fa-check-double me-1"></i>En Tesorería (Gasto #{{ p.expense_id }})</small>
+                                    {% endif %}
                                 </td>
                                 <td class="text-end fw-bolder text-success fs-6">${{ p.monto_abonado|cop }}</td>
                                 <td class="text-center pe-3">
@@ -248,7 +292,7 @@
                                             <i class="fa-solid fa-pen-to-square small"></i>
                                         </button>
                                         <!-- Eliminar Abono -->
-                                        <form action="{{ url_for('providers_bp.delete_payment', payment_id=p.id) }}" method="POST" onsubmit="return confirm('¿Eliminar abono por ${{ p.monto_abonado|cop }}?');" class="d-inline">
+                                        <form action="{{ url_for('providers_bp.delete_payment', payment_id=p.id) }}" method="POST" onsubmit="return confirm('¿Eliminar abono por ${{ p.monto_abonado|cop }}? También se retirará de Tesorería.');" class="d-inline">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle p-1" title="Eliminar Abono" style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;">
                                                 <i class="fa-solid fa-trash-can small"></i>
@@ -266,20 +310,74 @@
                                             </h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                           </div>
-                                          <form action="{{ url_for('providers_bp.edit_payment', payment_id=p.id) }}" method="POST">
+                                          <form action="{{ url_for('providers_bp.edit_payment', payment_id=p.id) }}" method="POST" enctype="multipart/form-data">
                                               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                               <div class="modal-body">
+                                                  <div class="alert alert-info py-2 px-3 small rounded-3 mb-3 border-0 bg-info bg-opacity-10 text-info-emphasis">
+                                                      <i class="fa-solid fa-circle-info me-1"></i>Al actualizar este abono, el egreso correspondiente en <strong>Gastos y Tesorería</strong> se actualizará de inmediato.
+                                                  </div>
+
+                                                  <div class="row g-2 mb-3">
+                                                      <div class="col-6">
+                                                          <label class="form-label fw-bold small text-brand-black"><i class="fa-regular fa-calendar me-1"></i>Fecha del Pago <span class="text-danger">*</span></label>
+                                                          <input type="date" name="fecha_pago" class="form-control bg-light border-0 fw-bold" value="{{ p.fecha_pago.strftime('%Y-%m-%d') }}" required>
+                                                      </div>
+                                                      <div class="col-6">
+                                                          <label class="form-label fw-bold small text-brand-black"><i class="fa-solid fa-store me-1"></i>Sede / Caja <span class="text-danger">*</span></label>
+                                                          <select name="local_id" class="form-select bg-light border-0 fw-semibold" required>
+                                                              <option value="1" {% if p.local_id == 1 or not p.local_id %}selected{% endif %}>D&L 1 (Centro)</option>
+                                                              <option value="2" {% if p.local_id == 2 %}selected{% endif %}>D&L 2 (Norte)</option>
+                                                              <option value="3" {% if p.local_id == 3 %}selected{% endif %}>D&L 3</option>
+                                                          </select>
+                                                      </div>
+                                                  </div>
+
+
                                                   <div class="mb-3">
-                                                      <label class="form-label fw-bold small text-brand-black">Monto Abonado ($) <span class="text-danger">*</span></label>
-                                                      <div class="input-group">
-                                                          <span class="input-group-text bg-light border-0">$</span>
-                                                          <input type="number" step="1" min="1" name="monto_abonado" class="form-control bg-light border-0 fw-bold fs-5 text-success" value="{{ p.monto_abonado|int }}" required>
+                                                      <label class="form-label fw-bold small text-brand-black"><i class="fa-solid fa-id-badge me-1 text-primary"></i>Asesor Responsable</label>
+                                                      <select name="asesor_id" class="form-select bg-light border-0 fw-semibold">
+                                                          <option value="">-- Sin Asesor Asignado --</option>
+                                                          {% for asesor in asesores %}
+                                                              <option value="{{ asesor.id }}" {% if p.asesor_id == asesor.id %}selected{% endif %}>{{ asesor.nombre }} ({{ asesor.cargo or 'Asesor' }})</option>
+                                                          {% endfor %}
+                                                      </select>
+                                                  </div>
+                                                  <div class="row g-2 mb-3">
+                                                      <div class="col-6">
+                                                          <label class="form-label fw-bold small text-brand-black">Monto Abonado ($) <span class="text-danger">*</span></label>
+                                                          <div class="input-group">
+                                                              <span class="input-group-text bg-light border-0">$</span>
+                                                              <input type="number" step="1" min="1" name="monto_abonado" class="form-control bg-light border-0 fw-bold fs-5 text-success" value="{{ p.monto_abonado|int }}" required>
+                                                          </div>
+                                                      </div>
+                                                      <div class="col-6">
+                                                          <label class="form-label fw-bold small text-brand-black">Método de Pago <span class="text-danger">*</span></label>
+                                                          <select name="metodo_pago" class="form-select bg-light border-0 fw-bold" required>
+                                                              <option value="efectivo" {% if p.metodo_pago == 'efectivo' %}selected{% endif %}>💵 Efectivo (Caja)</option>
+                                                              <option value="bancolombia" {% if p.metodo_pago == 'bancolombia' %}selected{% endif %}>🏦 Bancolombia</option>
+                                                              <option value="nequi" {% if p.metodo_pago == 'nequi' %}selected{% endif %}>📱 Nequi</option>
+                                                              <option value="daviplata" {% if p.metodo_pago == 'daviplata' %}selected{% endif %}>📱 Daviplata</option>
+                                                              <option value="bold" {% if p.metodo_pago == 'bold' %}selected{% endif %}>💳 Bold</option>
+                                                              <option value="addi" {% if p.metodo_pago == 'addi' %}selected{% endif %}>🛍️ Addi</option>
+                                                              <option value="qr_llave" {% if p.metodo_pago == 'qr_llave' %}selected{% endif %}>🔑 QR / Llave</option>
+                                                          </select>
                                                       </div>
                                                   </div>
 
                                                   <div class="mb-3">
-                                                      <label class="form-label fw-bold small text-brand-black">Observación / Notas</label>
-                                                      <input type="text" name="observacion" class="form-control bg-light border-0" value="{{ p.observacion or '' }}">
+                                                      <label class="form-label fw-bold small text-brand-black">Concepto / Observaciones</label>
+                                                      <input type="text" name="observacion" class="form-control bg-light border-0" value="{{ p.observacion or '' }}" placeholder="Ej: Pago de cuota o soporte">
+                                                  </div>
+
+                                                  <div class="mb-2">
+                                                      <label class="form-label fw-bold small text-brand-black">Reemplazar Soporte (Opcional)</label>
+                                                      <input type="file" name="comprobante" accept=".png,.jpg,.jpeg,.pdf" class="form-control bg-light border-0">
+                                                      {% if p.comprobante %}
+                                                          <small class="text-primary d-block mt-1">
+                                                              <i class="fa-solid fa-paperclip me-1"></i>Soporte actual: 
+                                                              <a href="{{ url_for('static', filename='uploads/providers/' ~ p.comprobante) }}" target="_blank" class="text-decoration-underline">{{ p.comprobante }}</a>
+                                                          </small>
+                                                      {% endif %}
                                                   </div>
                                               </div>
                                               <div class="modal-footer border-top-0 pt-0">
@@ -296,7 +394,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="text-center py-5 text-muted">
+                                <td colspan="6" class="text-center py-5 text-muted">
                                     <i class="fa-solid fa-receipt fs-1 text-muted opacity-50 mb-2 d-block"></i>
                                     No se han registrado abonos o pagos para este proveedor.
                                 </td>
@@ -368,21 +466,72 @@
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form action="{{ url_for('providers_bp.register_payment', provider_id=provider.id) }}" method="POST">
+      <form action="{{ url_for('providers_bp.register_payment', provider_id=provider.id) }}" method="POST" enctype="multipart/form-data">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="modal-body">
-              <div class="mb-3">
-                  <label for="monto_abonado" class="form-label fw-bold small text-brand-black">Monto Abonado ($) <span class="text-danger">*</span></label>
-                  <div class="input-group">
-                      <span class="input-group-text bg-light border-0">$</span>
-                      <input type="number" step="1" min="1" id="monto_abonado" name="monto_abonado" class="form-control bg-light border-0 fw-bold fs-5 text-success" placeholder="0" required>
+              <div class="alert alert-info py-2 px-3 small rounded-3 mb-3 border-0 bg-info bg-opacity-10 text-info-emphasis">
+                  <i class="fa-solid fa-circle-info me-1"></i>Este abono descontará la deuda del proveedor y se registrará automáticamente en <strong>Gastos</strong> y en el consolidado de <strong>Tesorería</strong>.
+              </div>
+
+              <div class="row g-2 mb-3">
+                  <div class="col-6">
+                      <label for="fecha_pago" class="form-label fw-bold small text-brand-black"><i class="fa-regular fa-calendar me-1"></i>Fecha del Pago <span class="text-danger">*</span></label>
+                      <input type="date" id="fecha_pago" name="fecha_pago" class="form-control bg-light border-0 fw-bold" value="{{ hoy }}" required>
                   </div>
-                  <small class="text-muted" style="font-size: 0.75rem;">Este valor descontará inmediatamente la deuda del proveedor.</small>
+                  <div class="col-6">
+                      <label for="local_id" class="form-label fw-bold small text-brand-black"><i class="fa-solid fa-store me-1"></i>Sede / Caja Pagadora <span class="text-danger">*</span></label>
+                      <select name="local_id" id="local_id" class="form-select bg-light border-0 fw-semibold" required>
+                          <option value="1" selected>D&L 1 (Centro)</option>
+                          <option value="2">D&L 2 (Norte)</option>
+                          <option value="3">D&L 3</option>
+                      </select>
+                  </div>
               </div>
 
               <div class="mb-3">
-                  <label for="observacion" class="form-label fw-bold small text-brand-black">Observación / Método de Pago (Opcional)</label>
-                  <input type="text" id="observacion" name="observacion" class="form-control bg-light border-0" placeholder="Ej: Transferencia Bancolombia / Pago Efectivo">
+                  <label for="asesor_id_pago" class="form-label fw-bold small text-brand-black"><i class="fa-solid fa-id-badge me-1 text-primary"></i>Asesor Responsable <span class="text-danger">*</span></label>
+                  <select name="asesor_id" id="asesor_id_pago" class="form-select bg-light border-0 fw-semibold" required>
+                      <option value="" disabled selected>-- Seleccione el Asesor Responsable --</option>
+                      {% for asesor in asesores %}
+                          <option value="{{ asesor.id }}">{{ asesor.nombre }} ({{ asesor.cargo or 'Asesor' }})</option>
+                      {% endfor %}
+                  </select>
+              </div>
+
+              <div class="row g-2 mb-3">
+                  <div class="col-6">
+                      <label for="monto_abonado" class="form-label fw-bold small text-brand-black">Monto Abonado ($) <span class="text-danger">*</span></label>
+                      <div class="input-group">
+                          <span class="input-group-text bg-light border-0">$</span>
+                          <input type="number" step="1" min="1" id="monto_abonado" name="monto_abonado" class="form-control bg-light border-0 fw-bold fs-5 text-success" placeholder="0" required>
+                      </div>
+                      {% if saldo_pendiente > 0 %}
+                      <small class="text-muted d-block mt-1" style="font-size: 0.73rem;">Saldo pendiente: ${{ saldo_pendiente|cop }}</small>
+                      {% endif %}
+                  </div>
+                  <div class="col-6">
+                      <label for="metodo_pago" class="form-label fw-bold small text-brand-black">Método de Pago <span class="text-danger">*</span></label>
+                      <select name="metodo_pago" id="metodo_pago" class="form-select bg-light border-0 fw-bold" required>
+                          <option value="efectivo" selected>💵 Efectivo (Caja)</option>
+                          <option value="bancolombia">🏦 Bancolombia</option>
+                          <option value="nequi">📱 Nequi</option>
+                          <option value="daviplata">📱 Daviplata</option>
+                          <option value="bold">💳 Bold</option>
+                          <option value="addi">🛍️ Addi</option>
+                          <option value="qr_llave">🔑 QR / Llave</option>
+                      </select>
+                  </div>
+              </div>
+
+              <div class="mb-3">
+                  <label for="observacion" class="form-label fw-bold small text-brand-black">Concepto / Observaciones (Opcional)</label>
+                  <input type="text" id="observacion" name="observacion" class="form-control bg-light border-0" placeholder="Ej: Pago de contado / Abono a factura">
+              </div>
+
+              <div class="mb-2">
+                  <label for="comprobante_pago" class="form-label fw-bold small text-brand-black">Adjuntar Soporte de Transferencia (Opcional)</label>
+                  <input type="file" id="comprobante_pago" name="comprobante" accept=".png,.jpg,.jpeg,.pdf" class="form-control bg-light border-0">
+                  <small class="text-muted" style="font-size:0.75rem;">Formatos permitidos: PNG, JPG, JPEG, PDF.</small>
               </div>
           </div>
           <div class="modal-footer border-top-0 pt-0">

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row mb-5">
+<div class="row mb-4">
     <div class="col-12 d-flex justify-content-between align-items-center">
         <!-- Título con acento Azul Turquesa según reglas de Branding (.text-brand-blue es #A3D8DE) -->
         <h2 class="fw-bolder m-0" style="color: var(--brand-blue);">
@@ -10,6 +10,60 @@
         <a href="/admin/dashboard" class="btn btn-light rounded-pill px-4 fw-bold text-muted border shadow-sm">
             <i class="fa-solid fa-arrow-left me-1"></i> Panel Principal
         </a>
+    </div>
+</div>
+
+<!-- Banner Superior: Control de Permiso de Fecha por Local/Sede -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card card-custom p-4 border-0 shadow-sm" style="background: linear-gradient(135deg, #ffffff 0%, #f4fbfd 100%); border-left: 5px solid var(--brand-blue, #A3D8DE) !important;">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3">
+                <div>
+                    <h5 class="fw-bold text-brand-black m-0 d-flex align-items-center flex-wrap gap-2">
+                        <i class="fa-solid fa-calendar-check text-primary fs-5"></i>
+                        <span>Autorización de Ventas con Fecha Diferente</span>
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary rounded-pill small" style="font-size: 0.72rem;">Control Exclusivo por Sede</span>
+                    </h5>
+                    <p class="text-muted small m-0 mt-1">
+                        Activa o desactiva la posibilidad de que los vendedores registren ventas con fecha anterior o personalizada. 
+                        <strong>Si activas una sede, solo los vendedores asignados a esa sede tendrán el permiso</strong>; las demás sedes permanecerán estrictamente bloqueadas al día actual.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Grid de las 3 Sedes -->
+            <div class="row g-3">
+                {% set sedes_info = [
+                    {'id': 1, 'nombre': 'D&L 1', 'sub': 'Sede Principal / Centro', 'color': 'primary'},
+                    {'id': 2, 'nombre': 'D&L 2', 'sub': 'Sede Norte / Local 2', 'color': 'info'},
+                    {'id': 3, 'nombre': 'D&L 3', 'sub': 'Sede Local 3', 'color': 'success'}
+                ] %}
+                {% for sede in sedes_info %}
+                {% set esta_activa = local_fecha_map.get(sede.id, False) %}
+                <div class="col-md-4">
+                    <div class="p-3 rounded-3 border bg-white shadow-xs h-100 d-flex justify-content-between align-items-center transition-all" id="sede_card_{{ sede.id }}" style="border-color: {% if esta_activa %}#198754{% else %}#dee2e6{% endif %} !important; border-width: 1.5px !important;">
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-{{ sede.color }} rounded-pill px-2 py-1">{{ sede.nombre }}</span>
+                                <span class="badge {% if esta_activa %}bg-success text-white{% else %}bg-secondary bg-opacity-10 text-muted border{% endif %} rounded-pill px-2 py-1" id="sede_badge_{{ sede.id }}" style="font-size: 0.7rem;">
+                                    {% if esta_activa %}<i class="fa-solid fa-unlock me-1"></i>Autorizada{% else %}<i class="fa-solid fa-lock me-1"></i>Bloqueada{% endif %}
+                                </span>
+                            </div>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">{{ sede.sub }}</small>
+                        </div>
+                        <div class="form-check form-switch m-0 ms-2">
+                            <input class="form-check-input switch-local-fecha" type="checkbox" role="switch" 
+                                   data-local-id="{{ sede.id }}" 
+                                   id="switch_local_{{ sede.id }}" 
+                                   style="cursor: pointer; width: 3.2rem; height: 1.6rem;" 
+                                   {% if esta_activa %}checked{% endif %}
+                                   title="Habilitar/Deshabilitar fecha libre para toda esta sede">
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 </div>
 
@@ -41,6 +95,7 @@
                     <label class="form-label text-brand-black fw-semibold small">Asignar Rol / Perfil de Usuario</label>
                     <select name="rol" class="form-select bg-light border-0 py-2" required>
                         <option value="vendedor">Vendedor (Cajas / Tienda)</option>
+                        <option value="bodega">Bodega (Inventario Mayorista)</option>
                         <option value="admin">Administrador (Acceso Total)</option>
                     </select>
                 </div>
@@ -52,6 +107,18 @@
                         <option value="2">D&L 2</option>
                         <option value="3">D&L 3</option>
                     </select>
+                </div>
+
+                <div class="mb-3 p-3 rounded-3 bg-light border">
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" name="permitir_fecha_retroactiva" id="nuevo_permitir_fecha" style="cursor: pointer; width: 2.6rem; height: 1.3rem;">
+                        <label class="form-check-label fw-semibold text-brand-black small ms-2" for="nuevo_permitir_fecha" style="cursor: pointer;">
+                            Autorizar ventas con fecha libre
+                        </label>
+                    </div>
+                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                        Permite a este vendedor modificar la fecha de venta en caja (incluso si la sede está bloqueada).
+                    </small>
                 </div>
 
                 <div class="mb-4">
@@ -81,9 +148,10 @@
                     <thead class="bg-light">
                         <tr>
                             <th class="ps-4">NOMBRE DE EMPLEADO</th>
-                            <th>EMAIL (CREDENCIAL DE ACCESO)</th>
+                            <th>EMAIL (CREDENCIAL)</th>
                             <th>ROL / PERFIL</th>
                             <th class="text-center">SEDE</th>
+                            <th class="text-center">FECHA LIBRE</th>
                             <th class="text-center">STATUS</th>
                             <th class="text-center pe-4">ACCIONES</th>
                         </tr>
@@ -92,7 +160,7 @@
                         {% for vendedor in vendedores %}
                         <tr>
                             <td class="fw-bold text-brand-black ps-4">{{ vendedor.nombre }}</td>
-                            <td class="text-muted">{{ vendedor.email }}</td>
+                            <td class="text-muted small">{{ vendedor.email }}</td>
                             <td class="text-muted">
                                 {% if vendedor.rol == 'vendedor' %}
                                     <span class="badge bg-info bg-opacity-10 text-info border border-info rounded-pill px-2">Vendedor</span>
@@ -106,7 +174,41 @@
                                 <span class="badge bg-dark text-white rounded-pill px-3 py-1">Local {{ vendedor.local_asignado or 1 }}</span>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2 w-100">Activo</span>
+                                {% if vendedor.rol == 'admin' %}
+                                    <span class="badge bg-light text-muted border rounded-pill px-2 py-1" style="font-size: 0.72rem;">
+                                        <i class="fa-solid fa-shield-halved text-danger me-1"></i>Admin (Siempre)
+                                    </span>
+                                {% else %}
+                                    {% set activo_por_sede = local_fecha_map.get(vendedor.local_asignado, False) %}
+                                    {% set activo_individual = vendedor.permitir_fecha_retroactiva %}
+                                    <div class="d-flex flex-column align-items-center gap-1">
+                                        <div class="form-check form-switch m-0">
+                                            <input class="form-check-input switch-vendedor-fecha" type="checkbox" role="switch"
+                                                   data-user-id="{{ vendedor.id }}"
+                                                   data-user-name="{{ vendedor.nombre }}"
+                                                   id="switch_user_{{ vendedor.id }}"
+                                                   style="cursor: pointer; width: 2.8rem; height: 1.4rem;"
+                                                   {% if activo_individual %}checked{% endif %}
+                                                   title="Activar/desactivar permiso individual para {{ vendedor.nombre }}">
+                                        </div>
+                                        {% if activo_por_sede %}
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-2 py-0" style="font-size: 0.65rem;" title="Habilitado automáticamente porque Local {{ vendedor.local_asignado }} está autorizado">
+                                                <i class="fa-solid fa-store me-1"></i>Por Sede {{ vendedor.local_asignado }}
+                                            </span>
+                                        {% elif activo_individual %}
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary rounded-pill px-2 py-0" style="font-size: 0.65rem;">
+                                                <i class="fa-solid fa-user-check me-1"></i>Individual
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary bg-opacity-10 text-muted border rounded-pill px-2 py-0" style="font-size: 0.65rem;">
+                                                <i class="fa-solid fa-lock me-1"></i>Bloqueado
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-1">Activo</span>
                             </td>
                             <td class="text-center pe-4">
                                 <div class="d-flex justify-content-center align-items-center gap-1">
@@ -135,7 +237,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="fa-solid fa-users-slash fs-1 mb-3 opacity-25"></i>
                                 <p class="mb-0">Aún no has dado de alta a ningún Vendedor/Cajero.</p>
                             </td>
@@ -190,6 +292,19 @@
                             <option value="3" {% if vendedor.local_asignado == 3 %}selected{% endif %}>D&L 3</option>
                         </select>
                     </div>
+
+                    <div class="mb-3 p-3 rounded-3 bg-light border">
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" name="permitir_fecha_retroactiva" id="edit_permitir_fecha_{{ vendedor.id }}" style="cursor: pointer; width: 2.6rem; height: 1.3rem;" {% if vendedor.permitir_fecha_retroactiva %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold text-brand-black small ms-2" for="edit_permitir_fecha_{{ vendedor.id }}" style="cursor: pointer;">
+                                Autorizar ventas con fecha libre
+                            </label>
+                        </div>
+                        <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                            Permite a este usuario registrar ventas con fecha anterior en su sede asignada.
+                        </small>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label text-brand-black fw-semibold small">Nueva Contraseña / PIN (Opcional)</label>
                         <input type="password" name="password" class="form-control bg-light border-0 py-2" placeholder="Dejar en blanco para conservar actual">
@@ -207,4 +322,92 @@
 {% endif %}
 {% endfor %}
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = "{{ csrf_token() }}";
+
+    // 1. Toggle por Sede / Local
+    document.querySelectorAll('.switch-local-fecha').forEach(function(switchEl) {
+        switchEl.addEventListener('change', async function() {
+            const localId = this.getAttribute('data-local-id');
+            const isChecked = this.checked;
+            this.disabled = true;
+
+            try {
+                const response = await fetch(`/admin/locales/${localId}/toggle-fecha`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    const badge = document.getElementById(`sede_badge_${localId}`);
+                    const card = document.getElementById(`sede_card_${localId}`);
+                    if (data.permitir_fecha_retroactiva) {
+                        if (badge) {
+                            badge.className = 'badge bg-success text-white rounded-pill px-2 py-1';
+                            badge.innerHTML = '<i class="fa-solid fa-unlock me-1"></i>Autorizada';
+                        }
+                        if (card) card.style.setProperty('border-color', '#198754', 'important');
+                    } else {
+                        if (badge) {
+                            badge.className = 'badge bg-secondary bg-opacity-10 text-muted border rounded-pill px-2 py-1';
+                            badge.innerHTML = '<i class="fa-solid fa-lock me-1"></i>Bloqueada';
+                        }
+                        if (card) card.style.setProperty('border-color', '#dee2e6', 'important');
+                    }
+                    // Recargar suavemente para refrescar los badges correspondientes en la tabla de personal
+                    setTimeout(() => window.location.reload(), 350);
+                } else {
+                    alert(data.message || 'Error al actualizar autorización de la sede.');
+                    this.checked = !isChecked;
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error de conexión al servidor.');
+                this.checked = !isChecked;
+            } finally {
+                this.disabled = false;
+            }
+        });
+    });
+
+    // 2. Toggle individual por Vendedor
+    document.querySelectorAll('.switch-vendedor-fecha').forEach(function(switchEl) {
+        switchEl.addEventListener('change', async function() {
+            const userId = this.getAttribute('data-user-id');
+            const userName = this.getAttribute('data-user-name');
+            const isChecked = this.checked;
+            this.disabled = true;
+
+            try {
+                const response = await fetch(`/admin/vendedores/${userId}/toggle-fecha`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    setTimeout(() => window.location.reload(), 300);
+                } else {
+                    alert(data.message || 'Error al actualizar autorización del vendedor.');
+                    this.checked = !isChecked;
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error de conexión al servidor.');
+                this.checked = !isChecked;
+            } finally {
+                this.disabled = false;
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

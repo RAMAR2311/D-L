@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from models import db, Punto, PuntoTransaction, Expense, obtener_hora_bogota
+from models import db, Punto, PuntoTransaction, Expense, Asesor, obtener_hora_bogota
 from decimal import Decimal
 from datetime import datetime
 
@@ -247,6 +247,7 @@ def detalle(id):
     deuda_l3 = sum((p['saldo_pendiente'] for p in items_pendientes if (p['local_id'] or 1) == 3), Decimal('0.00'))
 
     hoy_str = obtener_hora_bogota().strftime('%Y-%m-%d')
+    asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
 
     return render_template(
         'puntos/detail.html',
@@ -275,7 +276,8 @@ def detalle(id):
         deuda_l2=deuda_l2,
         deuda_l3=deuda_l3,
         abonos_por_metodo=abonos_por_metodo,
-        hoy=hoy_str
+        hoy=hoy_str,
+        asesores=asesores
     )
 
 @puntos_bp.route('/<int:id>/abonar', methods=['POST'])
@@ -293,22 +295,15 @@ def abonar(id):
         flash(f'El punto "{punto.nombre}" ya se encuentra al día ($0 saldo pendiente). No es posible registrar abonos.', 'warning')
         return redirect(url_for('puntos_bp.detalle', id=punto.id))
 
-    try:
-        monto = Decimal(str(request.form.get('monto', '0')).replace(',', '').strip())
-    except (ValueError, TypeError):
-        monto = Decimal('0.00')
-
-    metodo_pago = request.form.get('metodo_pago', 'efectivo')
+    modo_pago = request.form.get('modo_pago', 'unico').strip().lower()
     descripcion = request.form.get('descripcion', '').strip()
-    sale_id_raw = request.form.get('sale_id')
-    sale_id = int(sale_id_raw) if sale_id_raw and sale_id_raw.isdigit() else None
 
     try:
         local_id_abono = int(request.form.get('local_id', 1))
     except (ValueError, TypeError):
         local_id_abono = getattr(current_user, 'local_asignado', 1) or 1
 
-    # Obtener la fecha del abono elegida por el usuario
+    # Fecha del abono elegida por el usuario
     fecha_abono_str = request.form.get('fecha_abono')
     if fecha_abono_str:
         try:
@@ -321,77 +316,193 @@ def abonar(id):
     else:
         fecha_dt = obtener_hora_bogota()
 
-    # Validar que el monto sea mayor a 0
-    if monto <= 0:
-        flash('El monto del abono debe ser mayor a 0.', 'danger')
+    # Validar asesor responsable obligatorio
+    asesor_id_raw = request.form.get('asesor_id')
+    if not asesor_id_raw or not asesor_id_raw.isdigit():
+        flash('Debe seleccionar un Asesor Responsable obligatorio para registrar el abono.', 'danger')
         return redirect(url_for('puntos_bp.detalle', id=punto.id))
+    asesor_id = int(asesor_id_raw)
+
+    # Determinar métodos de pago y montos correspondientes
+    metodos_posibles = ['efectivo', 'nequi', 'bancolombia', 'daviplata', 'bold', 'addi', 'qr_llave']
+    pagos_desglose = []
+
+    if modo_pago == 'dividido':
+        for met in metodos_posibles:
+            raw_val = request.form.get(f'monto_{met}', '0').replace(',', '').strip()
+            try:
+                amt = Decimal(raw_val)
+            except Exception:
+                amt = Decimal('0.00')
+            if amt > Decimal('0.00'):
+                pagos_desglose.append((met, amt))
+        
+        monto_total = sum((p[1] for p in pagos_desglose), Decimal('0.00'))
+        if not pagos_desglose or monto_total <= Decimal('0.00'):
+            flash('En modalidad dividida debes ingresar al menos un valor mayor a $0 en algún método de pago.', 'danger')
+            return redirect(url_for('puntos_bp.detalle', id=punto.id))
+    else:
+        metodo_pago = request.form.get('metodo_pago', 'efectivo').strip().lower()
+        if metodo_pago not in metodos_posibles:
+            metodo_pago = 'efectivo'
+        raw_val = request.form.get('monto', '0').replace(',', '').strip()
+        try:
+            monto_total = Decimal(raw_val)
+        except Exception:
+            monto_total = Decimal('0.00')
+
+        if monto_total <= Decimal('0.00'):
+            flash('El monto del abono debe ser mayor a 0.', 'danger')
+            return redirect(url_for('puntos_bp.detalle', id=punto.id))
+        pagos_desglose.append((metodo_pago, monto_total))
 
     # Validar que el abono no exceda la deuda global pendiente
-    if monto > saldo_pendiente:
-        flash(f'El monto del abono (${monto:,.0f}) excede el saldo pendiente total del punto (${saldo_pendiente:,.0f}).', 'warning')
+    if monto_total > saldo_pendiente:
+        flash(f'El monto del abono (${monto_total:,.0f}) excede el saldo pendiente total del punto (${saldo_pendiente:,.0f}).', 'warning')
         return redirect(url_for('puntos_bp.detalle', id=punto.id))
 
-    # Validación estricta a nivel de producto / venta específica si se seleccionó uno
-    if sale_id:
-        cartera_info = calcular_cartera_punto(transacciones_existentes)
-        cargo_ref = next((t for t in transacciones_existentes if t.tipo_movimiento == 'cargo' and (t.sale_id == sale_id or (not t.sale_id and t.id == sale_id))), None)
-        if not cargo_ref:
-            flash('No se encontró el cargo o producto seleccionado para este punto.', 'danger')
+    # Determinar productos/cargos seleccionados
+    tipo_aplicacion = request.form.get('tipo_aplicacion', 'general') # 'general' o 'especifico'
+    sale_ids_raw = request.form.getlist('sale_ids') or request.form.getlist('sale_ids[]')
+    
+    single_sale_id = request.form.get('sale_id')
+    if single_sale_id and single_sale_id.isdigit():
+        sale_ids_raw.append(single_sale_id)
+
+    selected_sale_ids = []
+    for s in sale_ids_raw:
+        if str(s).isdigit() and int(s) not in selected_sale_ids:
+            selected_sale_ids.append(int(s))
+
+    cartera_info = calcular_cartera_punto(transacciones_existentes)
+    cargos_seleccionados = []
+
+    if tipo_aplicacion == 'especifico' and selected_sale_ids:
+        for s_id in selected_sale_ids:
+            cargo_ref = next((t for t in transacciones_existentes if t.tipo_movimiento == 'cargo' and (t.sale_id == s_id or (not t.sale_id and t.id == s_id))), None)
+            if cargo_ref:
+                info = cartera_info['cargo_data'].get(cargo_ref.id, {})
+                pend = info.get('saldo_pendiente', Decimal('0.00'))
+                if pend > Decimal('0.00'):
+                    cargos_seleccionados.append({
+                        'sale_id': s_id,
+                        'cargo_id': cargo_ref.id,
+                        'descripcion': cargo_ref.descripcion or f'Venta #{s_id}',
+                        'saldo_pendiente': pend
+                    })
+
+        if not cargos_seleccionados:
+            flash('Los productos seleccionados ya se encuentran al día ($0 pendiente).', 'warning')
             return redirect(url_for('puntos_bp.detalle', id=punto.id))
 
-        prod_info = cartera_info['cargo_data'].get(cargo_ref.id)
-        saldo_pendiente_prod = prod_info['saldo_pendiente'] if prod_info else Decimal('0.00')
-
-        # Si el producto ya quedó en 0, BLOQUEAR abonos adicionales
-        if saldo_pendiente_prod <= Decimal('0.00'):
-            flash(f'El producto/ítem "{cargo_ref.descripcion or f"Venta #{sale_id}"}" ya se encuentra cubierto/pagado ($0 saldo pendiente). No es posible realizar más abonos a este producto.', 'warning')
+        max_permitido = sum((c['saldo_pendiente'] for c in cargos_seleccionados), Decimal('0.00'))
+        if monto_total > max_permitido:
+            flash(f'El monto del abono (${monto_total:,.0f}) supera la deuda acumulada de los productos seleccionados (${max_permitido:,.0f}).', 'warning')
             return redirect(url_for('puntos_bp.detalle', id=punto.id))
-
-        # Si el monto ingresado supera lo que falta por pagar de ese producto, BLOQUEAR
-        if monto > saldo_pendiente_prod:
-            flash(f'El monto a abonar (${monto:,.0f}) excede el saldo pendiente de este producto (${saldo_pendiente_prod:,.0f}). El abono máximo permitido es de ${saldo_pendiente_prod:,.0f}.', 'warning')
-            return redirect(url_for('puntos_bp.detalle', id=punto.id))
-
-        # Asignar descripción automática si no se suministró una
-        if not descripcion:
-            if cargo_ref.descripcion:
-                descripcion = f"Abono a {cargo_ref.descripcion}"
-            else:
-                descripcion = f"Abono específico a Venta #{sale_id}"
 
     try:
-        # 1. Crear transacción de Abono al Punto con local_id, sale_id y fecha personalizada
-        transaccion_abono = PuntoTransaction(
-            punto_id=punto.id,
-            usuario_id=current_user.id,
-            tipo_movimiento='abono',
-            monto=monto,
-            metodo_pago=metodo_pago,
-            local_id=local_id_abono,
-            sale_id=sale_id,
-            descripcion=descripcion if descripcion else f'Abono a {punto.nombre} desde D&L {local_id_abono}',
-            fecha=fecha_dt
-        )
-        db.session.add(transaccion_abono)
+        if cargos_seleccionados:
+            # Distribuir monto_total entre los productos seleccionados
+            asignaciones_prods = []
+            monto_por_distribuir = monto_total
+            for item in cargos_seleccionados:
+                if monto_por_distribuir <= Decimal('0.00'):
+                    break
+                cuota = min(item['saldo_pendiente'], monto_por_distribuir)
+                asignaciones_prods.append((item, cuota))
+                monto_por_distribuir -= cuota
 
-        # 2. Registrar el desembolso como Gasto Diario para cuadrar caja en la sede pagadora
-        nuevo_gasto = Expense(
-            usuario_id=current_user.id,
-            tipo_gasto='Gasto Diario',
-            categoria='Abono a Punto/Local',
-            descripcion=f"Abono a Punto {punto.nombre}" + (f" ({descripcion})" if descripcion else ""),
-            monto=monto,
-            metodo_pago=metodo_pago,
-            local_id=local_id_abono,
-            fecha_gasto=fecha_dt
-        )
-        db.session.add(nuevo_gasto)
+            # Emparejar con los métodos de pago empleados (waterfall matching)
+            pagos_pool = [[m, amt] for m, amt in pagos_desglose]
+            p_idx = 0
+
+            for item, monto_item in asignaciones_prods:
+                monto_item_restante = monto_item
+                while monto_item_restante > Decimal('0.00') and p_idx < len(pagos_pool):
+                    curr_met, curr_amt = pagos_pool[p_idx]
+                    if curr_amt <= Decimal('0.00'):
+                        p_idx += 1
+                        continue
+                    porcion = min(monto_item_restante, curr_amt)
+
+                    desc_tx = descripcion if descripcion else f"Abono a {item['descripcion']} desde D&L {local_id_abono}"
+                    tx = PuntoTransaction(
+                        punto_id=punto.id,
+                        usuario_id=current_user.id,
+                        asesor_id=asesor_id,
+                        tipo_movimiento='abono',
+                        monto=porcion,
+                        metodo_pago=curr_met,
+                        local_id=local_id_abono,
+                        sale_id=item['sale_id'],
+                        descripcion=desc_tx,
+                        fecha=fecha_dt
+                    )
+                    db.session.add(tx)
+
+                    monto_item_restante -= porcion
+                    pagos_pool[p_idx][1] -= porcion
+                    if pagos_pool[p_idx][1] <= Decimal('0.00'):
+                        p_idx += 1
+
+            # Registrar Gastos Diarios correspondientes por cada método empleado
+            for met, monto_met in pagos_desglose:
+                desc_g = f"Abono a Punto {punto.nombre}"
+                if len(cargos_seleccionados) == 1:
+                    desc_g += f" - {cargos_seleccionados[0]['descripcion']}"
+                else:
+                    desc_g += f" ({len(cargos_seleccionados)} productos)"
+                if descripcion:
+                    desc_g += f" [{descripcion}]"
+
+                gasto = Expense(
+                    usuario_id=current_user.id,
+                    tipo_gasto='Gasto Diario',
+                    categoria='Abono a Punto/Local',
+                    descripcion=desc_g,
+                    monto=monto_met,
+                    metodo_pago=met,
+                    local_id=local_id_abono,
+                    fecha_gasto=fecha_dt
+                )
+                db.session.add(gasto)
+
+        else:
+            # Abono General a la Deuda Global
+            for met, monto_met in pagos_desglose:
+                desc_tx = descripcion if descripcion else f"Abono general a {punto.nombre} desde D&L {local_id_abono}"
+                tx = PuntoTransaction(
+                    punto_id=punto.id,
+                    usuario_id=current_user.id,
+                    asesor_id=asesor_id,
+                    tipo_movimiento='abono',
+                    monto=monto_met,
+                    metodo_pago=met,
+                    local_id=local_id_abono,
+                    sale_id=None,
+                    descripcion=desc_tx,
+                    fecha=fecha_dt
+                )
+                db.session.add(tx)
+
+                gasto = Expense(
+                    usuario_id=current_user.id,
+                    tipo_gasto='Gasto Diario',
+                    categoria='Abono a Punto/Local',
+                    descripcion=f"Abono a Punto {punto.nombre}" + (f" ({descripcion})" if descripcion else ""),
+                    monto=monto_met,
+                    metodo_pago=met,
+                    local_id=local_id_abono,
+                    fecha_gasto=fecha_dt
+                )
+                db.session.add(gasto)
 
         db.session.commit()
-        flash(f'Abono de ${monto:,.0f} registrado exitosamente con fecha {fecha_dt.strftime("%d/%m/%Y")} a favor de "{punto.nombre}".', 'success')
+        metodos_str = "Pago Dividido (" + ", ".join([f"{m.capitalize()}: ${a:,.0f}" for m, a in pagos_desglose]) + ")" if len(pagos_desglose) > 1 else pagos_desglose[0][0].capitalize()
+        flash(f'Abono de ${monto_total:,.0f} registrado exitosamente ({metodos_str}) a favor de "{punto.nombre}".', 'success')
     except Exception as e:
         db.session.rollback()
-        flash('Error al intentar registrar el abono.', 'danger')
+        flash(f'Error al registrar el abono: {str(e)}', 'danger')
 
     return redirect(url_for('puntos_bp.detalle', id=punto.id))
 
@@ -571,6 +682,13 @@ def editar_transaccion(t_id):
             except ValueError:
                 pass
             
+    asesor_id_str = request.form.get('asesor_id')
+    if asesor_id_str is not None:
+        if asesor_id_str.isdigit():
+            transaccion.asesor_id = int(asesor_id_str)
+        elif asesor_id_str == '':
+            transaccion.asesor_id = None
+
     transaccion.descripcion = descripcion
     if transaccion.tipo_movimiento == 'abono':
         transaccion.metodo_pago = metodo_pago

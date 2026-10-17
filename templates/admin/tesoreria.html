@@ -34,6 +34,14 @@
         </div>
 
         <div class="d-flex align-items-center gap-2 flex-wrap">
+            <!-- Botón Registrar Ingreso Extra / Ajuste de Saldo -->
+            <button type="button" class="btn text-white rounded-pill fw-bold px-4 shadow-sm d-flex align-items-center gap-2" 
+                    data-bs-toggle="modal" data-bs-target="#modalAjusteTesoreria"
+                    style="background-color: #100F0D !important; border: 2px solid #100F0D;">
+                <i class="fa-solid fa-circle-plus text-warning fs-5"></i>
+                <span>Registrar Saldo a Favor / Cadena</span>
+            </button>
+
             <!-- Botón Exportar a Excel/CSV -->
             <a href="{{ url_for('admin_bp.tesoreria_exportar', periodo=data.periodo, fecha_inicio=data.fecha_inicio, fecha_fin=data.fecha_fin, local=data.active_local, tipo_flujo=data.tipo_flujo, tipo_operacion=data.tipo_operacion, metodos=','.join(data.metodos_filtro), q=data.query_search) }}" 
                class="btn btn-success rounded-pill fw-bold px-4 shadow-sm d-flex align-items-center gap-2"
@@ -125,15 +133,18 @@
                         {% if data.tipo_flujo == 'ingreso' %}
                             <option value="todos" {% if data.tipo_operacion == 'todos' or not data.tipo_operacion %}selected{% endif %}>🟢 Todos los Ingresos</option>
                             <option value="Venta" {% if data.tipo_operacion == 'Venta' %}selected{% endif %}>🛒 Ventas POS</option>
+                            <option value="Ajuste de Tesorería" {% if data.tipo_operacion == 'Ajuste de Tesorería' %}selected{% endif %}>⚖️ Ajustes de Tesorería (Saldos a favor / Cadenas)</option>
                             <option value="Ajuste de Arqueo" {% if data.tipo_operacion == 'Ajuste de Arqueo' %}selected{% endif %}>⚖️ Sobrantes de Arqueo</option>
                         {% elif data.tipo_flujo == 'egreso' %}
                             <option value="todos" {% if data.tipo_operacion == 'todos' or not data.tipo_operacion %}selected{% endif %}>🔴 Todas las Salidas / Egresos</option>
                             <option value="Gasto Operativo" {% if data.tipo_operacion == 'Gasto Operativo' %}selected{% endif %}>💸 Gastos Operativos</option>
                             <option value="Abono a Proveedor" {% if data.tipo_operacion == 'Abono a Proveedor' %}selected{% endif %}>🚚 Abonos a Proveedores</option>
                             <option value="Pago a Punto" {% if data.tipo_operacion == 'Pago a Punto' %}selected{% endif %}>🤝 Pagos / Abonos a Puntos</option>
+                            <option value="Ajuste de Tesorería" {% if data.tipo_operacion == 'Ajuste de Tesorería' %}selected{% endif %}>⚖️ Ajustes de Tesorería (Retiros)</option>
                             <option value="Ajuste de Arqueo" {% if data.tipo_operacion == 'Ajuste de Arqueo' %}selected{% endif %}>⚖️ Faltantes de Arqueo</option>
                         {% else %}
-                            <option value="todos" selected>Todos los Conceptos</option>
+                            <option value="todos" {% if data.tipo_operacion == 'todos' or not data.tipo_operacion %}selected{% endif %}>Todos los Conceptos</option>
+                            <option value="Ajuste de Tesorería" {% if data.tipo_operacion == 'Ajuste de Tesorería' %}selected{% endif %}>⚖️ Ajustes de Tesorería (Saldos a favor / Cadenas)</option>
                         {% endif %}
                     </select>
                 </div>
@@ -265,7 +276,8 @@
                 ('bancolombia', 'Bancolombia', 'fa-solid fa-building-columns', '#f59e0b'),
                 ('daviplata', 'Daviplata', 'fa-solid fa-mobile-retro', '#dc3545'),
                 ('bold', 'Bold', 'fa-solid fa-credit-card', '#1a1a1a'),
-                ('addi', 'Addi', 'fa-solid fa-bag-shopping', '#0dcaf0')
+                ('addi', 'Addi', 'fa-solid fa-bag-shopping', '#0dcaf0'),
+                ('qr_llave', 'QR / Llave', 'fa-solid fa-qrcode', '#6f42c1')
             ] %}
 
             {% for m_key, m_name, m_icon, m_color in pasarelas_cards %}
@@ -375,7 +387,7 @@
                                 {% elif m.local_id == 3 %}
                                     <span class="badge bg-success text-white rounded-pill px-2.5 py-1">🏪 D&L 3</span>
                                 {% else %}
-                                    <span class="badge bg-dark text-white rounded-pill px-2.5 py-1">🏢 Central</span>
+                                    <span class="badge bg-secondary text-white rounded-pill px-2.5 py-1">🏢 Bolsa General</span>
                                 {% endif %}
                             </td>
 
@@ -403,6 +415,18 @@
                                             <i class="fa-solid fa-money-bill-transfer text-danger me-1"></i>Gasto Operativo
                                         {% elif m.tipo_operacion == 'Ajuste de Arqueo' %}
                                             <i class="fa-solid fa-scale-balanced text-secondary me-1"></i>Ajuste Arqueo
+                                        {% elif m.tipo_operacion == 'Ajuste de Tesorería' %}
+                                            {% if 'cadena' in (m.categoria_ajuste|lower if m.categoria_ajuste else '') %}
+                                                <i class="fa-solid fa-link text-warning me-1"></i>Cadena / Ahorro
+                                            {% elif 'saldo a favor' in (m.categoria_ajuste|lower if m.categoria_ajuste else '') %}
+                                                <i class="fa-solid fa-scale-balanced text-primary me-1"></i>Saldo a Favor
+                                            {% elif 'aporte' in (m.categoria_ajuste|lower if m.categoria_ajuste else '') %}
+                                                <i class="fa-solid fa-vault text-success me-1"></i>Aporte Capital
+                                            {% elif 'reintegro' in (m.categoria_ajuste|lower if m.categoria_ajuste else '') %}
+                                                <i class="fa-solid fa-rotate-left text-info me-1"></i>Reintegro
+                                            {% else %}
+                                                <i class="fa-solid fa-coins text-secondary me-1"></i>Ajuste Tesorería
+                                            {% endif %}
                                         {% else %}
                                             {{ m.tipo_operacion }}
                                         {% endif %}
@@ -452,7 +476,21 @@
 
                             <!-- Referencia / Comprobante -->
                             <td class="pe-4 text-center">
-                                {% if m.link_recibo %}
+                                {% if m.es_ajuste %}
+                                    <div class="d-flex align-items-center justify-content-center gap-1">
+                                        {% if m.link_recibo %}
+                                            <a href="{{ m.link_recibo }}" target="_blank" class="btn btn-sm btn-outline-info rounded-circle p-1" title="Ver Comprobante Adjunto" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center;">
+                                                <i class="fa-solid fa-image" style="font-size:0.75rem;"></i>
+                                            </a>
+                                        {% endif %}
+                                        <form action="{{ url_for('admin_bp.tesoreria_ajuste_eliminar', id=m.referencia_id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar este ajuste de tesorería?');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle p-1" title="Eliminar Ajuste" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center;">
+                                                <i class="fa-solid fa-trash-can" style="font-size:0.75rem;"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% elif m.link_recibo %}
                                     <a href="{{ m.link_recibo }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0.5 text-nowrap" title="Ver Recibo Oficial" style="font-size: 0.75rem;">
                                         <i class="fa-solid fa-receipt me-1"></i>{{ m.referencia }}
                                     </a>
@@ -522,14 +560,225 @@
     </div>
 </div>
 
+<!-- Modal Registrar Saldo a Favor / Ingreso Extra en Tesorería -->
+<div class="modal fade" id="modalAjusteTesoreria" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <form action="{{ url_for('admin_bp.tesoreria_ajuste') }}" method="POST" enctype="multipart/form-data" id="formAjusteTesoreria" onsubmit="return validarEnvioAjuste(event);">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="modo_pago" id="ajusteModoPago" value="unico">
+                <input type="hidden" name="tipo_movimiento" value="ingreso">
+
+                <div class="modal-header border-0 bg-light p-4 rounded-top-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="p-3 rounded-circle bg-warning bg-opacity-25 text-dark">
+                            <i class="fa-solid fa-vault fs-4 text-warning" style="color: #FF007A !important;"></i>
+                        </span>
+                        <div>
+                            <h4 class="modal-title fw-bold text-dark m-0">Registrar Saldo a Favor / Ingreso Extra</h4>
+                            <small class="text-muted">Ajusta la liquidez real de tus cuentas bancarias o efectivo sin inflar ventas</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <div class="row g-3 mb-3">
+                        <!-- Categoría del Ajuste -->
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold small text-dark mb-1">
+                                <i class="fa-solid fa-tags text-primary me-1"></i>Categoría de Entrada *
+                            </label>
+                            <select name="categoria" id="ajusteCategoria" class="form-select bg-light border-0 fw-semibold" required>
+                                <option value="Saldo a Favor">💰 Saldo a Favor en Cuenta</option>
+                                <option value="Cadena / Ahorro">🔗 Cobro de Cadena / Ahorro</option>
+                                <option value="Aporte de Capital">🏦 Aporte de Capital / Socios</option>
+                                <option value="Reintegro Bancario">🔄 Reintegro o Devolución Bancaria</option>
+                                <option value="Otros Ingresos">🏷️ Otros Ingresos Extra</option>
+                            </select>
+                        </div>
+
+                        <!-- Destino / Sede Asignada -->
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold small text-dark mb-1">
+                                <i class="fa-solid fa-store text-danger me-1"></i>Destino / Asignación de Sede *
+                            </label>
+                            <select name="local_id" class="form-select bg-light border-0 fw-semibold" required>
+                                <option value="general" selected>🏢 Bolsa General (Central / Administrativa)</option>
+                                <option value="1">🏪 Asignar a Sede D&L 1</option>
+                                <option value="2">🏪 Asignar a Sede D&L 2</option>
+                                <option value="3">🏪 Asignar a Sede D&L 3</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <!-- Fecha Real / Efectiva -->
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold small text-dark mb-1">
+                                <i class="fa-regular fa-calendar-check text-success me-1"></i>Fecha Real en que Ocurrió *
+                            </label>
+                            <input type="date" name="fecha_efectiva" id="ajusteFechaEfectiva" class="form-control bg-light border-0 fw-semibold" value="{{ data.fecha_fin }}" required>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                                <i class="fa-solid fa-circle-info text-info me-1"></i>Puedes elegir una fecha pasada si el saldo entró días atrás.
+                            </small>
+                        </div>
+
+                        <!-- Asesor Responsable (Opcional) -->
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold small text-dark mb-1">
+                                <i class="fa-solid fa-user-tie text-secondary me-1"></i>Asesor Responsable (Opcional)
+                            </label>
+                            <select name="asesor_id" class="form-select bg-light border-0 fw-semibold">
+                                <option value="" selected>-- Sin asesor específico (Administración) --</option>
+                                {% for a in asesores %}
+                                    <option value="{{ a.id }}">{{ a.nombre }} (Local {{ a.local_id }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Modalidad de Pago: Cuenta Única vs Dividido -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark mb-2">
+                            <i class="fa-solid fa-wallet text-warning me-1"></i>Forma de Ingreso del Dinero *
+                        </label>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-dark rounded-pill fw-bold px-3 py-1.5 shadow-sm" id="btnModoUnico" onclick="cambiarModoPago('unico');">
+                                <i class="fa-solid fa-credit-card me-1"></i> Una Sola Cuenta
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-dark rounded-pill fw-bold px-3 py-1.5" id="btnModoDividido" onclick="cambiarModoPago('dividido');">
+                                <i class="fa-solid fa-diagram-project me-1"></i> Monto Dividido (Varias Cuentas)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Contenedor Modo Cuenta Única -->
+                    <div id="contenedorModoUnico" class="card border bg-light p-3 rounded-4 mb-3 shadow-none">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-bold text-muted mb-1">Cuenta / Pasarela Receptora *</label>
+                                <select name="metodo_pago" id="ajusteMetodoUnico" class="form-select border-0 bg-white fw-bold">
+                                    <option value="nequi" selected>📱 Nequi</option>
+                                    <option value="bancolombia">🏦 Bancolombia</option>
+                                    <option value="efectivo">💵 Efectivo Físico</option>
+                                    <option value="daviplata">📱 Daviplata</option>
+                                    <option value="bold">💳 Bold</option>
+                                    <option value="addi">🛍️ Addi</option>
+                                    <option value="qr_llave">🔑 QR / Llave</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-bold text-muted mb-1">Monto Total a Ingresar ($ COP) *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-0 fw-bold text-success">$</span>
+                                    <input type="number" name="monto" id="ajusteMontoUnico" class="form-control border-0 bg-white fw-bold fs-5" placeholder="0" min="1" step="1" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contenedor Modo Monto Dividido -->
+                    <div id="contenedorModoDividido" class="card border bg-light p-3 rounded-4 mb-3 shadow-none d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold text-muted text-uppercase">
+                                <i class="fa-solid fa-coins me-1"></i>Distribuir monto entre cuentas:
+                            </span>
+                            <span class="badge bg-success rounded-pill px-3 py-1.5 fs-6 fw-bold">
+                                Total: <span id="lblTotalDividido">$0 COP</span>
+                            </span>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-muted mb-0">📱 Nequi</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-0">$</span>
+                                    <input type="number" name="monto_nequi" class="form-control border-0 bg-white fw-bold input-monto-dividido" placeholder="0" min="0" step="1" oninput="calcularTotalDividido();">
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-muted mb-0">🏦 Bancolombia</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-0">$</span>
+                                    <input type="number" name="monto_bancolombia" class="form-control border-0 bg-white fw-bold input-monto-dividido" placeholder="0" min="0" step="1" oninput="calcularTotalDividido();">
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-muted mb-0">💵 Efectivo</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-0">$</span>
+                                    <input type="number" name="monto_efectivo" class="form-control border-0 bg-white fw-bold input-monto-dividido" placeholder="0" min="0" step="1" oninput="calcularTotalDividido();">
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-muted mb-0">📱 Daviplata</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-0">$</span>
+                                    <input type="number" name="monto_daviplata" class="form-control border-0 bg-white fw-bold input-monto-dividido" placeholder="0" min="0" step="1" oninput="calcularTotalDividido();">
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-muted mb-0">💳 Bold</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-0">$</span>
+                                    <input type="number" name="monto_bold" class="form-control border-0 bg-white fw-bold input-monto-dividido" placeholder="0" min="0" step="1" oninput="calcularTotalDividido();">
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-muted mb-0">🛍️ Addi</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-0">$</span>
+                                    <input type="number" name="monto_addi" class="form-control border-0 bg-white fw-bold input-monto-dividido" placeholder="0" min="0" step="1" oninput="calcularTotalDividido();">
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small text-muted mb-0">🔑 QR / Llave</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-0">$</span>
+                                    <input type="number" name="monto_qr_llave" class="form-control border-0 bg-white fw-bold input-monto-dividido" placeholder="0" min="0" step="1" oninput="calcularTotalDividido();">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Concepto / Explicación -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark mb-1">
+                            <i class="fa-solid fa-align-left text-muted me-1"></i>Concepto / Detalle Explicativo *
+                        </label>
+                        <input type="text" name="concepto" id="ajusteConcepto" class="form-control bg-light border-0 fw-semibold" placeholder="Ej: Pago de cadena turno 4 entregado por doña Marta / Saldo a favor no identificado" required autocomplete="off">
+                    </div>
+
+                    <!-- Comprobante Opcional -->
+                    <div>
+                        <label class="form-label fw-bold small text-dark mb-1">
+                            <i class="fa-solid fa-paperclip text-muted me-1"></i>Comprobante o Captura de Pantalla (Opcional)
+                        </label>
+                        <input type="file" name="comprobante" class="form-control form-control-sm bg-light border-0" accept=".png,.jpg,.jpeg,.webp,.pdf">
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 bg-light p-3 rounded-bottom-4">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn text-white rounded-pill px-4 fw-bold shadow-sm" style="background-color: #100F0D; border: 2px solid #100F0D;">
+                        <i class="fa-solid fa-check-double me-1 text-warning"></i> Guardar Ajuste en Tesorería
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     const OPCIONES_OPERACION = {
         'todos': [
-            { value: 'todos', label: 'Todos los Conceptos' }
+            { value: 'todos', label: 'Todos los Conceptos' },
+            { value: 'Ajuste de Tesorería', label: '⚖️ Saldos a Favor / Cadenas' }
         ],
         'ingreso': [
             { value: 'todos', label: '🟢 Todos los Ingresos (+)' },
             { value: 'Venta', label: '🛒 Solo Ventas POS' },
+            { value: 'Ajuste de Tesorería', label: '⚖️ Saldos a Favor / Cadenas' },
             { value: 'Ajuste de Arqueo', label: '⚖️ Sobrantes de Arqueo' }
         ],
         'egreso': [
@@ -537,6 +786,7 @@
             { value: 'Gasto Operativo', label: '💸 Solo Gastos Operativos' },
             { value: 'Abono a Proveedor', label: '🚚 Solo Abonos a Proveedores' },
             { value: 'Pago a Punto', label: '🤝 Solo Pagos a Puntos' },
+            { value: 'Ajuste de Tesorería', label: '⚖️ Retiros de Tesorería' },
             { value: 'Ajuste de Arqueo', label: '⚖️ Faltantes de Arqueo' }
         ]
     };
@@ -568,6 +818,65 @@
             opSelect.disabled = false;
             opSelect.style.opacity = '1';
         }
+    }
+
+    function cambiarModoPago(modo) {
+        const inputModo = document.getElementById('ajusteModoPago');
+        const btnUnico = document.getElementById('btnModoUnico');
+        const btnDividido = document.getElementById('btnModoDividido');
+        const boxUnico = document.getElementById('contenedorModoUnico');
+        const boxDividido = document.getElementById('contenedorModoDividido');
+        const inputMontoUnico = document.getElementById('ajusteMontoUnico');
+
+        inputModo.value = modo;
+        if (modo === 'dividido') {
+            btnUnico.className = 'btn btn-sm btn-outline-dark rounded-pill fw-bold px-3 py-1.5';
+            btnDividido.className = 'btn btn-sm btn-dark rounded-pill fw-bold px-3 py-1.5 shadow-sm';
+            boxUnico.classList.add('d-none');
+            boxDividido.classList.remove('d-none');
+            inputMontoUnico.removeAttribute('required');
+            calcularTotalDividido();
+        } else {
+            btnUnico.className = 'btn btn-sm btn-dark rounded-pill fw-bold px-3 py-1.5 shadow-sm';
+            btnDividido.className = 'btn btn-sm btn-outline-dark rounded-pill fw-bold px-3 py-1.5';
+            boxUnico.classList.remove('d-none');
+            boxDividido.classList.add('d-none');
+            inputMontoUnico.setAttribute('required', 'required');
+        }
+    }
+
+    function calcularTotalDividido() {
+        let total = 0;
+        document.querySelectorAll('.input-monto-dividido').forEach(input => {
+            const val = parseFloat(input.value) || 0;
+            if (val > 0) total += val;
+        });
+        const lbl = document.getElementById('lblTotalDividido');
+        if (lbl) {
+            lbl.textContent = '$' + total.toLocaleString('es-CO') + ' COP';
+        }
+        return total;
+    }
+
+    function validarEnvioAjuste(e) {
+        const modo = document.getElementById('ajusteModoPago').value;
+        if (modo === 'dividido') {
+            const total = calcularTotalDividido();
+            if (total <= 0) {
+                e.preventDefault();
+                alert('Debes ingresar un monto mayor a $0 en al menos una de las cuentas.');
+                return false;
+            }
+        } else {
+            const montoUnico = parseFloat(document.getElementById('ajusteMontoUnico').value) || 0;
+            if (montoUnico <= 0) {
+                e.preventDefault();
+                alert('El monto del ajuste debe ser mayor a $0.');
+                document.getElementById('ajusteMontoUnico').focus();
+                return false;
+            }
+        }
+        return true;
     }
 
     document.addEventListener('DOMContentLoaded', function() {

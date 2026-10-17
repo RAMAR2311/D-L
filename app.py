@@ -77,6 +77,10 @@ def create_app():
     from routes.asesores import asesores_bp
     app.register_blueprint(asesores_bp)
 
+    # Registro de Blueprint Maneos
+    from routes.maneos import maneos_bp
+    app.register_blueprint(maneos_bp, url_prefix='/maneos')
+
 
     @app.template_filter('cop')
     def cop_filter(value):

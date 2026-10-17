@@ -98,6 +98,35 @@
     </div>
 </div>
 
+<!-- ALERTA DE ARQUEOS DEJADOS PASAR / OMITIDOS -->
+{% if total_arqueos_omitidos > 0 %}
+<div class="alert alert-danger border-0 shadow-sm rounded-4 p-3 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(220, 38, 38, 0.05)); border-left: 5px solid #dc2626 !important;">
+    <div class="d-flex align-items-center gap-3">
+        <div class="rounded-circle bg-danger text-white p-3 d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px; min-width: 48px;">
+            <i class="fa-solid fa-calendar-xmark fs-4"></i>
+        </div>
+        <div>
+            <h6 class="fw-bolder text-danger mb-0 fs-6">
+                ¡Atención! Se detectaron {{ total_arqueos_omitidos }} días con actividad comercial que no tienen arqueo de caja registrado
+            </h6>
+            <small class="text-muted">
+                {% if active_local == 'central' %}
+                    Locales con arqueos dejados pasar:
+                    {% if conteo_omitidos_por_local[1] %}<span class="badge bg-danger-subtle text-danger border border-danger-subtle me-1">D&L 1: {{ conteo_omitidos_por_local[1] }}</span>{% endif %}
+                    {% if conteo_omitidos_por_local[2] %}<span class="badge bg-danger-subtle text-danger border border-danger-subtle me-1">D&L 2: {{ conteo_omitidos_por_local[2] }}</span>{% endif %}
+                    {% if conteo_omitidos_por_local[3] %}<span class="badge bg-danger-subtle text-danger border border-danger-subtle me-1">D&L 3: {{ conteo_omitidos_por_local[3] }}</span>{% endif %}
+                {% else %}
+                    En la sede <strong>D&L {{ active_local }}</strong> hay {{ total_arqueos_omitidos }} fecha(s) donde hubo ventas sin realizar el cierre.
+                {% endif %}
+            </small>
+        </div>
+    </div>
+    <button type="button" class="btn btn-danger rounded-pill fw-bold shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#modalArqueosOmitidos">
+        <i class="fa-solid fa-list-check me-1"></i> Ver y Realizar Arqueos
+    </button>
+</div>
+{% endif %}
+
 <!-- ========================================================= -->
 <!-- FILA 1: OPERACIONES Y FINANZAS (4 TARJETAS)               -->
 <!-- ========================================================= -->
@@ -175,7 +204,12 @@
                 <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
                     <i class="fa-solid fa-calculator fs-2"></i>
                 </div>
-                <span class="badge bg-success rounded-pill">Cierres</span>
+                <div class="d-flex flex-column align-items-end gap-1">
+                    <span class="badge bg-success rounded-pill">Cierres</span>
+                    {% if total_arqueos_omitidos > 0 %}
+                    <span class="badge bg-danger rounded-pill" style="font-size: 0.68rem;" title="{{ total_arqueos_omitidos }} arqueos omitidos"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ total_arqueos_omitidos }} omitidos</span>
+                    {% endif %}
+                </div>
             </div>
             <h5 class="text-brand-black fw-bold mb-1">Arqueo de Caja</h5>
             <h2 class="fw-bolder text-success mb-1">{{ total_arqueos }} <span class="fs-6 fw-normal text-muted">cierres</span></h2>
@@ -301,5 +335,186 @@
             </div>
         </div>
     </div>
+
+    <!-- 10. Tarjeta: ARQUEOS DEJADOS PASAR / OMITIDOS -->
+    <div class="col-md-3">
+        <div class="card card-custom h-100 p-4 border-start border-4 {% if total_arqueos_omitidos > 0 %}border-danger{% else %}border-success{% endif %} shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="rounded-circle {% if total_arqueos_omitidos > 0 %}bg-danger bg-opacity-10 text-danger{% else %}bg-success bg-opacity-10 text-success{% endif %} p-3">
+                    <i class="fa-solid fa-calendar-xmark fs-2"></i>
+                </div>
+                <span class="badge {% if total_arqueos_omitidos > 0 %}bg-danger{% else %}bg-success{% endif %} rounded-pill">
+                    {% if total_arqueos_omitidos > 0 %}{{ total_arqueos_omitidos }} Omitidos{% else %}Al Día{% endif %}
+                </span>
+            </div>
+            <h5 class="text-brand-black fw-bold mb-1">Arqueos Dejados Pasar</h5>
+            {% if total_arqueos_omitidos > 0 %}
+                <h2 class="fw-bolder text-danger mb-1">{{ total_arqueos_omitidos }} <span class="fs-6 fw-normal text-muted">fechas</span></h2>
+                <p class="text-muted small mb-0"><i class="fa-solid fa-triangle-exclamation text-danger me-1"></i> Ventas registradas sin cierre</p>
+                <div class="d-flex gap-1 mt-2 flex-wrap">
+                    {% if active_local == 'central' %}
+                        <span class="badge bg-light text-dark border" style="font-size: 0.72rem;">D&L 1: {{ conteo_omitidos_por_local[1] }}</span>
+                        <span class="badge bg-light text-dark border" style="font-size: 0.72rem;">D&L 2: {{ conteo_omitidos_por_local[2] }}</span>
+                        <span class="badge bg-light text-dark border" style="font-size: 0.72rem;">D&L 3: {{ conteo_omitidos_por_local[3] }}</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark border" style="font-size: 0.72rem;">Sede D&L {{ active_local }}</span>
+                    {% endif %}
+                </div>
+                <div class="mt-auto pt-3">
+                    <button type="button" class="btn btn-danger text-white w-100 rounded-pill shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalArqueosOmitidos">
+                        <i class="fa-solid fa-clipboard-check me-1"></i> Revisar Arqueos
+                    </button>
+                </div>
+            {% else %}
+                <h2 class="fw-bolder text-success mb-1">0 <span class="fs-6 fw-normal text-muted">pendientes</span></h2>
+                <p class="text-success small mb-0"><i class="fa-solid fa-circle-check me-1"></i> Todos los cierres al día</p>
+                <div class="mt-auto pt-3">
+                    <button type="button" class="btn btn-outline-success w-100 rounded-pill fw-bold" disabled>
+                        <i class="fa-solid fa-check me-1"></i> Cierres al Día
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
+
+<!-- MODAL ARQUEOS OMITIDOS / DEJADOS PASAR -->
+<div class="modal fade" id="modalArqueosOmitidos" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-bottom pb-3">
+        <div>
+            <h5 class="fw-bold text-brand-black mb-1">
+                <i class="fa-solid fa-calendar-xmark text-danger me-2"></i>Auditoría: Arqueos de Caja Dejados Pasar
+            </h5>
+            <p class="text-muted small mb-0">Días con actividad comercial (ventas o gastos) que no cuentan con un arqueo cerrado en el sistema.</p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4">
+          <!-- Filtro rápido por sede -->
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <div class="btn-group btn-group-sm" role="group">
+                  <button type="button" class="btn btn-dark active filter-omitidos-btn fw-bold px-3 rounded-pill me-1" data-filter="all">
+                      Todas ({{ total_arqueos_omitidos }})
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary filter-omitidos-btn fw-bold px-3 rounded-pill me-1" data-filter="1">
+                      D&L 1 ({{ conteo_omitidos_por_local[1] }})
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary filter-omitidos-btn fw-bold px-3 rounded-pill me-1" data-filter="2">
+                      D&L 2 ({{ conteo_omitidos_por_local[2] }})
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary filter-omitidos-btn fw-bold px-3 rounded-pill" data-filter="3">
+                      D&L 3 ({{ conteo_omitidos_por_local[3] }})
+                  </button>
+              </div>
+              <span class="text-muted small"><i class="fa-solid fa-info-circle me-1 text-primary"></i>Haz clic en <strong>Realizar Arqueo</strong> para abrir el formulario del día seleccionado</span>
+          </div>
+
+          {% if total_arqueos_omitidos > 0 %}
+          <div class="table-responsive rounded-3 border">
+              <table class="table table-hover align-middle mb-0">
+                  <thead class="bg-light small text-muted text-uppercase">
+                      <tr>
+                          <th class="ps-3 py-2.5">Sede</th>
+                          <th>Fecha Omitida</th>
+                          <th>Actividad del Día</th>
+                          <th class="text-center">Estado</th>
+                          <th class="text-end pe-3">Acción</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {% for o in arqueos_omitidos_lista %}
+                      <tr class="row-omitido" data-local="{{ o.local_id }}">
+                          <td class="ps-3">
+                              {% if o.local_id == 1 %}
+                                  <span class="badge bg-primary rounded-pill px-2.5 py-1">D&L 1 (Centro)</span>
+                              {% elif o.local_id == 2 %}
+                                  <span class="badge bg-info text-white rounded-pill px-2.5 py-1">D&L 2 (Norte)</span>
+                              {% else %}
+                                  <span class="badge bg-success rounded-pill px-2.5 py-1">D&L 3</span>
+                              {% endif %}
+                          </td>
+                          <td>
+                              <div class="fw-bold text-brand-black">
+                                  <i class="fa-regular fa-calendar text-muted me-1"></i>{{ o.fecha_formato }}
+                              </div>
+                              <small class="text-muted">{{ o.fecha_dt.strftime('%A')|capitalize }}</small>
+                          </td>
+                          <td>
+                              <div class="d-flex flex-column small">
+                                  <span class="text-success fw-bold">
+                                      <i class="fa-solid fa-cash-register me-1"></i>Ventas: ${{ o.total_ventas|cop }} ({{ o.num_ventas }} ticket{{ 's' if o.num_ventas != 1 else '' }})
+                                  </span>
+                                  {% if o.num_gastos > 0 %}
+                                  <span class="text-danger fw-semibold">
+                                      <i class="fa-solid fa-arrow-trend-down me-1"></i>Gastos: ${{ o.total_gastos|cop }} ({{ o.num_gastos }})
+                                  </span>
+                                  {% endif %}
+                              </div>
+                          </td>
+                          <td class="text-center">
+                              {% if o.es_hoy %}
+                                  <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1">
+                                      <i class="fa-solid fa-clock me-1"></i>Pendiente Hoy
+                                  </span>
+                              {% else %}
+                                  <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1">
+                                      <i class="fa-solid fa-circle-exclamation me-1"></i>Dejado Pasar
+                                  </span>
+                              {% endif %}
+                          </td>
+                          <td class="text-end pe-3">
+                              <a href="{{ url_for('arqueo_bp.nuevo', local=o.local_id, fecha=o.fecha_str) }}" class="btn btn-sm btn-primary rounded-pill fw-bold px-3 shadow-sm">
+                                  <i class="fa-solid fa-calculator me-1"></i> Realizar Arqueo
+                              </a>
+                          </td>
+                      </tr>
+                      {% endfor %}
+                  </tbody>
+              </table>
+          </div>
+          {% else %}
+          <div class="text-center py-5 text-muted">
+              <i class="fa-solid fa-circle-check fs-1 text-success mb-3 d-block opacity-75"></i>
+              <h5 class="fw-bold text-dark">¡Excelente! No hay arqueos omitidos</h5>
+              <p class="small text-muted mb-0">Todos los días con actividad comercial tienen su correspondiente cierre de caja guardado.</p>
+          </div>
+          {% endif %}
+      </div>
+
+      <div class="modal-footer border-top-0 pt-0">
+        <a href="{{ url_for('arqueo_bp.reporte', local=active_local) }}" class="btn btn-light rounded-pill px-4 fw-bold me-auto text-muted">
+            <i class="fa-solid fa-file-lines me-1"></i> Ver Historial de Arqueos
+        </a>
+        <button type="button" class="btn btn-secondary rounded-pill px-4 fw-bold" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterBtns = document.querySelectorAll('.filter-omitidos-btn');
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(b => {
+                b.classList.remove('btn-dark', 'active');
+                b.classList.add('btn-outline-secondary');
+            });
+            this.classList.add('btn-dark', 'active');
+            this.classList.remove('btn-outline-secondary');
+            const filter = this.getAttribute('data-filter');
+            document.querySelectorAll('.row-omitido').forEach(row => {
+                if (filter === 'all' || row.getAttribute('data-local') === filter) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

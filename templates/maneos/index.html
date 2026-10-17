@@ -66,6 +66,7 @@
                         <tr>
                             <th class="ps-4">FECHA PRÉSTAMO</th>
                             <th class="text-center">SEDE ORIGEN</th>
+                            <th class="text-center">ASESOR RESPONSABLE</th>
                             <th>LOCAL VECINO</th>
                             <th>PRODUCTO</th>
                             <th class="text-center">CANTIDAD</th>
@@ -89,6 +90,15 @@
                                 {% endif %}
                                 {% if maneo.usuario %}
                                     <small class="d-block text-muted" style="font-size:0.7rem;"><i class="fa-solid fa-user me-1"></i>{{ maneo.usuario.nombre }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if maneo.asesor %}
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold small">
+                                        <i class="fa-solid fa-id-badge me-1"></i>{{ maneo.asesor.nombre }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-light text-muted border rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">Sin Asesor</span>
                                 {% endif %}
                             </td>
                             <td class="fw-bold text-brand-black">{{ maneo.local_vecino }}</td>
@@ -139,6 +149,15 @@
                                                         <small class="text-muted d-block mt-1">Precio Punto permitido: ${{ "{:,.0f}".format(maneo.producto.precio_minimo) }}</small>
                                                     </div>
                                                     <div class="mb-3">
+                                                        <label class="form-label fw-bold small text-muted"><i class="fa-solid fa-id-badge me-1 text-primary"></i>Asesor Responsable de la Venta *</label>
+                                                        <select name="asesor_id" class="form-select bg-light border-0 fw-semibold" required>
+                                                            {% for asesor in asesores %}
+                                                                <option value="{{ asesor.id }}" {% if maneo.asesor_id == asesor.id %}selected{% endif %}>{{ asesor.nombre }} ({{ asesor.cargo or 'Asesor' }})</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="mb-3">
                                                         <label class="form-label fw-bold small text-muted">Método de Pago</label>
                                                         <select name="metodo_pago" class="form-select" required>
                                                             <option value="efectivo">Efectivo</option>
@@ -160,7 +179,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="fa-solid fa-handshake-slash fs-1 mb-3 opacity-25"></i>
                                 <p class="mb-0">No hay préstamos activos en este momento para {{ active_local|upper }}.</p>
                             </td>
@@ -181,6 +200,7 @@
                         <tr>
                             <th class="ps-4">FECHA RESOLUCIÓN</th>
                             <th class="text-center">SEDE ORIGEN</th>
+                            <th class="text-center">ASESOR RESPONSABLE</th>
                             <th>LOCAL VECINO</th>
                             <th>PRODUCTO</th>
                             <th class="text-center">CANTIDAD</th>
@@ -206,6 +226,15 @@
                                     <small class="d-block text-muted" style="font-size:0.7rem;"><i class="fa-solid fa-user me-1"></i>{{ maneo.usuario.nombre }}</small>
                                 {% endif %}
                             </td>
+                            <td class="text-center">
+                                {% if maneo.asesor %}
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold small">
+                                        <i class="fa-solid fa-id-badge me-1"></i>{{ maneo.asesor.nombre }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-light text-muted border rounded-pill px-2 py-0.5" style="font-size: 0.7rem;">Sin Asesor</span>
+                                {% endif %}
+                            </td>
                             <td class="fw-bold text-brand-black">{{ maneo.local_vecino }}</td>
                             <td class="text-muted">
                                 {{ maneo.producto.nombre }}
@@ -224,7 +253,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">No hay historial de maneos para {{ active_local|upper }}.</td>
+                            <td colspan="7" class="text-center py-5 text-muted">No hay historial de maneos para {{ active_local|upper }}.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -255,6 +284,16 @@
                         </select>
                     </div>
                     {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small"><i class="fa-solid fa-id-badge me-1 text-primary"></i>Asesor Responsable *</label>
+                        <select name="asesor_id" class="form-select bg-light border-0 fw-semibold" required>
+                            <option value="" disabled selected>-- Seleccione el Asesor Responsable --</option>
+                            {% for asesor in asesores %}
+                                <option value="{{ asesor.id }}">{{ asesor.nombre }} ({{ asesor.cargo or 'Asesor' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label fw-bold text-muted small">Nombre del Local Vecino *</label>
                         <input type="text" name="local_vecino" class="form-control form-control-lg" placeholder="Ej: Celulares Don Pepe" required autofocus>

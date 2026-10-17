@@ -145,6 +145,7 @@
                     <th class="ps-4">FECHA Y HORA</th>
                     <th>REFERENCIA</th>
                     <th>MÉTODO</th>
+                    <th>ASESOR RESPONSABLE</th>
                     <th class="text-end">MONTO</th>
                     <th>OBSERVACIÓN</th>
                     <th class="text-center">ACCIONES</th>
@@ -162,6 +163,15 @@
                         {% endif %}
                     </td>
                     <td class="text-capitalize">{{ abono.metodo_pago }}</td>
+                    <td>
+                        {% if abono.asesor %}
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                                <i class="fa-solid fa-id-badge me-1"></i>{{ abono.asesor.nombre }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-light text-muted border rounded-pill px-2 py-1 small">Sin Asesor</span>
+                        {% endif %}
+                    </td>
                     <td class="text-end fw-bold text-success">${{ abono.monto|cop }}</td>
                     <td class="text-muted small">{{ abono.observacion or '-' }}</td>
                     <td class="text-center">
@@ -182,7 +192,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center py-4 text-muted">No se han registrado abonos en esta cuenta aún.</td>
+                    <td colspan="7" class="text-center py-4 text-muted">No se han registrado abonos en esta cuenta aún.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -215,12 +225,23 @@
                         </div>
                         
                         <div class="mb-3">
+                            <label class="form-label fw-bold"><i class="fa-solid fa-id-badge me-1 text-primary"></i>Asesor Responsable *</label>
+                            <select name="asesor_id" class="form-select bg-light border-0 fw-semibold" required>
+                                <option value="" disabled selected>-- Seleccione el Asesor Responsable --</option>
+                                {% for asesor in asesores %}
+                                    <option value="{{ asesor.id }}">{{ asesor.nombre }} ({{ asesor.cargo or 'Asesor' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
                             <label class="form-label fw-bold">Medio de Pago</label>
                             <select name="metodo_pago" class="form-select bg-light border-0" required>
                                 <option value="efectivo">💵 Efectivo Físico</option>
                                 <option value="nequi">📱 Nequi</option>
                                 <option value="bancolombia">🏦 Bancolombia</option>
                                 <option value="daviplata">📱 Daviplata</option>
+                                <option value="qr_llave">🔑 QR / Llave</option>
                                 <option value="transferencia">🏦 Otra Transferencia</option>
                             </select>
                         </div>
@@ -263,6 +284,15 @@
                             <tr>
                                 <td>{{ abono.fecha_abono.strftime('%d/%m/%Y %H:%M') if abono.fecha_abono else 'Sin fecha' }}</td>
                                 <td class="text-capitalize">{{ abono.metodo_pago }}</td>
+                    <td>
+                        {% if abono.asesor %}
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold">
+                                <i class="fa-solid fa-id-badge me-1"></i>{{ abono.asesor.nombre }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-light text-muted border rounded-pill px-2 py-1 small">Sin Asesor</span>
+                        {% endif %}
+                    </td>
                                 <td class="fw-bold text-success">${{ (abono.monto)|cop }}</td>
                                 <td>{{ abono.usuario.nombre if abono.usuario else 'Sistema' }}</td>
                                 <td class="small text-muted">{{ abono.observacion or '-' }}</td>
@@ -339,6 +369,16 @@
                     </div>
                     
                     <div class="mb-3">
+                        <label class="form-label fw-bold"><i class="fa-solid fa-id-badge me-1 text-primary"></i>Asesor Responsable *</label>
+                        <select name="asesor_id" class="form-select bg-light border-0 fw-semibold" required>
+                            <option value="" disabled selected>-- Seleccione el Asesor Responsable --</option>
+                            {% for asesor in asesores %}
+                                <option value="{{ asesor.id }}">{{ asesor.nombre }} ({{ asesor.cargo or 'Asesor' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
                         <label class="form-label fw-bold">Medio de Pago</label>
                         <select name="metodo_pago" class="form-select bg-light border-0" required>
                             <option value="efectivo">💵 Efectivo Físico</option>
@@ -389,12 +429,23 @@
                     </div>
                     
                     <div class="mb-3">
+                        <label class="form-label fw-bold"><i class="fa-solid fa-id-badge me-1 text-primary"></i>Asesor Responsable *</label>
+                        <select name="asesor_id" class="form-select bg-light border-0 fw-semibold" required>
+                            <option value="" disabled selected>-- Seleccione el Asesor Responsable --</option>
+                            {% for asesor in asesores %}
+                                <option value="{{ asesor.id }}">{{ asesor.nombre }} ({{ asesor.cargo or 'Asesor' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
                         <label class="form-label fw-bold">Medio de Pago</label>
                         <select name="metodo_pago" class="form-select bg-light border-0" required>
                             <option value="efectivo" {% if abono.metodo_pago == 'efectivo' %}selected{% endif %}>💵 Efectivo Físico</option>
                             <option value="nequi" {% if abono.metodo_pago == 'nequi' %}selected{% endif %}>📱 Nequi</option>
                             <option value="bancolombia" {% if abono.metodo_pago == 'bancolombia' %}selected{% endif %}>🏦 Bancolombia</option>
                             <option value="daviplata" {% if abono.metodo_pago == 'daviplata' %}selected{% endif %}>📱 Daviplata</option>
+                            <option value="qr_llave" {% if abono.metodo_pago == 'qr_llave' %}selected{% endif %}>🔑 QR / Llave</option>
                             <option value="transferencia" {% if abono.metodo_pago == 'transferencia' %}selected{% endif %}>🏦 Otra Transferencia</option>
                         </select>
                     </div>

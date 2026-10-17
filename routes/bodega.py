@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app, jsonify
 from flask_login import login_required, current_user
 from decorators import any_bodega_required
-from models import db, Cliente, FacturaBodega, AbonoBodega, Product, StockAdjustment, FacturaBodegaDetalle, obtener_hora_bogota
+from models import db, Cliente, FacturaBodega, AbonoBodega, Product, StockAdjustment, FacturaBodegaDetalle, Asesor, obtener_hora_bogota
 import os
 from decimal import Decimal
 from werkzeug.utils import secure_filename
@@ -505,7 +505,8 @@ def clientes():
 @any_bodega_required
 def cliente_detalle(id):
     cliente = Cliente.query.get_or_404(id)
-    return render_template('bodega/cliente_detalle.html', cliente=cliente)
+    asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
+    return render_template('bodega/cliente_detalle.html', cliente=cliente, asesores=asesores)
 
 @bodega_bp.route('/facturas/<int:factura_id>/abono', methods=['POST'])
 @login_required
@@ -528,10 +529,17 @@ def nuevo_abono(factura_id):
         flash(f'El monto supera el saldo pendiente (${factura.saldo_pendiente}).', 'danger')
         return redirect(url_for('bodega_bp.cliente_detalle', id=factura.cliente_id))
 
+    asesor_id_raw = request.form.get('asesor_id')
+    if not asesor_id_raw or not asesor_id_raw.isdigit():
+        flash('Debe seleccionar un Asesor Responsable obligatorio para registrar el abono.', 'danger')
+        return redirect(url_for('bodega_bp.cliente_detalle', id=factura.cliente_id))
+    asesor_id = int(asesor_id_raw)
+
     abono = AbonoBodega(
         cliente_id=factura.cliente_id,
         factura_id=factura.id,
         usuario_id=current_user.id,
+        asesor_id=asesor_id,
         monto=monto_abono,
         metodo_pago=metodo_pago,
         observacion=observacion
@@ -583,6 +591,12 @@ def abono_global(cliente_id):
         flash('El monto del abono debe ser mayor a cero.', 'danger')
         return redirect(url_for('bodega_bp.cliente_detalle', id=cliente_id))
 
+    asesor_id_raw = request.form.get('asesor_id')
+    if not asesor_id_raw or not asesor_id_raw.isdigit():
+        flash('Debe seleccionar un Asesor Responsable obligatorio para registrar el abono.', 'danger')
+        return redirect(url_for('bodega_bp.cliente_detalle', id=cliente_id))
+    asesor_id = int(asesor_id_raw)
+
     monto_restante = monto_abono
     
     # 1. Buscar todas las facturas a crédito no pagadas, de la más vieja a la más nueva
@@ -596,6 +610,7 @@ def abono_global(cliente_id):
             abono = AbonoBodega(
                 cliente_id=cliente.id,
                 usuario_id=current_user.id,
+                asesor_id=asesor_id,
                 monto=monto_abono,
                 metodo_pago=metodo_pago,
                 observacion=observacion_base or "Abono global a cuenta (Sin facturas pendientes)"
@@ -623,6 +638,7 @@ def abono_global(cliente_id):
                     cliente_id=cliente.id,
                     factura_id=f.id,
                     usuario_id=current_user.id,
+                    asesor_id=asesor_id,
                     monto=pago_aplicado,
                     metodo_pago=metodo_pago,
                     observacion=obs_cascada
@@ -644,6 +660,7 @@ def abono_global(cliente_id):
                 abono_excedente = AbonoBodega(
                     cliente_id=cliente.id,
                     usuario_id=current_user.id,
+                    asesor_id=asesor_id,
                     monto=monto_restante,
                     metodo_pago=metodo_pago,
                     observacion=f"{observacion_base} (Excedente después de pagar facturas)" if observacion_base else "Excedente de pago global"
@@ -740,6 +757,13 @@ def editar_abono(abono_id):
         abono.monto = monto_nuevo
         abono.metodo_pago = metodo_pago
         abono.observacion = observacion
+        
+        asesor_id_str = request.form.get('asesor_id')
+        if asesor_id_str is not None:
+            if asesor_id_str.isdigit():
+                abono.asesor_id = int(asesor_id_str)
+            elif asesor_id_str == '':
+                abono.asesor_id = None
         
         if fecha_str:
             from datetime import datetime

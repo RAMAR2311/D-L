@@ -147,6 +147,7 @@
                                 <option value="bancolombia">Bancolombia</option>
                                 <option value="bold">Bold</option>
                                 <option value="addi">Addi</option>
+                                <option value="qr_llave">QR / Llave</option>
                             </select>
                         </div>
                         <div class="col-2 text-end">
@@ -273,6 +274,8 @@
                     <td class="text-center">
                         {% if gasto.metodo_pago == 'efectivo' %}
                         <span class="badge bg-success bg-opacity-10 text-success border border-success"><i class="fa-solid fa-money-bill-wave me-1"></i> Efectivo</span>
+                        {% elif gasto.metodo_pago == 'qr_llave' %}
+                        <span class="badge text-white border" style="background-color: #6f42c1;"><i class="fa-solid fa-qrcode me-1"></i> QR / Llave</span>
                         {% else %}
                         <span class="badge bg-info bg-opacity-10 text-info border border-info"><i class="fa-solid fa-building-columns me-1"></i> {{ gasto.metodo_pago|capitalize }}</span>
                         {% endif %}
@@ -367,6 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <option value="bancolombia">Bancolombia</option>
                             <option value="bold">Bold</option>
                             <option value="addi">Addi</option>
+                            <option value="qr_llave">QR / Llave</option>
                         </select>
                     </div>
                     <div class="col-2 text-end">

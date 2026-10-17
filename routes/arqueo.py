@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from models import db, Sale, SalePayment, ArqueoCaja, Expense, User, PuntoTransaction
+from models import db, Sale, SalePayment, ArqueoCaja, Expense, User, PuntoTransaction, Asesor
 from decorators import admin_required
 from datetime import datetime, date
 from decimal import Decimal
@@ -21,6 +21,7 @@ def calcular_totales_dia(ventas_del_dia):
         'daviplata': Decimal('0.00'),
         'bold': Decimal('0.00'),
         'addi': Decimal('0.00'),
+        'qr_llave': Decimal('0.00'),
         'transferencia': Decimal('0.00'),
         'total_digital': Decimal('0.00')
     }
@@ -28,7 +29,9 @@ def calcular_totales_dia(ventas_del_dia):
     for v in ventas_del_dia:
         if v.pagos:  # Ventas nuevas con tabla sale_payments
             for pago in v.pagos:
-                metodo = (pago.metodo_pago or 'efectivo').lower()
+                metodo = (pago.metodo_pago or 'efectivo').lower().strip()
+                if metodo in ['qr', 'llave']:
+                    metodo = 'qr_llave'
                 monto = Decimal(str(pago.monto))
                 if metodo in desglose:
                     desglose[metodo] += monto
@@ -37,7 +40,9 @@ def calcular_totales_dia(ventas_del_dia):
                 if metodo != 'efectivo':
                     desglose['total_digital'] += monto
         else:  # Retrocompatibilidad con ventas antiguas
-            metodo = (v.metodo_pago or 'efectivo').lower()
+            metodo = (v.metodo_pago or 'efectivo').lower().strip()
+            if metodo in ['qr', 'llave']:
+                metodo = 'qr_llave'
             monto = Decimal(str(v.monto_total))
             if metodo in desglose:
                 desglose[metodo] += monto
@@ -108,10 +113,27 @@ def nuevo():
     # Verificar si ya existe un arqueo para esa fecha y ese local
     arqueo_existente = ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, local_id=local_id_num).first()
 
+    asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
+
     if request.method == 'POST':
         if ArqueoCaja.query.filter_by(fecha_arqueo=fecha_seleccionada, local_id=local_id_num).first():
             flash(f'Ya existe un arqueo cerrado para {nombre_sede} en esta fecha.', 'warning')
             return redirect(url_for('arqueo_bp.reporte', fecha_inicio=fecha_str, fecha_fin=fecha_str, local=active_local))
+
+        # Validar Asesor Responsable Obligatorio
+        asesor_id_raw = request.form.get('asesor_id')
+        if not asesor_id_raw:
+            flash('Debes seleccionar obligatoriamente un Asesor Responsable para cerrar el arqueo de caja.', 'danger')
+            return redirect(url_for('arqueo_bp.nuevo', local=active_local, fecha=fecha_str))
+        try:
+            asesor_id_val = int(asesor_id_raw)
+            asesor_obj = db.session.get(Asesor, asesor_id_val)
+            if not asesor_obj:
+                flash('El asesor seleccionado no es válido.', 'danger')
+                return redirect(url_for('arqueo_bp.nuevo', local=active_local, fecha=fecha_str))
+        except (ValueError, TypeError):
+            flash('Asesor seleccionado no válido.', 'danger')
+            return redirect(url_for('arqueo_bp.nuevo', local=active_local, fecha=fecha_str))
 
         base_inicial = float(request.form.get('base_inicial', 0.0))
         efectivo_fisico_ingresado = float(request.form.get('efectivo_fisico', 0.0))
@@ -122,6 +144,7 @@ def nuevo():
 
         nuevo_arqueo = ArqueoCaja(
             vendedor_id=current_user.id,
+            asesor_id=asesor_id_val,
             local_id=local_id_num,
             fecha_arqueo=fecha_seleccionada,
             base_inicial=base_inicial,
@@ -169,7 +192,8 @@ def nuevo():
         desglose_digital=desglose_digital,
         active_local=active_local,
         is_admin=is_admin,
-        nombre_sede=nombre_sede
+        nombre_sede=nombre_sede,
+        asesores=asesores
     )
 
 @arqueo_bp.route('/reporte', methods=['GET'])
@@ -244,6 +268,7 @@ def reporte():
                 'fecha': a.fecha_arqueo,
                 'local_id': a.local_id,
                 'cajero': a.cajero.nombre if a.cajero else 'Usuario',
+                'asesor': a.asesor.nombre if a.asesor else None,
                 'diferencia': a.monto_diferencia,
                 'texto': a.observaciones_gastos.strip()
             })

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, flash, redirect, render_template, abort, url_for, session
 from flask_login import login_required, current_user
-from models import db, Product, ProductVariant, Sale, SaleDetail, SalePayment, Expense, User, Punto, PuntoTransaction, obtener_hora_bogota
+from models import db, Product, ProductVariant, Sale, SaleDetail, SalePayment, Expense, User, Punto, PuntoTransaction, Asesor, obtener_hora_bogota
 from decorators import admin_required
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -38,10 +38,10 @@ def procesar_venta():
         else:
             metodo_pago_principal = 'mixto'
 
-        # Manejar Fecha de Venta para registros de fechas anteriores
+        # Manejar Fecha de Venta para registros de fechas anteriores (Requiere autorización)
         fecha_venta_str = data.get('fecha_venta')
         fecha_venta_obj = obtener_hora_bogota()
-        if fecha_venta_str:
+        if fecha_venta_str and current_user.puede_cambiar_fecha_venta():
             try:
                 fecha_seleccionada = datetime.strptime(fecha_venta_str, '%Y-%m-%d').date()
                 if fecha_seleccionada != fecha_venta_obj.date():
@@ -49,13 +49,17 @@ def procesar_venta():
             except ValueError:
                 pass
 
+        # Validar Asesor Responsable obligatorio
         asesor_id_raw = data.get('asesor_id')
-        asesor_id_val = None
-        if asesor_id_raw:
-            try:
-                asesor_id_val = int(asesor_id_raw)
-            except (ValueError, TypeError):
-                asesor_id_val = None
+        if not asesor_id_raw:
+            return jsonify({'error': 'Debes asignar obligatoriamente un Asesor Responsable para registrar la venta.'}), 400
+        try:
+            asesor_id_val = int(asesor_id_raw)
+            asesor_obj = db.session.get(Asesor, asesor_id_val)
+            if not asesor_obj:
+                return jsonify({'error': 'El Asesor seleccionado no existe o no es válido.'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Asesor no válido.'}), 400
 
         # Determinar Sede Venta según rol
         if current_user.rol != 'admin':
@@ -131,6 +135,7 @@ def procesar_venta():
                         tipo_movimiento='cargo',
                         monto=(precio_costo_manual * cantidad_vendida),
                         local_id=local_id_venta,
+                        fecha=fecha_venta_obj,
                         descripcion=f"Venta POS D&L {local_id_venta}: {nombre_manual} ({cantidad_vendida} uds)"
                     )
                     db.session.add(cargo_punto)
@@ -475,53 +480,63 @@ def historial():
     total_daviplata = Decimal('0')
     total_bold = Decimal('0')
     total_addi = Decimal('0')
+    total_qr_llave = Decimal('0')
     total_transferencia_legacy = Decimal('0')
     total_mixto = 0  # Contador de ventas con pago mixto
 
     for v in ventas:
         if v.pagos:  # Pagos nuevos con tabla sale_payments
             for pago in v.pagos:
-                if pago.metodo_pago == 'efectivo':
+                met = (pago.metodo_pago or '').lower().strip()
+                if met == 'efectivo':
                     total_efectivo += pago.monto
-                elif pago.metodo_pago == 'nequi':
+                elif met == 'nequi':
                     total_nequi += pago.monto
-                elif pago.metodo_pago == 'bancolombia':
+                elif met == 'bancolombia':
                     total_bancolombia += pago.monto
-                elif pago.metodo_pago == 'daviplata':
+                elif met == 'daviplata':
                     total_daviplata += pago.monto
-                elif pago.metodo_pago == 'bold':
+                elif met == 'bold':
                     total_bold += pago.monto
-                elif pago.metodo_pago == 'addi':
+                elif met == 'addi':
                     total_addi += pago.monto
-                elif pago.metodo_pago == 'transferencia':
+                elif met in ['qr_llave', 'qr', 'llave']:
+                    total_qr_llave += pago.monto
+                elif met == 'transferencia':
                     total_transferencia_legacy += pago.monto
             if len(v.pagos) > 1:
                 total_mixto += 1
         else:  # Retrocompatibilidad con ventas antiguas sin SalePayment
-            if v.metodo_pago == 'efectivo':
+            met = (v.metodo_pago or '').lower().strip()
+            if met == 'efectivo':
                 total_efectivo += v.monto_total
-            elif v.metodo_pago == 'nequi':
+            elif met == 'nequi':
                 total_nequi += v.monto_total
-            elif v.metodo_pago == 'bancolombia':
+            elif met == 'bancolombia':
                 total_bancolombia += v.monto_total
-            elif v.metodo_pago == 'daviplata':
+            elif met == 'daviplata':
                 total_daviplata += v.monto_total
-            elif v.metodo_pago == 'bold':
+            elif met == 'bold':
                 total_bold += v.monto_total
-            elif v.metodo_pago == 'addi':
+            elif met == 'addi':
                 total_addi += v.monto_total
-            elif v.metodo_pago == 'transferencia':
+            elif met in ['qr_llave', 'qr', 'llave']:
+                total_qr_llave += v.monto_total
+            elif met == 'transferencia':
                 total_transferencia_legacy += v.monto_total
 
     # Envío al Engine de HTML
+    asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
     return render_template('sales/historial.html', 
                            ventas=ventas, 
+                           asesores=asesores,
                            total_efectivo=total_efectivo,
                            total_nequi=total_nequi,
                            total_bancolombia=total_bancolombia,
                            total_daviplata=total_daviplata,
                            total_bold=total_bold,
                            total_addi=total_addi,
+                           total_qr_llave=total_qr_llave,
                            total_transferencia_legacy=total_transferencia_legacy,
                            total_mixto=total_mixto,
                            fecha_inicio=fecha_inicio,
@@ -750,8 +765,16 @@ def editar_pago(sale_id):
         elif len(pagos_validos) == 1:
             venta.metodo_pago = pagos_validos[0]['metodo']
             
+        # Actualizar asesor si fue enviado
+        asesor_id_edit = request.form.get('asesor_id')
+        if asesor_id_edit:
+            try:
+                venta.asesor_id = int(asesor_id_edit)
+            except (ValueError, TypeError):
+                pass
+            
         db.session.commit()
-        flash('Método de pago actualizado exitosamente.', 'success')
+        flash('Método de pago y asesor actualizados exitosamente.', 'success')
     except Exception as e:
         db.session.rollback()
         flash('Ocurrió un error al actualizar los pagos.', 'danger')
@@ -804,12 +827,15 @@ def caja_visual():
     productos = Product.query.filter(Product.tipo_inventario == 'tienda').order_by(Product.nombre.asc()).all()
     puntos = Punto.query.order_by(Punto.nombre.asc()).all()
 
+    puede_cambiar_fecha = current_user.puede_cambiar_fecha_venta()
+
     return render_template(
         'sales/caja_visual.html', 
         productos=productos, 
         hoy=hoy_bogota.strftime('%Y-%m-%d'),
         active_local=active_local,
         is_admin=is_admin,
+        puede_cambiar_fecha=puede_cambiar_fecha,
         asesores=asesores,
         puntos=puntos
     )

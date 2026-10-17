@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
-from models import db, Product, ProductVariant, Maneo, StockAdjustment, Sale, SaleDetail, SalePayment, obtener_hora_bogota
+from models import db, Product, ProductVariant, Maneo, StockAdjustment, Sale, SaleDetail, SalePayment, Asesor, obtener_hora_bogota
 
 maneos_bp = Blueprint('maneos_bp', __name__)
 
@@ -26,13 +26,15 @@ def index():
 
     activos = query_activos.order_by(Maneo.fecha_prestamo.desc()).all()
     historial = query_historial.order_by(Maneo.fecha_resolucion.desc()).limit(50).all()
+    asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
 
     return render_template(
         'maneos/index.html',
         activos=activos,
         historial=historial,
         active_local=active_local,
-        is_admin=is_admin
+        is_admin=is_admin,
+        asesores=asesores
     )
 
 @maneos_bp.route('/prestar', methods=['POST'])
@@ -45,6 +47,12 @@ def prestar():
     if not sku_busqueda or not local_vecino or cantidad < 1:
         flash("Todos los campos son obligatorios y la cantidad debe ser mayor a 0.", "danger")
         return redirect(url_for('maneos_bp.index'))
+
+    asesor_id_raw = request.form.get('asesor_id')
+    if not asesor_id_raw or not asesor_id_raw.isdigit():
+        flash("Debes seleccionar obligatoriamente un Asesor Responsable para registrar el préstamo (maneo).", "danger")
+        return redirect(url_for('maneos_bp.index'))
+    asesor_id = int(asesor_id_raw)
 
     # Determinar sede emisora del préstamo
     is_admin = (current_user.rol == 'admin')
@@ -133,7 +141,7 @@ def prestar():
             )
             db.session.add(ajuste)
 
-    # 1. Crear el Maneo asociándolo al local_id y usuario_id
+    # 1. Crear el Maneo asociándolo al local_id, usuario_id y asesor_id
     nuevo_maneo = Maneo(
         product_id=producto.id,
         variant_id=variante.id if variante else None,
@@ -141,7 +149,8 @@ def prestar():
         cantidad=cantidad,
         estado='PENDIENTE',
         local_id=local_id_maneo,
-        usuario_id=current_user.id
+        usuario_id=current_user.id,
+        asesor_id=asesor_id
     )
     db.session.add(nuevo_maneo)
 
@@ -170,9 +179,16 @@ def facturar(id):
     total_venta = precio_unidad * maneo.cantidad
     local_destino_venta = maneo.local_id or getattr(current_user, 'local_asignado', 1) or 1
 
-    # Crear la Venta en el local correspondiente
+    asesor_id_raw = request.form.get('asesor_id') or (str(maneo.asesor_id) if maneo.asesor_id else None)
+    if not asesor_id_raw or not str(asesor_id_raw).isdigit():
+        flash("Debes seleccionar obligatoriamente un Asesor Responsable para facturar el maneo.", "danger")
+        return redirect(url_for('maneos_bp.index'))
+    asesor_id_factura = int(asesor_id_raw)
+
+    # Crear la Venta en el local correspondiente con su Asesor Responsable
     nueva_venta = Sale(
         vendedor_id=current_user.id,
+        asesor_id=asesor_id_factura,
         local_id=local_destino_venta,
         monto_total=total_venta,
         metodo_pago=metodo_pago

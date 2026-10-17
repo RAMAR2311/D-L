@@ -188,7 +188,10 @@
                                 </div>
 
                                 <div class="mb-2 text-dark small fw-bold">
-                                    <i class="fa-solid fa-user-tie text-secondary me-1"></i>Cajero: <span class="text-primary">{{ obs.cajero }}</span>
+                                    {% if obs.asesor %}
+                                    <span class="me-2"><i class="fa-solid fa-user-check text-primary me-1"></i>Asesor: <strong class="text-primary">{{ obs.asesor }}</strong></span>
+                                    {% endif %}
+                                    <span class="text-muted"><i class="fa-solid fa-desktop text-secondary me-1"></i>Cajero: {{ obs.cajero }}</span>
                                 </div>
 
                                 <div class="p-2 px-3 rounded-3 bg-light border-start border-3 border-warning text-dark small lh-sm">
@@ -244,14 +247,15 @@
                         <tr>
                             <th width="8%">Fecha</th>
                             <th width="7%">Sede</th>
-                            <th width="12%">Cajero(a)</th>
-                            <th width="9%" class="text-primary">Base</th>
-                            <th width="9%" class="text-success">Ventas Ef.</th>
+                            <th width="13%">Asesor Responsable</th>
+                            <th width="10%">Cajero(a)</th>
+                            <th width="8%" class="text-primary">Base</th>
+                            <th width="8%" class="text-success">Ventas Ef.</th>
                             <th width="8%" class="text-danger">Gastos</th>
-                            <th width="10%" class="text-dark bg-light">Ef. Esperado</th>
-                            <th width="10%" class="text-success bg-light">Ef. Físico Real</th>
-                            <th width="20%">Conciliación / Comentario</th>
-                            <th width="7%" class="text-center">Acción</th>
+                            <th width="9%" class="text-dark bg-light">Ef. Esperado</th>
+                            <th width="9%" class="text-success bg-light">Ef. Físico Real</th>
+                            <th width="15%">Conciliación / Comentario</th>
+                            <th width="5%" class="text-center">Acción</th>
                         </tr>
                     </thead>
                     <tbody style="font-size: 0.85rem;">
@@ -263,7 +267,18 @@
                                     Local {{ arqueo.local_id or (arqueo.cajero.local_asignado if arqueo.cajero else 1) }}
                                 </span>
                             </td>
-                            <td class="text-truncate" style="max-width:120px;" title="{{ arqueo.cajero.nombre }}">{{ arqueo.cajero.nombre }}</td>
+                            <td class="text-center">
+                                {% if arqueo.asesor %}
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary rounded-pill px-2 py-1 fw-bold" style="font-size:0.75rem;">
+                                        <i class="fa-solid fa-user-check me-1"></i>{{ arqueo.asesor.nombre }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted small fst-italic">Sin Asesor</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-truncate text-muted small" style="max-width:110px;" title="{{ arqueo.cajero.nombre if arqueo.cajero else 'Usuario' }}">
+                                <i class="fa-solid fa-desktop me-1"></i>{{ arqueo.cajero.nombre if arqueo.cajero else 'Usuario' }}
+                            </td>
                             <td class="text-end text-primary fw-bold">${{ (arqueo.base_inicial)|cop }}</td>
                             <td class="text-end text-success fw-bold">${{ (arqueo.total_efectivo_sistema)|cop }}</td>
                             <td class="text-end {% if arqueo.gastos_del_dia > 0 %}text-danger{% else %}text-muted{% endif %} fw-bold">

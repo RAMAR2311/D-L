@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, abort, request, redirect, url_for, flash, Response, jsonify
+from flask import Blueprint, render_template, abort, request, redirect, url_for, flash, Response, jsonify, current_app
 from flask_login import login_required, current_user
-from models import db, Product, ProductVariant, Sale, User, Maneo, SaleDetail, SalePayment, StockAdjustment, Expense, ArqueoCaja, Provider, ProviderPayment, PuntoTransaction, obtener_hora_bogota
+from models import db, Product, ProductVariant, Sale, User, Maneo, SaleDetail, SalePayment, StockAdjustment, Expense, ArqueoCaja, Provider, ProviderPayment, PuntoTransaction, LocalConfig, Asesor, TreasuryAdjustment, obtener_hora_bogota
 from sqlalchemy.sql import func
 from sqlalchemy import or_
 from werkzeug.security import generate_password_hash
@@ -23,6 +23,7 @@ def vendedores():
         telefono = request.form.get('telefono')
         password = request.form.get('password')
         rol = request.form.get('rol', 'vendedor')
+        permitir_fecha = bool(request.form.get('permitir_fecha_retroactiva'))
         try:
             local_asignado = int(request.form.get('local_asignado') or 1)
         except (ValueError, TypeError):
@@ -40,7 +41,8 @@ def vendedores():
                     telefono=telefono.strip() if telefono else None,
                     password_hash=generate_password_hash(password),
                     rol=rol,
-                    local_asignado=local_asignado
+                    local_asignado=local_asignado,
+                    permitir_fecha_retroactiva=permitir_fecha
                 )
                 db.session.add(nuevo_usuario)
                 db.session.commit()
@@ -53,7 +55,70 @@ def vendedores():
         
     # Se pasa la lista para poblar la tabla HTML de gestión de personal
     lista_vendedores = User.query.filter(User.rol != 'eliminado').order_by(User.nombre).all()
-    return render_template('admin/vendedores.html', vendedores=lista_vendedores)
+    
+    # Obtener estado de permiso por sede (Local 1, 2, 3)
+    configs = LocalConfig.query.all()
+    local_fecha_map = {c.local_id: getattr(c, 'permitir_fecha_retroactiva', False) for c in configs}
+    for lid in [1, 2, 3]:
+        if lid not in local_fecha_map:
+            local_fecha_map[lid] = False
+
+    return render_template('admin/vendedores.html', vendedores=lista_vendedores, local_fecha_map=local_fecha_map)
+
+@admin_bp.route('/locales/<int:local_id>/toggle-fecha', methods=['POST'])
+@login_required
+@admin_required
+def toggle_fecha_local(local_id):
+    """Activa o desactiva la autorización de venta con fecha personalizada para toda una sede/local específica."""
+    cfg = LocalConfig.query.filter_by(local_id=local_id).first()
+    if not cfg:
+        cfg = LocalConfig(local_id=local_id, descontar_inventario=True, permitir_fecha_retroactiva=False)
+        db.session.add(cfg)
+    
+    cfg.permitir_fecha_retroactiva = not getattr(cfg, 'permitir_fecha_retroactiva', False)
+    cfg.fecha_actualizacion = obtener_hora_bogota()
+    db.session.commit()
+
+    estado_str = "ACTIVADA" if cfg.permitir_fecha_retroactiva else "DESACTIVADA"
+    mensaje = f"Autorización de fecha libre {estado_str} para la sede Local {local_id}."
+    
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': True,
+            'local_id': local_id,
+            'permitir_fecha_retroactiva': cfg.permitir_fecha_retroactiva,
+            'message': mensaje
+        })
+    
+    flash(mensaje, "success")
+    return redirect(url_for('admin_bp.vendedores'))
+
+@admin_bp.route('/vendedores/<int:id>/toggle-fecha', methods=['POST'])
+@login_required
+@admin_required
+def toggle_fecha_vendedor(id):
+    """Activa o desactiva la autorización individual de venta con fecha personalizada para un vendedor en particular."""
+    usuario = User.query.get_or_404(id)
+    if usuario.rol == 'admin':
+        return jsonify({'success': False, 'message': 'El administrador siempre tiene autorización.'}), 400
+
+    usuario.permitir_fecha_retroactiva = not getattr(usuario, 'permitir_fecha_retroactiva', False)
+    db.session.commit()
+
+    estado_str = "ACTIVADA" if usuario.permitir_fecha_retroactiva else "DESACTIVADA"
+    mensaje = f"Autorización individual de fecha libre {estado_str} para {usuario.nombre}."
+
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': True,
+            'user_id': usuario.id,
+            'permitir_fecha_retroactiva': usuario.permitir_fecha_retroactiva,
+            'puede_cambiar_fecha': usuario.puede_cambiar_fecha_venta(),
+            'message': mensaje
+        })
+
+    flash(mensaje, "success")
+    return redirect(url_for('admin_bp.vendedores'))
 
 @admin_bp.route('/vendedores/<int:id>/editar', methods=['POST'])
 @login_required
@@ -69,6 +134,7 @@ def editar_vendedor(id):
     telefono = request.form.get('telefono')
     password = request.form.get('password')
     rol = request.form.get('rol', 'vendedor')
+    permitir_fecha = bool(request.form.get('permitir_fecha_retroactiva'))
     try:
         local_asignado = int(request.form.get('local_asignado') or 1)
     except (ValueError, TypeError):
@@ -80,6 +146,7 @@ def editar_vendedor(id):
         usuario.telefono = telefono.strip() if telefono else None
         usuario.rol = rol
         usuario.local_asignado = local_asignado
+        usuario.permitir_fecha_retroactiva = permitir_fecha
         if password and password.strip():
             usuario.password_hash = generate_password_hash(password.strip())
             
@@ -173,9 +240,85 @@ def dashboard():
     # 4. Métrica Arqueo de Caja por Local o General
     query_arqueos = ArqueoCaja.query
     if active_local != 'central':
-        query_arqueos = query_arqueos.join(User, ArqueoCaja.vendedor_id == User.id).filter(User.local_asignado == int(active_local))
+        query_arqueos = query_arqueos.filter(ArqueoCaja.local_id == int(active_local))
     total_arqueos = query_arqueos.count()
     ultimo_arqueo = query_arqueos.order_by(ArqueoCaja.fecha_creacion.desc()).first()
+
+    # 5. Detección de Arqueos Omitidos / Dejados Pasar
+    hoy_date = hoy.date()
+    hoy_str = hoy_date.strftime('%Y-%m-%d')
+
+    query_sales_act = db.session.query(
+        db.func.date(Sale.fecha_venta).label('fecha'),
+        Sale.local_id,
+        db.func.count(Sale.id).label('num_ventas'),
+        db.func.sum(Sale.monto_total).label('total_ventas')
+    ).group_by(db.func.date(Sale.fecha_venta), Sale.local_id)
+
+    query_expenses_act = db.session.query(
+        db.func.date(Expense.fecha_gasto).label('fecha'),
+        Expense.local_id,
+        db.func.count(Expense.id).label('num_gastos'),
+        db.func.sum(Expense.monto).label('total_gastos')
+    ).filter(Expense.local_id.isnot(None), Expense.tipo_gasto == 'Gasto Diario').group_by(db.func.date(Expense.fecha_gasto), Expense.local_id)
+
+    if active_local != 'central':
+        local_num = int(active_local)
+        query_sales_act = query_sales_act.filter(Sale.local_id == local_num)
+        query_expenses_act = query_expenses_act.filter(Expense.local_id == local_num)
+
+    actividades_por_dia = {}
+    for f_val, loc_id, n_v, tot_v in query_sales_act.all():
+        if not loc_id:
+            continue
+        key = (str(f_val), int(loc_id))
+        actividades_por_dia.setdefault(key, {'num_ventas': 0, 'total_ventas': 0.0, 'num_gastos': 0, 'total_gastos': 0.0})
+        actividades_por_dia[key]['num_ventas'] += n_v
+        actividades_por_dia[key]['total_ventas'] += float(tot_v or 0)
+
+    for f_val, loc_id, n_g, tot_g in query_expenses_act.all():
+        if not loc_id:
+            continue
+        key = (str(f_val), int(loc_id))
+        actividades_por_dia.setdefault(key, {'num_ventas': 0, 'total_ventas': 0.0, 'num_gastos': 0, 'total_gastos': 0.0})
+        actividades_por_dia[key]['num_gastos'] += n_g
+        actividades_por_dia[key]['total_gastos'] += float(tot_g or 0)
+
+    query_arq_existentes = db.session.query(ArqueoCaja.fecha_arqueo, ArqueoCaja.local_id)
+    if active_local != 'central':
+        query_arq_existentes = query_arq_existentes.filter(ArqueoCaja.local_id == int(active_local))
+
+    arqueos_existentes = set()
+    for a_f, a_loc in query_arq_existentes.all():
+        if a_f and a_loc:
+            f_norm = a_f.strftime('%Y-%m-%d') if hasattr(a_f, 'strftime') else str(a_f)
+            arqueos_existentes.add((f_norm, int(a_loc)))
+
+    arqueos_omitidos_lista = []
+    conteo_omitidos_por_local = {1: 0, 2: 0, 3: 0}
+
+    for (f_str, loc_id), act in actividades_por_dia.items():
+        if (f_str, loc_id) not in arqueos_existentes:
+            f_dt = datetime.strptime(f_str, '%Y-%m-%d').date()
+            es_hoy = (f_str == hoy_str)
+            item = {
+                'fecha_str': f_str,
+                'fecha_formato': f_dt.strftime('%d/%m/%Y'),
+                'fecha_dt': f_dt,
+                'local_id': loc_id,
+                'local_nombre': f'D&L {loc_id}',
+                'num_ventas': act['num_ventas'],
+                'total_ventas': act['total_ventas'],
+                'num_gastos': act['num_gastos'],
+                'total_gastos': act['total_gastos'],
+                'es_hoy': es_hoy
+            }
+            arqueos_omitidos_lista.append(item)
+            if loc_id in conteo_omitidos_por_local:
+                conteo_omitidos_por_local[loc_id] += 1
+
+    arqueos_omitidos_lista.sort(key=lambda x: x['fecha_dt'], reverse=True)
+    total_arqueos_omitidos = len(arqueos_omitidos_lista)
 
     # Métricas Informativas de Inventario y Traslados
     from models import StockTransfer
@@ -205,7 +348,10 @@ def dashboard():
         total_productos=total_productos,
         productos_bajo_stock=productos_bajo_stock,
         maneos_activos=maneos_activos,
-        total_traslados=total_traslados
+        total_traslados=total_traslados,
+        total_arqueos_omitidos=total_arqueos_omitidos,
+        arqueos_omitidos_lista=arqueos_omitidos_lista,
+        conteo_omitidos_por_local=conteo_omitidos_por_local
     )
 
 @admin_bp.route('/maneos')
@@ -231,10 +377,12 @@ def maneos():
     lista_maneos.sort(key=lambda m: 0 if m.estado == 'PENDIENTE' else 1)
     
     productos = Product.query.order_by(Product.nombre).all()
+    asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
     return render_template(
         'admin/maneos.html',
         maneos=lista_maneos,
         productos=productos,
+        asesores=asesores,
         active_local=active_local,
         is_admin=is_admin
     )
@@ -246,6 +394,16 @@ def maneos_prestar():
     local_vecino = request.form.get('local_vecino', '').strip()
     if not local_vecino:
         flash('Debes indicar el local vecino o persona receptora.', 'danger')
+        return redirect(request.referrer or url_for('admin_bp.maneos'))
+
+    asesor_id_raw = request.form.get('asesor_id')
+    if not asesor_id_raw or not str(asesor_id_raw).isdigit():
+        flash('Debes seleccionar obligatoriamente un Asesor Responsable para registrar el préstamo.', 'danger')
+        return redirect(request.referrer or url_for('admin_bp.maneos'))
+    asesor_id = int(asesor_id_raw)
+    asesor = Asesor.query.get(asesor_id)
+    if not asesor or asesor.estado != 'Activo':
+        flash('El asesor seleccionado no es válido o está inactivo.', 'danger')
         return redirect(request.referrer or url_for('admin_bp.maneos'))
 
     # Determinar sede emisora del préstamo
@@ -366,7 +524,8 @@ def maneos_prestar():
                 valor_unidad=item_valor,
                 estado='PENDIENTE',
                 local_id=local_id_maneo,
-                usuario_id=current_user.id
+                usuario_id=current_user.id,
+                asesor_id=asesor_id
             )
             db.session.add(nuevo_maneo)
             total_unidades += item_cant
@@ -461,10 +620,17 @@ def maneos_facturar(id):
 
         metodo_pago_seleccionado = request.form.get('metodo_pago', 'efectivo')
         local_destino_venta = maneo.local_id or getattr(current_user, 'local_asignado', 1) or 1
+
+        asesor_id_raw = request.form.get('asesor_id') or (str(maneo.asesor_id) if maneo.asesor_id else None)
+        if not asesor_id_raw or not str(asesor_id_raw).isdigit():
+            flash('Debes seleccionar obligatoriamente un Asesor Responsable para facturar el maneo.', 'danger')
+            return redirect(request.referrer or url_for('admin_bp.maneos'))
+        asesor_id_factura = int(asesor_id_raw)
         
         # Registrar la venta real del Maneo en el local emisor
         nueva_venta = Sale(
             vendedor_id=current_user.id,
+            asesor_id=asesor_id_factura,
             local_id=local_destino_venta,
             monto_total=(precio_venta * cantidad_vendida),
             metodo_pago=metodo_pago_seleccionado
@@ -799,6 +965,8 @@ def normalizar_metodo_pago(metodo_raw):
         return 'bold'
     if 'addi' in m:
         return 'addi'
+    if 'qr' in m or 'llave' in m:
+        return 'qr_llave'
     if 'transf' in m:
         return 'transferencia'
     return 'otros'
@@ -827,7 +995,7 @@ def obtener_datos_tesoreria(args):
     query_search = args.get('q', '').strip().lower()
 
     # Lista completa de pasarelas soportadas por el sistema
-    metodos_disponibles = ['efectivo', 'nequi', 'bancolombia', 'daviplata', 'bold', 'addi', 'transferencia']
+    metodos_disponibles = ['efectivo', 'nequi', 'bancolombia', 'daviplata', 'bold', 'addi', 'qr_llave', 'transferencia']
 
     # 1. Determinación del Rango de Fechas
     if periodo == 'hoy':
@@ -999,7 +1167,42 @@ def obtener_datos_tesoreria(args):
                     'link_recibo': None
                 })
 
-    # 5. Aplicación de Filtros en Memoria
+    # 5. Consolidar Ajustes de Tesorería (Saldos a Favor, Cadenas, Aportes, etc.)
+    q_adjustments = TreasuryAdjustment.query.filter(
+        TreasuryAdjustment.fecha_efectiva >= inicio_dt,
+        TreasuryAdjustment.fecha_efectiva <= fin_dt
+    )
+    if active_local in ['1', '2', '3']:
+        q_adjustments = q_adjustments.filter(TreasuryAdjustment.local_id == int(active_local))
+
+    for adj in q_adjustments.all():
+        met = normalizar_metodo_pago(adj.metodo_pago)
+        monto = float(adj.monto or 0)
+        if monto > 0:
+            cajero_nombre = adj.usuario.nombre if adj.usuario else 'Admin'
+            link_recibo = f"/static/uploads/tesoreria/{adj.comprobante}" if adj.comprobante else None
+            movimientos_brutos.append({
+                'id': f"AJ-{adj.id}",
+                'fecha': adj.fecha_efectiva or inicio_dt,
+                'fecha_str': (adj.fecha_efectiva or inicio_dt).strftime('%d/%m/%Y %I:%M %p'),
+                'local_id': adj.local_id,
+                'tipo_flujo': adj.tipo_movimiento, # 'ingreso' o 'egreso'
+                'tipo_operacion': 'Ajuste de Tesorería',
+                'categoria_ajuste': adj.categoria,
+                'concepto': f"[{adj.categoria}] {adj.concepto}" + (f" (Resp: {adj.asesor.nombre})" if adj.asesor else ""),
+                'metodo_pago': met,
+                'monto': monto,
+                'usuario': cajero_nombre,
+                'referencia': f"Ajuste #{adj.id}",
+                'referencia_id': adj.id,
+                'link_recibo': link_recibo,
+                'comprobante': adj.comprobante,
+                'asesor_nombre': adj.asesor.nombre if adj.asesor else None,
+                'grupo_operacion_id': adj.grupo_operacion_id,
+                'es_ajuste': True
+            })
+
+    # 6. Aplicación de Filtros en Memoria
     movimientos_base = []
     for m in movimientos_brutos:
         # Filtro Tipo de Flujo
@@ -1063,7 +1266,9 @@ def obtener_datos_tesoreria(args):
         2: {'ingresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 2 and m['tipo_flujo'] == 'ingreso'),
             'egresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 2 and m['tipo_flujo'] == 'egreso')},
         3: {'ingresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 3 and m['tipo_flujo'] == 'ingreso'),
-            'egresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 3 and m['tipo_flujo'] == 'egreso')}
+            'egresos': sum(m['monto'] for m in movimientos_filtrados if m['local_id'] == 3 and m['tipo_flujo'] == 'egreso')},
+        'general': {'ingresos': sum(m['monto'] for m in movimientos_filtrados if (not m['local_id'] or m['local_id'] == 0) and m['tipo_flujo'] == 'ingreso'),
+                    'egresos': sum(m['monto'] for m in movimientos_filtrados if (not m['local_id'] or m['local_id'] == 0) and m['tipo_flujo'] == 'egreso')}
     }
 
     return {
@@ -1109,15 +1314,169 @@ def tesoreria():
     end_idx = start_idx + per_page
     movimientos_paginados = todos_movs[start_idx:end_idx]
 
+    asesores = Asesor.query.filter_by(estado='Activo').order_by(Asesor.nombre.asc()).all()
     return render_template(
         'admin/tesoreria.html',
         data=data,
         movimientos=movimientos_paginados,
+        asesores=asesores,
         page=page,
         total_pages=total_pages,
         total_items=total_items,
         per_page=per_page
     )
+
+@admin_bp.route('/tesoreria/ajuste', methods=['POST'])
+@login_required
+@admin_required
+def tesoreria_ajuste():
+    import uuid
+    import os
+    
+    categoria = request.form.get('categoria', 'Saldo a Favor').strip()
+    concepto = request.form.get('concepto', '').strip()
+    tipo_movimiento = request.form.get('tipo_movimiento', 'ingreso').strip().lower()
+    if tipo_movimiento not in ['ingreso', 'egreso']:
+        tipo_movimiento = 'ingreso'
+
+    if not concepto:
+        flash('Debes ingresar una descripción o motivo para el ajuste.', 'danger')
+        return redirect(request.referrer or url_for('admin_bp.tesoreria'))
+
+    # Fecha efectiva (retroactiva o actual)
+    fecha_efectiva_str = request.form.get('fecha_efectiva', '').strip()
+    if fecha_efectiva_str:
+        try:
+            hora_actual = obtener_hora_bogota().time()
+            fecha_dt = datetime.strptime(fecha_efectiva_str, '%Y-%m-%d').replace(
+                hour=hora_actual.hour, minute=hora_actual.minute, second=hora_actual.second
+            )
+        except ValueError:
+            fecha_dt = obtener_hora_bogota()
+    else:
+        fecha_dt = obtener_hora_bogota()
+
+    # Sede / Local
+    local_id_str = request.form.get('local_id', '').strip()
+    if local_id_str in ['1', '2', '3']:
+        local_id = int(local_id_str)
+    else:
+        local_id = None # Bolsa General / Central
+
+    # Asesor Responsable (opcional)
+    asesor_id_str = request.form.get('asesor_id', '').strip()
+    asesor_id = int(asesor_id_str) if asesor_id_str and asesor_id_str.isdigit() else None
+
+    # Manejo de Comprobante (opcional)
+    comprobante_filename = None
+    file = request.files.get('comprobante')
+    if file and file.filename != '':
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'webp', 'pdf'}
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext in allowed_extensions:
+            timestamp_str = obtener_hora_bogota().strftime('%Y%m%d_%H%M%S')
+            comprobante_filename = f"ajuste_{timestamp_str}_{uuid.uuid4().hex[:6]}.{ext}"
+            upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'tesoreria')
+            os.makedirs(upload_dir, exist_ok=True)
+            file.save(os.path.join(upload_dir, comprobante_filename))
+        else:
+            flash('Formato de comprobante no permitido. Sube un archivo PNG, JPG, WEBP o PDF.', 'warning')
+            return redirect(request.referrer or url_for('admin_bp.tesoreria'))
+
+    modo_pago = request.form.get('modo_pago', 'unico') # 'unico' o 'dividido'
+    registros_creados = 0
+    total_monto = Decimal('0.00')
+
+    try:
+        if modo_pago == 'dividido':
+            grupo_id = f"GRP-{uuid.uuid4().hex[:8].upper()}"
+            metodos_posibles = ['efectivo', 'nequi', 'bancolombia', 'daviplata', 'bold', 'addi', 'qr_llave']
+            for m_key in metodos_posibles:
+                monto_raw = request.form.get(f'monto_{m_key}', '0').replace(',', '').strip()
+                try:
+                    monto_val = Decimal(monto_raw)
+                except Exception:
+                    monto_val = Decimal('0.00')
+
+                if monto_val > Decimal('0.00'):
+                    ajuste = TreasuryAdjustment(
+                        tipo_movimiento=tipo_movimiento,
+                        categoria=categoria,
+                        concepto=concepto,
+                        monto=monto_val,
+                        metodo_pago=m_key,
+                        local_id=local_id,
+                        fecha_efectiva=fecha_dt,
+                        fecha_registro=obtener_hora_bogota(),
+                        usuario_id=current_user.id,
+                        asesor_id=asesor_id,
+                        comprobante=comprobante_filename,
+                        grupo_operacion_id=grupo_id
+                    )
+                    db.session.add(ajuste)
+                    registros_creados += 1
+                    total_monto += monto_val
+
+            if registros_creados == 0:
+                flash('En modalidad dividida debes ingresar al menos un monto mayor a $0 en alguna de las cuentas.', 'danger')
+                return redirect(request.referrer or url_for('admin_bp.tesoreria'))
+        else:
+            metodo_pago = request.form.get('metodo_pago', 'nequi').strip().lower()
+            monto_raw = request.form.get('monto', '0').replace(',', '').strip()
+            try:
+                monto_val = Decimal(monto_raw)
+            except Exception:
+                monto_val = Decimal('0.00')
+
+            if monto_val <= Decimal('0.00'):
+                flash('El monto del ajuste debe ser mayor a $0.', 'danger')
+                return redirect(request.referrer or url_for('admin_bp.tesoreria'))
+
+            ajuste = TreasuryAdjustment(
+                tipo_movimiento=tipo_movimiento,
+                categoria=categoria,
+                concepto=concepto,
+                monto=monto_val,
+                metodo_pago=metodo_pago,
+                local_id=local_id,
+                fecha_efectiva=fecha_dt,
+                fecha_registro=obtener_hora_bogota(),
+                usuario_id=current_user.id,
+                asesor_id=asesor_id,
+                comprobante=comprobante_filename
+            )
+            db.session.add(ajuste)
+            registros_creados = 1
+            total_monto = monto_val
+
+        db.session.commit()
+        tipo_lbl = "Ingreso (+)" if tipo_movimiento == 'ingreso' else "Egreso (-)"
+        flash(f'¡Ajuste de Tesorería registrado con éxito! ({tipo_lbl} ${total_monto:,.0f} COP)', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al registrar el ajuste de tesorería: {str(e)}', 'danger')
+
+    return redirect(request.referrer or url_for('admin_bp.tesoreria'))
+
+@admin_bp.route('/tesoreria/ajuste/<int:id>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def tesoreria_ajuste_eliminar(id):
+    ajuste = TreasuryAdjustment.query.get_or_404(id)
+    try:
+        eliminar_grupo = request.form.get('eliminar_grupo') == '1'
+        if eliminar_grupo and ajuste.grupo_operacion_id:
+            TreasuryAdjustment.query.filter_by(grupo_operacion_id=ajuste.grupo_operacion_id).delete()
+            flash('Todos los movimientos vinculados a esta operación dividida fueron eliminados.', 'info')
+        else:
+            db.session.delete(ajuste)
+            flash(f'Ajuste #{id} de Tesorería eliminado correctamente.', 'info')
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar el ajuste: {str(e)}', 'danger')
+
+    return redirect(request.referrer or url_for('admin_bp.tesoreria'))
 
 @admin_bp.route('/tesoreria/exportar', methods=['GET'])
 @login_required
@@ -1157,10 +1516,11 @@ def tesoreria_exportar():
         ing_val = m['monto'] if m['tipo_flujo'] == 'ingreso' else 0
         egr_val = m['monto'] if m['tipo_flujo'] == 'egreso' else 0
         neto_val = ing_val - egr_val
+        sede_label = f"D&L {m['local_id']}" if m.get('local_id') else "Bolsa General"
 
         writer.writerow([
             m['fecha_str'],
-            f"D&L {m['local_id']}",
+            sede_label,
             m['tipo_flujo'].upper(),
             m['tipo_operacion'],
             m['concepto'],
@@ -1204,4 +1564,5 @@ def tesoreria_exportar():
     response = Response(output.getvalue(), mimetype='text/csv; charset=utf-8-sig')
     response.headers['Content-Disposition'] = f"attachment; filename={filename}"
     return response
+
 
