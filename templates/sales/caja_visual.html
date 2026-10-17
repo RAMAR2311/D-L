@@ -1310,7 +1310,6 @@
             `).join('');
         }
 
-        const asesorSelect = document.getElementById('asesor_id_select');
         const asesorNombre = asesorSelect && asesorSelect.selectedIndex > 0 ? asesorSelect.options[asesorSelect.selectedIndex].text : 'Sin Asesor Asignado';
         document.getElementById('modal_resumen_asesor').innerText = asesorNombre;
 
