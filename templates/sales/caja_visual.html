@@ -72,9 +72,12 @@
 
         <!-- Buscador de productos y Botón de Producto Punto -->
         <div class="mb-4 d-flex gap-2 flex-wrap flex-md-nowrap">
-            <div class="input-group input-group-lg shadow-sm rounded-pill border flex-grow-1">
+            <div class="input-group input-group-lg shadow-sm rounded-pill border flex-grow-1 bg-white">
                 <span class="input-group-text bg-white border-0 ps-4"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
-                <input type="text" id="productSearch" class="form-control border-0 bg-white shadow-none ps-2" placeholder="Buscar producto por nombre o SKU..." style="border-radius: 0 50px 50px 0;">
+                <input type="text" id="productSearch" class="form-control border-0 bg-white shadow-none ps-2" placeholder="Buscar producto por nombre o SKU..." style="border-radius: 0 50px 50px 0;" oninput="filtrarProductosPOS(this.value)" onkeyup="filtrarProductosPOS(this.value)">
+                <button class="btn btn-link text-muted border-0 pe-4 d-none" id="btnClearSearch" type="button" onclick="limpiarBusquedaPOS()" title="Limpiar búsqueda">
+                    <i class="fa-solid fa-circle-xmark fs-5"></i>
+                </button>
             </div>
             <button class="btn text-white fw-bold rounded-pill shadow-sm px-4 d-flex align-items-center justify-content-center gap-2" style="background-color: var(--mario-red); white-space: nowrap;" data-bs-toggle="modal" data-bs-target="#modalProductoPunto">
                 <i class="fa-solid fa-store"></i> + Producto Punto / Externo
@@ -100,7 +103,7 @@
                     }) %}
                 {% endfor %}
             {% endif %}
-            <div class="col-6 col-md-4 col-xl-3 product-card-container" data-name="{{ p.nombre|lower }}" data-sku="{{ p.sku|lower }}">
+            <div class="col-6 col-md-4 col-xl-3 product-card-container" data-name="{{ p.nombre|lower }}" data-sku="{{ p.sku|lower }}" data-original-order="{{ loop.index0 }}">
                 <div class="card h-100 border-0 shadow-sm cursor-pointer product-card" 
                      data-product='{{ {"id": p.id, "nombre": p.nombre, "sku": p.sku, "precio_sugerido": p.precio_sugerido or 0, "cantidad_stock": stock_local, "stock_1": p.stock_local_1 or 0, "stock_2": p.stock_local_2 or 0, "stock_3": p.stock_local_3 or 0, "descontar_inventario": p.descontar_inventario, "tipo_inventario": p.tipo_inventario}|tojson|safe }}'
                      data-variants='{{ vars_data|tojson|safe }}'
@@ -600,20 +603,53 @@
 
     const normalizeText = (text) => {
         if (!text) return "";
-        return text.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        return text.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
     };
 
-    function filtrarProductosPOS(queryValue) {
-        const query = normalizeText(queryValue).trim();
-        const words = query.split(/\s+/).filter(w => w.length > 0);
-        const cards = document.querySelectorAll('.product-card-container');
-        
-        cards.forEach(card => {
-            if (words.length === 0) {
-                card.style.removeProperty('display');
-                return;
-            }
+    function limpiarBusquedaPOS() {
+        const searchInput = document.getElementById('productSearch');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+        filtrarProductosPOS('');
+    }
+    window.limpiarBusquedaPOS = limpiarBusquedaPOS;
 
+    function filtrarProductosPOS(queryValue) {
+        const rawQuery = (queryValue || '').trim();
+        const query = normalizeText(rawQuery);
+        const words = query.split(/\s+/).filter(w => w.length > 0);
+        const grid = document.getElementById('productsGrid');
+        const btnClear = document.getElementById('btnClearSearch');
+        
+        if (btnClear) {
+            btnClear.classList.toggle('d-none', words.length === 0);
+        }
+
+        if (!grid) return;
+        const cards = Array.from(grid.querySelectorAll('.product-card-container'));
+        let noResultsEl = document.getElementById('pos_no_search_results');
+
+        if (words.length === 0) {
+            // Restaurar orden y visibilidad original
+            cards.sort((a, b) => {
+                const idxA = parseInt(a.getAttribute('data-original-order') || '0', 10);
+                const idxB = parseInt(b.getAttribute('data-original-order') || '0', 10);
+                return idxA - idxB;
+            });
+            cards.forEach(card => {
+                card.style.removeProperty('display');
+                grid.appendChild(card);
+            });
+            if (noResultsEl) noResultsEl.style.display = 'none';
+            return;
+        }
+
+        let matchCount = 0;
+        const scoredCards = [];
+
+        cards.forEach(card => {
             const name = normalizeText(card.getAttribute('data-name') || card.dataset.name || '');
             const sku = normalizeText(card.getAttribute('data-sku') || card.dataset.sku || '');
             
@@ -629,13 +665,66 @@
             const fullText = `${name} ${sku} ${variantsText}`;
             const isMatch = words.every(word => fullText.includes(word));
             
-            if (isMatch) {
-                card.style.removeProperty('display');
-            } else {
+            if (!isMatch) {
                 card.style.setProperty('display', 'none', 'important');
+            } else {
+                card.style.removeProperty('display');
+                matchCount++;
+
+                // Priorización inteligente: menor score = mayor prioridad (sale de primero)
+                let score = 100;
+                const nameWords = name.split(/\s+/);
+                const firstWord = words[0];
+
+                if (name === query) {
+                    score = 1; // Coincidencia exacta
+                } else if (name.startsWith(query)) {
+                    score = 5; // El nombre empieza exactamente con la búsqueda (ej: "adap" -> "adaptador...")
+                } else if (nameWords.some(w => w.startsWith(query) || (firstWord && w.startsWith(firstWord)))) {
+                    score = 10; // Alguna palabra del producto empieza con el término
+                } else if (sku.startsWith(query)) {
+                    score = 15; // El SKU empieza con el término
+                } else if (name.includes(query)) {
+                    score = 25; // Contiene el término en el nombre
+                } else if (variantsText.startsWith(query) || variantsText.split(/\s+/).some(w => w.startsWith(query))) {
+                    score = 30; // Una variante empieza con el término
+                } else {
+                    score = 50; // Coincidencia general
+                }
+
+                const origIdx = parseInt(card.getAttribute('data-original-order') || '0', 10);
+                const finalScore = score + (origIdx / 10000);
+                scoredCards.push({ card, score: finalScore });
             }
         });
+
+        // Ordenar tarjetas coincidentes por prioridad (los que empiezan con el texto van primero)
+        scoredCards.sort((a, b) => a.score - b.score);
+        scoredCards.forEach(item => {
+            grid.appendChild(item.card);
+        });
+
+        // Feedback si no hay coincidencias
+        if (matchCount === 0) {
+            if (!noResultsEl) {
+                noResultsEl = document.createElement('div');
+                noResultsEl.id = 'pos_no_search_results';
+                noResultsEl.className = 'col-12 text-center py-5 text-muted';
+                noResultsEl.innerHTML = `
+                    <i class="fa-solid fa-magnifying-glass fa-3x mb-3 text-black-50"></i>
+                    <h5 class="fw-bold text-dark">No se encontraron productos</h5>
+                    <p class="small text-muted mb-0">No hay coincidencias para "<span id="pos_search_term"></span>"</p>
+                `;
+                grid.appendChild(noResultsEl);
+            }
+            const termSpan = document.getElementById('pos_search_term');
+            if (termSpan) termSpan.textContent = rawQuery;
+            noResultsEl.style.display = '';
+        } else {
+            if (noResultsEl) noResultsEl.style.display = 'none';
+        }
     }
+    window.filtrarProductosPOS = filtrarProductosPOS;
 
     const searchInput = document.getElementById('productSearch');
     if (searchInput) {
