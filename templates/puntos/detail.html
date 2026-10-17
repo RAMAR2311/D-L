@@ -975,10 +975,10 @@
 <!-- ================================================================= -->
 <div class="modal fade" id="modalAbonarPunto" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable modal-fullscreen-md-down">
-        <div class="modal-content border-0 shadow-lg rounded-4">
-            <form method="POST" id="formAbonarPunto" action="{{ url_for('puntos_bp.abonar', id=punto.id) }}">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" style="max-height: 90vh;">
+            <form method="POST" id="formAbonarPunto" action="{{ url_for('puntos_bp.abonar', id=punto.id) }}" class="d-flex flex-column h-100 overflow-hidden m-0">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <div class="modal-header border-0 bg-light py-3 px-4 d-flex justify-content-between align-items-center">
+                <div class="modal-header border-0 bg-light py-3 px-4 d-flex justify-content-between align-items-center flex-shrink-0">
                     <div class="d-flex align-items-center gap-2">
                         <div class="rounded-circle bg-success bg-opacity-10 text-success p-2 px-3 fw-bold fs-5">
                             <i class="fa-solid fa-hand-holding-dollar"></i>
@@ -995,7 +995,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                 </div>
-                <div class="modal-body p-4">
+                <div class="modal-body p-4 overflow-auto" style="overflow-y: auto !important; max-height: calc(90vh - 145px); -webkit-overflow-scrolling: touch;">
                     <div class="alert alert-info border-0 rounded-3 mb-3 py-2 px-3">
                         <small class="fw-bold d-block"><i class="fa-solid fa-info-circle me-1"></i>Información Importante:</small>
                         <small>Este abono reducirá el saldo deudor del punto y generará automáticamente el <strong>Gasto Diario</strong> correspondiente en la sede seleccionada para mantener la tesorería cuadrada.</small>
@@ -1205,7 +1205,7 @@
                         <input type="text" name="descripcion" class="form-control bg-light border-0" placeholder="Ej: Pago de cargadores y accesorios prestados" {% if saldo_pendiente <= 0 %}disabled{% endif %}>
                     </div>
                 </div>
-                <div class="modal-footer border-0 bg-light py-3 px-4">
+                <div class="modal-footer border-0 bg-light py-3 px-4 flex-shrink-0 mt-auto">
                     <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                     {% if saldo_pendiente > 0 %}
                         <button type="submit" id="btnSubmitAbono" class="btn btn-success text-white rounded-pill px-4 fw-bold shadow-sm">
