@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const query = searchInput.value.toLowerCase().trim();
         
         clearTimeout(debounceTimer);
-        if (query.length < 2) {
+        if (query.length < 1) {
             dropdown.classList.add('d-none');
             dropdown.classList.remove('show');
             return;

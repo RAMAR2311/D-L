@@ -359,7 +359,7 @@
         clearTimeout(maneoAutocompleteTimeout);
         const query = this.value.trim();
         
-        if (query.length < 2) {
+        if (query.length < 1) {
             maneoAutocompleteResults.style.display = 'none';
             return;
         }

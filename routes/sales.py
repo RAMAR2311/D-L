@@ -350,7 +350,7 @@ def procesar_venta():
 def api_search_products():
     query = request.args.get('q', '').strip()
     
-    if len(query) < 2:
+    if len(query) < 1:
         return jsonify([])
 
     if current_user.rol == 'admin':

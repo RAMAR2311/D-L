@@ -600,29 +600,37 @@
         return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     };
 
-    document.getElementById('productSearch').addEventListener('keyup', function(e) {
-        const query = normalizeText(e.target.value).trim();
-        const words = query.split(/\s+/).filter(w => w.length > 0);
-        
-        document.querySelectorAll('.product-card-container').forEach(card => {
-            const name = normalizeText(card.dataset.name);
-            const sku = normalizeText(card.dataset.sku);
+    const searchInput = document.getElementById('productSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const query = normalizeText(e.target.value).trim();
+            const words = query.split(/\s+/).filter(w => w.length > 0);
             
-            if (words.length === 0) {
-                card.style.display = 'block';
-                return;
-            }
+            document.querySelectorAll('.product-card-container').forEach(card => {
+                if (words.length === 0) {
+                    card.style.display = '';
+                    return;
+                }
 
-            // Verifica que TODAS las palabras buscadas estén contenidas en el nombre o SKU
-            const isMatch = words.every(word => name.includes(word) || sku.includes(word));
-            
-            if (isMatch) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
+                const name = normalizeText(card.dataset.name || '');
+                const sku = normalizeText(card.dataset.sku || '');
+                
+                let variantsText = '';
+                const cardEl = card.querySelector('.product-card');
+                if (cardEl && cardEl.dataset.variants) {
+                    try {
+                        const vars = JSON.parse(cardEl.dataset.variants);
+                        variantsText = normalizeText(vars.map(v => v.nombre).join(' '));
+                    } catch(err) {}
+                }
+                
+                const fullText = `${name} ${sku} ${variantsText}`;
+                const isMatch = words.every(word => fullText.includes(word));
+                
+                card.style.display = isMatch ? '' : 'none';
+            });
         });
-    });
+    }
 
     let lastTapTimestamp = 0;
 

@@ -473,7 +473,7 @@
         clearTimeout(autocompleteTimeout);
         const query = this.value.trim();
         
-        if (query.length < 2) {
+        if (query.length < 1) {
             autocompleteResultsEl.style.display = 'none';
             return;
         }

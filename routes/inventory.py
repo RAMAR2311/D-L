@@ -951,7 +951,7 @@ def api_search():
     active_local = request.args.get('local', 'central').lower()
     tipo = 'bodega' if current_user.rol == 'bodega' else 'tienda'
     
-    if len(query) < 2:
+    if len(query) < 1:
         return jsonify([])
     
     from sqlalchemy import or_

@@ -955,7 +955,7 @@ def eliminar_cliente(id):
 def api_search_clientes():
     query = request.args.get('q', '').strip()
     
-    if len(query) < 2:
+    if len(query) < 1:
         return jsonify([])
     
     from sqlalchemy import or_
@@ -987,7 +987,7 @@ def api_search_clientes():
 def api_search_facturas():
     query = request.args.get('q', '').strip()
     
-    if len(query) < 2:
+    if len(query) < 1:
         return jsonify([])
     
     from sqlalchemy import or_

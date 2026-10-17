@@ -422,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 2. Búsqueda AJAX global para el "despliegue"
         clearTimeout(debounceTimer);
-        if (query.length < 2) {
+        if (query.length < 1) {
             dropdown.classList.add('d-none');
             return;
         }
