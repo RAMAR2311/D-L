@@ -576,6 +576,7 @@
     const facturaIcon = document.getElementById('toggle_factura_icon');
 
     function actualizarEstadoFactura() {
+        if (!toggleFactura || !facturaWrapper || !facturaLabel || !facturaIcon) return;
         if (toggleFactura.checked) {
             facturaWrapper.style.border = '2px solid #198754';
             facturaWrapper.style.background = 'linear-gradient(135deg, #d1e7dd 0%, #a3cfbb 100%)';
@@ -588,8 +589,10 @@
             facturaIcon.style.color = '#6c757d';
         }
     }
-    toggleFactura.addEventListener('change', actualizarEstadoFactura);
-    actualizarEstadoFactura(); // Estado inicial
+    if (toggleFactura) {
+        toggleFactura.addEventListener('change', actualizarEstadoFactura);
+        actualizarEstadoFactura(); // Estado inicial
+    }
 
     function formatoCOP(valor) {
         return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(valor);
@@ -597,37 +600,48 @@
 
     const normalizeText = (text) => {
         if (!text) return "";
-        return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        return text.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     };
+
+    function filtrarProductosPOS(queryValue) {
+        const query = normalizeText(queryValue).trim();
+        const words = query.split(/\s+/).filter(w => w.length > 0);
+        const cards = document.querySelectorAll('.product-card-container');
+        
+        cards.forEach(card => {
+            if (words.length === 0) {
+                card.style.removeProperty('display');
+                return;
+            }
+
+            const name = normalizeText(card.getAttribute('data-name') || card.dataset.name || '');
+            const sku = normalizeText(card.getAttribute('data-sku') || card.dataset.sku || '');
+            
+            let variantsText = '';
+            const cardEl = card.querySelector('.product-card');
+            if (cardEl && cardEl.dataset.variants) {
+                try {
+                    const vars = JSON.parse(cardEl.dataset.variants);
+                    variantsText = normalizeText(vars.map(v => v.nombre).join(' '));
+                } catch(err) {}
+            }
+            
+            const fullText = `${name} ${sku} ${variantsText}`;
+            const isMatch = words.every(word => fullText.includes(word));
+            
+            if (isMatch) {
+                card.style.removeProperty('display');
+            } else {
+                card.style.setProperty('display', 'none', 'important');
+            }
+        });
+    }
 
     const searchInput = document.getElementById('productSearch');
     if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            const query = normalizeText(e.target.value).trim();
-            const words = query.split(/\s+/).filter(w => w.length > 0);
-            
-            document.querySelectorAll('.product-card-container').forEach(card => {
-                if (words.length === 0) {
-                    card.style.display = '';
-                    return;
-                }
-
-                const name = normalizeText(card.dataset.name || '');
-                const sku = normalizeText(card.dataset.sku || '');
-                
-                let variantsText = '';
-                const cardEl = card.querySelector('.product-card');
-                if (cardEl && cardEl.dataset.variants) {
-                    try {
-                        const vars = JSON.parse(cardEl.dataset.variants);
-                        variantsText = normalizeText(vars.map(v => v.nombre).join(' '));
-                    } catch(err) {}
-                }
-                
-                const fullText = `${name} ${sku} ${variantsText}`;
-                const isMatch = words.every(word => fullText.includes(word));
-                
-                card.style.display = isMatch ? '' : 'none';
+        ['input', 'keyup', 'change', 'search'].forEach(evt => {
+            searchInput.addEventListener(evt, function(e) {
+                filtrarProductosPOS(e.target.value);
             });
         });
     }
