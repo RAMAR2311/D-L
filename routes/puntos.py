@@ -95,36 +95,80 @@ def calcular_cartera_punto(transacciones):
     cargos_cronologicos = sorted(cargos_registros, key=lambda c: (c.fecha or datetime.min, c.id))
 
     # 1. Separar abonos específicos y generales
-    abonos_especificos = {}
+    # Cada abono específico (con sale_id) se asocia primero a su cargo correspondiente
+    # Si una venta tiene múltiples cargos, cada abono se imputa a su cargo respectivo
     total_abonos_generales = Decimal('0.00')
+    abonos_por_sale_id = {}
 
     for a in abonos_lista:
         if a.sale_id:
-            abonos_especificos[a.sale_id] = abonos_especificos.get(a.sale_id, Decimal('0.00')) + a.monto
+            abonos_por_sale_id.setdefault(a.sale_id, []).append(a)
         else:
             total_abonos_generales += a.monto
 
-    # 2. Asignar primero abonos específicos a cada cargo
+    # 2. Imputar abonos específicos a los cargos
+    # Si un abono tiene en su descripción el ID del cargo o descripción del producto, se busca emparejar exactamente;
+    # de lo contrario, se distribuye entre los cargos de esa venta sin duplicar cobertura.
     cargo_data = {}
     pool_general = total_abonos_generales
 
+    # Mapear cargos agrupados por sale_id o id
+    cargos_por_sale = {}
     for c in cargos_cronologicos:
         s_id = c.sale_id or c.id
-        abono_esp = abonos_especificos.get(s_id, Decimal('0.00'))
-        if not c.sale_id and c.id in abonos_especificos:
-            abono_esp += abonos_especificos[c.id]
-
-        abono_esp_aplicable = min(abono_esp, c.monto)
-        sobrante = max(abono_esp - c.monto, Decimal('0.00'))
-        pool_general += sobrante
-
+        cargos_por_sale.setdefault(s_id, []).append(c)
         cargo_data[c.id] = {
             'monto': c.monto,
-            'abono_especifico': abono_esp_aplicable,
+            'abono_especifico': Decimal('0.00'),
             'abono_general': Decimal('0.00'),
-            'total_abonado': abono_esp_aplicable,
-            'saldo_pendiente': max(c.monto - abono_esp_aplicable, Decimal('0.00'))
+            'total_abonado': Decimal('0.00'),
+            'saldo_pendiente': c.monto
         }
+
+    for s_id, abonos_grupo in abonos_por_sale_id.items():
+        cargos_grupo = cargos_por_sale.get(s_id, [])
+        if not cargos_grupo:
+            # Si no se encontró cargo con ese sale_id, enviar al pool general
+            for a in abonos_grupo:
+                pool_general += a.monto
+            continue
+
+        for a in abonos_grupo:
+            monto_abono_restante = a.monto
+            
+            # Intentar emparejar primero por descripción del cargo si coincide con la descripción del abono
+            cargo_match = None
+            for c in cargos_grupo:
+                if cargo_data[c.id]['saldo_pendiente'] > Decimal('0.00'):
+                    desc_c = (c.descripcion or '').lower()
+                    desc_a = (a.descripcion or '').lower()
+                    if desc_c and (desc_c in desc_a or (c.descripcion and c.descripcion in a.descripcion)):
+                        cargo_match = c
+                        break
+
+            if cargo_match:
+                aplicar = min(cargo_data[cargo_match.id]['saldo_pendiente'], monto_abono_restante)
+                cargo_data[cargo_match.id]['abono_especifico'] += aplicar
+                cargo_data[cargo_match.id]['total_abonado'] += aplicar
+                cargo_data[cargo_match.id]['saldo_pendiente'] -= aplicar
+                monto_abono_restante -= aplicar
+
+            # Si sobra monto del abono o no hubo match por texto, imputar a los cargos pendientes de esa venta (FIFO dentro de la venta)
+            if monto_abono_restante > Decimal('0.00'):
+                for c in cargos_grupo:
+                    pend = cargo_data[c.id]['saldo_pendiente']
+                    if pend > Decimal('0.00'):
+                        aplicar = min(pend, monto_abono_restante)
+                        cargo_data[c.id]['abono_especifico'] += aplicar
+                        cargo_data[c.id]['total_abonado'] += aplicar
+                        cargo_data[c.id]['saldo_pendiente'] -= aplicar
+                        monto_abono_restante -= aplicar
+                        if monto_abono_restante <= Decimal('0.00'):
+                            break
+
+            # Si aún sobra dinero de este abono específico, va al pool general
+            if monto_abono_restante > Decimal('0.00'):
+                pool_general += monto_abono_restante
 
     # 3. Aplicar pool general (FIFO) a los cargos pendientes más antiguos
     for c in cargos_cronologicos:
@@ -363,33 +407,49 @@ def abonar(id):
 
     # Determinar productos/cargos seleccionados
     tipo_aplicacion = request.form.get('tipo_aplicacion', 'general') # 'general' o 'especifico'
+    cargo_ids_raw = request.form.getlist('cargo_ids') or request.form.getlist('cargo_ids[]')
+    single_cargo_id = request.form.get('cargo_id')
+    if single_cargo_id and single_cargo_id.isdigit():
+        cargo_ids_raw.append(single_cargo_id)
+
     sale_ids_raw = request.form.getlist('sale_ids') or request.form.getlist('sale_ids[]')
-    
     single_sale_id = request.form.get('sale_id')
     if single_sale_id and single_sale_id.isdigit():
         sale_ids_raw.append(single_sale_id)
 
-    selected_sale_ids = []
-    for s in sale_ids_raw:
-        if str(s).isdigit() and int(s) not in selected_sale_ids:
-            selected_sale_ids.append(int(s))
+    selected_cargo_ids = [int(c) for c in cargo_ids_raw if str(c).isdigit()]
+    selected_sale_ids = [int(s) for s in sale_ids_raw if str(s).isdigit()]
 
     cartera_info = calcular_cartera_punto(transacciones_existentes)
     cargos_seleccionados = []
 
-    if tipo_aplicacion == 'especifico' and selected_sale_ids:
-        for s_id in selected_sale_ids:
-            cargo_ref = next((t for t in transacciones_existentes if t.tipo_movimiento == 'cargo' and (t.sale_id == s_id or (not t.sale_id and t.id == s_id))), None)
-            if cargo_ref:
-                info = cartera_info['cargo_data'].get(cargo_ref.id, {})
-                pend = info.get('saldo_pendiente', Decimal('0.00'))
-                if pend > Decimal('0.00'):
-                    cargos_seleccionados.append({
-                        'sale_id': s_id,
-                        'cargo_id': cargo_ref.id,
-                        'descripcion': cargo_ref.descripcion or f'Venta #{s_id}',
-                        'saldo_pendiente': pend
-                    })
+    if tipo_aplicacion == 'especifico':
+        if selected_cargo_ids:
+            for c_id in selected_cargo_ids:
+                cargo_ref = next((t for t in transacciones_existentes if t.tipo_movimiento == 'cargo' and t.id == c_id), None)
+                if cargo_ref:
+                    info = cartera_info['cargo_data'].get(cargo_ref.id, {})
+                    pend = info.get('saldo_pendiente', Decimal('0.00'))
+                    if pend > Decimal('0.00'):
+                        cargos_seleccionados.append({
+                            'sale_id': cargo_ref.sale_id or cargo_ref.id,
+                            'cargo_id': cargo_ref.id,
+                            'descripcion': cargo_ref.descripcion or f'Venta #{cargo_ref.sale_id or cargo_ref.id}',
+                            'saldo_pendiente': pend
+                        })
+        elif selected_sale_ids:
+            for s_id in selected_sale_ids:
+                cargos_de_venta = [t for t in transacciones_existentes if t.tipo_movimiento == 'cargo' and (t.sale_id == s_id or (not t.sale_id and t.id == s_id))]
+                for cargo_ref in cargos_de_venta:
+                    info = cartera_info['cargo_data'].get(cargo_ref.id, {})
+                    pend = info.get('saldo_pendiente', Decimal('0.00'))
+                    if pend > Decimal('0.00') and not any(cs['cargo_id'] == cargo_ref.id for cs in cargos_seleccionados):
+                        cargos_seleccionados.append({
+                            'sale_id': s_id,
+                            'cargo_id': cargo_ref.id,
+                            'descripcion': cargo_ref.descripcion or f'Venta #{s_id}',
+                            'saldo_pendiente': pend
+                        })
 
         if not cargos_seleccionados:
             flash('Los productos seleccionados ya se encuentran al día ($0 pendiente).', 'warning')

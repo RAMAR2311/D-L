@@ -301,7 +301,7 @@
                         {% else %}
                             <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 fw-bold btn-abonar-producto" 
                                     data-bs-toggle="modal" data-bs-target="#modalAbonarPunto" 
-                                    data-sale-id="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}">
+                                    data-cargo-id="{{ p.cargo_id }}" data-sale-id="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}">
                                 <i class="fa-solid fa-hand-holding-dollar me-1"></i>Abonar (${{ '{:,.0f}'.format(p.saldo_pendiente) }})
                             </button>
                         {% endif %}
@@ -1053,9 +1053,9 @@
                                     {% set prods_pendientes = productos_cartera|rejectattr('pagado_completo')|list %}
                                     {% if prods_pendientes %}
                                         {% for p in prods_pendientes %}
-                                        <tr class="fila-producto-check" data-sale-id="{{ p.sale_id }}" style="cursor: pointer;">
+                                        <tr class="fila-producto-check" data-cargo-id="{{ p.cargo_id }}" data-sale-id="{{ p.sale_id }}" style="cursor: pointer;">
                                             <td class="text-center ps-3">
-                                                <input type="checkbox" name="sale_ids" value="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}" data-desc="{{ p.descripcion }}" class="form-check-input check-prod-abono" id="chk_prod_{{ loop.index }}">
+                                                <input type="checkbox" name="cargo_ids" value="{{ p.cargo_id }}" data-sale-id="{{ p.sale_id }}" data-saldo="{{ p.saldo_pendiente|int }}" data-desc="{{ p.descripcion }}" class="form-check-input check-prod-abono" id="chk_prod_{{ loop.index }}">
                                             </td>
                                             <td class="fw-bold text-dark">
                                                 <label for="chk_prod_{{ loop.index }}" class="m-0" style="cursor: pointer;">
@@ -1585,13 +1585,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.querySelectorAll('.btn-abonar-producto').forEach(function(btn) {
         btn.addEventListener('click', function() {
+            const cargoId = this.getAttribute('data-cargo-id');
             const saleId = this.getAttribute('data-sale-id');
             if (radioAppEspecifico) {
                 radioAppEspecifico.checked = true;
                 radioAppEspecifico.dispatchEvent(new Event('change'));
             }
             checkProds.forEach(chk => {
-                chk.checked = (chk.value === String(saleId));
+                if (cargoId && chk.value === String(cargoId)) {
+                    chk.checked = true;
+                } else if (!cargoId && saleId && (chk.getAttribute('data-sale-id') === String(saleId) || chk.value === String(saleId))) {
+                    chk.checked = true;
+                } else {
+                    chk.checked = false;
+                }
             });
             recalcularSeleccionProductos();
         });
