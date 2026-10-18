@@ -582,32 +582,27 @@ def abonar(id):
                     )
                     db.session.add(tx)
 
+                    # Registrar Gasto Diario individual en caja para cada producto cubierto
+                    desc_g = f"Abono a Punto {punto.nombre} - {item['descripcion']}"
+                    if descripcion:
+                        desc_g += f" [{descripcion}]"
+
+                    gasto = Expense(
+                        usuario_id=current_user.id,
+                        tipo_gasto='Gasto Diario',
+                        categoria='Abono a Punto/Local',
+                        descripcion=desc_g,
+                        monto=porcion,
+                        metodo_pago=curr_met,
+                        local_id=local_id_abono,
+                        fecha_gasto=fecha_dt
+                    )
+                    db.session.add(gasto)
+
                     monto_item_restante -= porcion
                     pagos_pool[p_idx][1] -= porcion
                     if pagos_pool[p_idx][1] <= Decimal('0.00'):
                         p_idx += 1
-
-            # Registrar Gastos Diarios correspondientes por cada método empleado
-            for met, monto_met in pagos_desglose:
-                desc_g = f"Abono a Punto {punto.nombre}"
-                if len(cargos_seleccionados) == 1:
-                    desc_g += f" - {cargos_seleccionados[0]['descripcion']}"
-                else:
-                    desc_g += f" ({len(cargos_seleccionados)} productos)"
-                if descripcion:
-                    desc_g += f" [{descripcion}]"
-
-                gasto = Expense(
-                    usuario_id=current_user.id,
-                    tipo_gasto='Gasto Diario',
-                    categoria='Abono a Punto/Local',
-                    descripcion=desc_g,
-                    monto=monto_met,
-                    metodo_pago=met,
-                    local_id=local_id_abono,
-                    fecha_gasto=fecha_dt
-                )
-                db.session.add(gasto)
 
         else:
             # Abono General a la Deuda Global
