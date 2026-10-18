@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from models import db, Punto, PuntoTransaction, Expense, Asesor, obtener_hora_bogota
+from models import db, Punto, PuntoTransaction, Expense, Asesor, Sale, SaleDetail, obtener_hora_bogota
 from decimal import Decimal
 from datetime import datetime
 
@@ -138,7 +138,8 @@ def calcular_cartera_punto(transacciones):
             
             # Intentar emparejar primero por descripción del cargo si coincide con la descripción del abono
             cargo_match = None
-            for c in cargos_grupo:
+            cargos_ordenados = sorted(cargos_grupo, key=lambda c: len(c.descripcion or ''), reverse=True)
+            for c in cargos_ordenados:
                 if cargo_data[c.id]['saldo_pendiente'] > Decimal('0.00'):
                     desc_c = (c.descripcion or '').lower()
                     desc_a = (a.descripcion or '').lower()
@@ -221,12 +222,80 @@ def calcular_cartera_punto(transacciones):
         'abonos_lista': abonos_lista
     }
 
+def sincronizar_cargos_ventas_punto(punto):
+    """
+    Verifica que todas las ventas POS asociadas a este punto que contengan productos
+    manuales / externos tengan sus correspondientes cargos registrados en punto_transactions.
+    Si algún cargo falta (por desincronización o inconsistencia), lo recupera automáticamente
+    desde los detalles de la venta, garantizando que aparezcan en el estado de cuenta y cartera.
+    """
+    sale_ids_asociados = set()
+    for d in SaleDetail.query.filter_by(punto_id=punto.id).all():
+        sale_ids_asociados.add(d.sale_id)
+    for a in PuntoTransaction.query.filter_by(punto_id=punto.id).filter(PuntoTransaction.sale_id.isnot(None)).all():
+        sale_ids_asociados.add(a.sale_id)
+
+    if not sale_ids_asociados:
+        return
+
+    cargos_existentes = PuntoTransaction.query.filter_by(punto_id=punto.id, tipo_movimiento='cargo').all()
+    hay_cambios = False
+    usados = set()
+
+    for s_id in sale_ids_asociados:
+        detalles_venta = SaleDetail.query.filter_by(sale_id=s_id).filter(SaleDetail.nombre_manual.isnot(None)).all()
+        detalles_punto = [d for d in detalles_venta if d.punto_id is None or d.punto_id == punto.id]
+        if not detalles_punto:
+            continue
+
+        detalles_ordenados = sorted(detalles_punto, key=lambda d: len(d.nombre_manual or ''), reverse=True)
+        for d in detalles_ordenados:
+            costo = Decimal(str(d.precio_costo_manual or 0))
+            if costo > Decimal('0.00'):
+                monto_esperado = costo * d.cantidad_vendida
+                match = None
+                for c in cargos_existentes:
+                    if c.id not in usados and c.sale_id == s_id:
+                        desc_c = (c.descripcion or '').lower()
+                        nombre_d = (d.nombre_manual or '').lower()
+                        if (nombre_d == desc_c or f": {nombre_d} (" in desc_c or f" {nombre_d} " in f" {desc_c} ") and c.monto == monto_esperado:
+                            match = c
+                            usados.add(c.id)
+                            break
+                if not match:
+                    venta = Sale.query.get(s_id)
+                    loc_id = venta.local_id if venta else (punto.id or 1)
+                    fecha_cargo = venta.fecha_venta if venta else obtener_hora_bogota()
+                    usuario_id = venta.vendedor_id if venta else (current_user.id if hasattr(current_user, 'id') and current_user.is_authenticated else None)
+                    desc = f"Venta POS D&L {loc_id}: {d.nombre_manual} ({d.cantidad_vendida} uds)"
+                    nuevo_cargo = PuntoTransaction(
+                        punto_id=punto.id,
+                        sale_id=s_id,
+                        usuario_id=usuario_id,
+                        tipo_movimiento='cargo',
+                        monto=monto_esperado,
+                        local_id=loc_id,
+                        fecha=fecha_cargo,
+                        descripcion=desc
+                    )
+                    db.session.add(nuevo_cargo)
+                    cargos_existentes.append(nuevo_cargo)
+                    usados.add(id(nuevo_cargo))
+                    hay_cambios = True
+
+    if hay_cambios:
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
 @puntos_bp.route('/<int:id>', methods=['GET'])
 @login_required
 def detalle(id):
     punto = Punto.query.get_or_404(id)
+    sincronizar_cargos_ventas_punto(punto)
 
-    transacciones = PuntoTransaction.query.filter_by(punto_id=punto.id).order_by(PuntoTransaction.fecha.desc()).all()
+    transacciones = PuntoTransaction.query.filter_by(punto_id=punto.id).order_by(PuntoTransaction.fecha.desc(), PuntoTransaction.id.desc()).all()
 
     cartera_info = calcular_cartera_punto(transacciones)
     cargos = cartera_info['cargos']
@@ -328,6 +397,7 @@ def detalle(id):
 @login_required
 def abonar(id):
     punto = Punto.query.get_or_404(id)
+    sincronizar_cargos_ventas_punto(punto)
 
     # Validar que el punto tenga saldo pendiente mayor a 0
     transacciones_existentes = PuntoTransaction.query.filter_by(punto_id=punto.id).all()
