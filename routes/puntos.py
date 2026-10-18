@@ -143,7 +143,17 @@ def calcular_cartera_punto(transacciones):
                 if cargo_data[c.id]['saldo_pendiente'] > Decimal('0.00'):
                     desc_c = (c.descripcion or '').lower()
                     desc_a = (a.descripcion or '').lower()
+                    coincide = False
                     if desc_c and (desc_c in desc_a or (c.descripcion and c.descripcion in a.descripcion)):
+                        coincide = True
+                    else:
+                        try:
+                            p_name = desc_c.split(': ', 1)[1].rsplit(' (', 1)[0].strip()
+                            if p_name and (f": {p_name} (" in desc_a or f" {p_name} (" in desc_a or f": {p_name} " in desc_a or f" {p_name} " in f" {desc_a} "):
+                                coincide = True
+                        except Exception:
+                            pass
+                    if coincide:
                         cargo_match = c
                         break
 
@@ -255,12 +265,13 @@ def sincronizar_cargos_ventas_punto(punto):
                 monto_esperado = costo * d.cantidad_vendida
                 match = None
                 for c in cargos_existentes:
-                    if c.id not in usados and c.sale_id == s_id:
+                    if c not in usados and (c.id is None or c.id not in [getattr(u, 'id', None) for u in usados]) and c.sale_id == s_id:
                         desc_c = (c.descripcion or '').lower()
                         nombre_d = (d.nombre_manual or '').lower()
-                        if (nombre_d == desc_c or f": {nombre_d} (" in desc_c or f" {nombre_d} " in f" {desc_c} ") and c.monto == monto_esperado:
+                        patron_exacto = f": {nombre_d} ("
+                        if (desc_c.startswith(f"{nombre_d} (") or patron_exacto in desc_c or desc_c == nombre_d) and c.monto == monto_esperado:
                             match = c
-                            usados.add(c.id)
+                            usados.add(c)
                             break
                 if not match:
                     venta = Sale.query.get(s_id)
@@ -279,8 +290,9 @@ def sincronizar_cargos_ventas_punto(punto):
                         descripcion=desc
                     )
                     db.session.add(nuevo_cargo)
+                    db.session.flush()
                     cargos_existentes.append(nuevo_cargo)
-                    usados.add(id(nuevo_cargo))
+                    usados.add(nuevo_cargo)
                     hay_cambios = True
 
     if hay_cambios:
